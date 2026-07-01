@@ -1,9 +1,8 @@
 #!/bin/bash
 
+source "$HOME/.config/sketchybar/colors.sh"
+
 URL="http://elgato-key-light-mini-57a3.local:9123/elgato/lights"
-YELLOW=0xfff9e2af
-SURFACE0=0xff313244
-TEXT=0xffcdd6f4
 
 if [ "$SENDER" = "mouse.clicked" ]; then
     # Get current state
@@ -26,7 +25,6 @@ fi
 # Update UI
 DATA=$(curl -s "$URL")
 STATE=$(echo "$DATA" | jq '.lights[0].on')
-BASE=0xff1e1e2e
 
 if [ "$STATE" -eq 1 ]; then
     sketchybar --set $NAME \

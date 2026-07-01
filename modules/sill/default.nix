@@ -48,12 +48,38 @@ in
     fi
   '';
 
-  home-manager.users.${username}.home.file = {
-    ".config/sketchybar/sketchybarrc".source = ./sketchybar/sketchybarrc;
-    ".config/sketchybar/aerospace-notify.sh".source = ./sketchybar/aerospace-notify.sh;
-    ".config/sketchybar/plugins" = {
-      source = ./sketchybar/plugins;
-      recursive = true;
+  home-manager.users.${username} =
+    {
+      lib,
+      nebelung,
+      ...
+    }:
+    let
+      # The Nebelung palette (name -> "#rrggbb") rendered as sketchybar's
+      # 0xAARRGGBB colour literals, fully opaque. Generated so the palette stays
+      # single-sourced from the nebelung input — sketchybarrc and every plugin
+      # `source` this instead of hardcoding Catppuccin hexes. Var names are the
+      # UPPER-cased palette keys (BASE, SURFACE0, MAUVE, …).
+      colorsSh = ''
+        #!/bin/bash
+        # GENERATED from the `nebelung` flake input (nebelung.palette). Do not edit
+        # by hand — change colours in ~/code/nebelhaus/nebelung and rebuild.
+        ${lib.concatStringsSep "\n" (
+          lib.mapAttrsToList (
+            name: hex: "export ${lib.toUpper name}=0xff${lib.removePrefix "#" hex}"
+          ) nebelung.palette
+        )}
+      '';
+    in
+    {
+      home.file = {
+        ".config/sketchybar/colors.sh".text = colorsSh;
+        ".config/sketchybar/sketchybarrc".source = ./sketchybar/sketchybarrc;
+        ".config/sketchybar/aerospace-notify.sh".source = ./sketchybar/aerospace-notify.sh;
+        ".config/sketchybar/plugins" = {
+          source = ./sketchybar/plugins;
+          recursive = true;
+        };
+      };
     };
-  };
 }

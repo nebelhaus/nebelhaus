@@ -3,10 +3,7 @@
 # Batch-update all workspace indicators in one pass
 # Much more efficient than triggering 13 individual space.sh runs
 
-MAUVE=0xffcba6f7
-SURFACE0=0xff313244
-BASE=0xff1e1e2e
-TEXT=0xffcdd6f4
+source "$HOME/.config/sketchybar/colors.sh"
 
 CURRENT=$(/opt/homebrew/bin/aerospace list-workspaces --focused 2>/dev/null)
 WITH_WINDOWS=$(/opt/homebrew/bin/aerospace list-workspaces --monitor all --empty no 2>/dev/null)

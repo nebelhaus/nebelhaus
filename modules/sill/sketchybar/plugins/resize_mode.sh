@@ -14,10 +14,7 @@ export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
 
 STATE="/tmp/sketchybar_resize_state"   # present == armed
 
-# Catppuccin Mocha
-YELLOW=0xfff9e2af
-LAVENDER=0xffb4befe
-BASE=0xff1e1e2e
+source "$HOME/.config/sketchybar/colors.sh"
 
 # fa-arrows-h (U+F07E) as raw UTF-8 bytes — /bin/bash is 3.2, whose printf has
 # no \u/\U; \xHH works. Keep in sync with front_app.sh.

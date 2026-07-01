@@ -1,9 +1,6 @@
 #!/bin/bash
 
-# Catppuccin Mocha Colors
-GREEN=0xffa6e3a1
-YELLOW=0xfff9e2af
-RED=0xfff38ba8
+source "$HOME/.config/sketchybar/colors.sh"
 
 # Get battery info
 BATTERY_INFO=$(pmset -g batt)

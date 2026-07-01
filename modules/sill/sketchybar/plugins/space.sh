@@ -3,11 +3,7 @@
 exec 2>>/tmp/sketchybar_space.log
 set -x
 
-# Catppuccin Mocha Colors
-MAUVE=0xffcba6f7
-SURFACE0=0xff313244
-BASE=0xff1e1e2e
-TEXT=0xffcdd6f4
+source "$HOME/.config/sketchybar/colors.sh"
 
 # Get current workspace from AeroSpace
 CURRENT_WORKSPACE=$(/opt/homebrew/bin/aerospace list-workspaces --focused)

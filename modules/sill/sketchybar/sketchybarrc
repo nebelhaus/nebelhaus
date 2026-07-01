@@ -1,31 +1,9 @@
 #!/bin/bash
 
-# Catppuccin Mocha Color Palette
-export BASE=0xff1e1e2e
-export MANTLE=0xff181825
-export CRUST=0xff11111b
-export TEXT=0xffcdd6f4
-export SUBTEXT0=0xffa6adc8
-export SUBTEXT1=0xffbac2de
-export SURFACE0=0xff313244
-export SURFACE1=0xff45475a
-export SURFACE2=0xff585b70
-export OVERLAY0=0xff6c7086
-export OVERLAY1=0xff7f849c
-export ROSEWATER=0xfff5e0dc
-export FLAMINGO=0xfff2cdcd
-export PINK=0xfff5c2e7
-export MAUVE=0xffcba6f7
-export RED=0xfff38ba8
-export MAROON=0xffeba0ac
-export PEACH=0xfffab387
-export YELLOW=0xfff9e2af
-export GREEN=0xffa6e3a1
-export TEAL=0xff94e2d5
-export SKY=0xff89dceb
-export SAPPHIRE=0xff74c7ec
-export BLUE=0xff89b4fa
-export LAVENDER=0xffb4befe
+# Nebelung palette — the silver-mist theme. Generated from the nebelung flake
+# input (see modules/sill/default.nix); sourced here and by every plugin so the
+# colours stay single-sourced. Exports BASE, SURFACE0, MAUVE, … as 0xAARRGGBB.
+source "$HOME/.config/sketchybar/colors.sh"
 
 # General bar appearance
 sketchybar --bar \
@@ -76,7 +54,7 @@ sketchybar --add item apple.logo left \
         popup.background.corner_radius=10 \
         popup.background.border_color=$SURFACE0 \
         popup.background.color=$MANTLE \
-        click_script="/Users/julienmartel/.config/nix/dotfiles/sketchybar/plugins/launch_palette.sh"
+        click_script="$HOME/.config/sketchybar/plugins/launch_palette.sh"
 
 sketchybar --add item apple.prefs popup.apple.logo \
     --set apple.prefs \
@@ -128,7 +106,7 @@ sketchybar --add item apple.nix_config popup.apple.logo \
         background.padding_right=0 \
         background.color=0x00000000 \
         background.drawing=off \
-        click_script="/Users/julienmartel/.config/nix/dotfiles/sketchybar/plugins/nix_open.sh; sketchybar --set apple.logo popup.drawing=off"
+        click_script="$HOME/.config/sketchybar/plugins/nix_open.sh; sketchybar --set apple.logo popup.drawing=off"
 
 sketchybar --add item apple.rebuild popup.apple.logo \
     --set apple.rebuild \
@@ -141,7 +119,7 @@ sketchybar --add item apple.rebuild popup.apple.logo \
         background.padding_right=0 \
         background.color=0x00000000 \
         background.drawing=off \
-        click_script="/Users/julienmartel/.config/nix/dotfiles/sketchybar/plugins/launch_rebuild.sh"
+        click_script="$HOME/.config/sketchybar/plugins/launch_rebuild.sh"
 
 sketchybar --add item apple.reload popup.apple.logo \
     --set apple.reload \
@@ -280,7 +258,7 @@ sketchybar --add item weather right \
         popup.background.corner_radius=10 \
         popup.background.border_color=$SURFACE0 \
         popup.background.color=$MANTLE \
-        script="/Users/julienmartel/.config/nix/dotfiles/sketchybar/plugins/weather.sh" \
+        script="$HOME/.config/sketchybar/plugins/weather.sh" \
         click_script="if [ \"\$BUTTON\" = \"right\" ]; then open -a Weather; else sketchybar --set \$NAME popup.drawing=toggle; fi" \
     --subscribe weather system_woke mouse.clicked
 
@@ -392,11 +370,11 @@ sketchybar --add item wifi right \
 sketchybar --add item elgato right \
     --set elgato \
         update_freq=5 \
-        script="/Users/julienmartel/.config/nix/dotfiles/sketchybar/plugins/elgato.sh" \
+        script="$HOME/.config/sketchybar/plugins/elgato.sh" \
         background.color=$SURFACE0 \
         icon.padding_left=10 \
         icon.padding_right=10 \
-        click_script="/Users/julienmartel/.config/nix/dotfiles/sketchybar/plugins/elgato.sh" \
+        click_script="$HOME/.config/sketchybar/plugins/elgato.sh" \
     --subscribe elgato mouse.clicked
 
 # Harvest

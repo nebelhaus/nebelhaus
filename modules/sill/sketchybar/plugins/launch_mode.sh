@@ -24,14 +24,7 @@ STATE="/tmp/sketchybar_launch_state"   # desired: "on" | "off"
 SNAP="/tmp/sketchybar_launch_apple.json"  # present == currently armed
 LOCK="/tmp/sketchybar_launch.lock"
 
-# Catppuccin Mocha
-MAUVE=0xffcba6f7
-BASE=0xff1e1e2e
-MANTLE=0xff181825
-SURFACE0=0xff313244
-OVERLAY0=0xff6c7086
-GREEN=0xffa6e3a1
-TEXT=0xffcdd6f4
+source "$HOME/.config/sketchybar/colors.sh"
 
 # md-arrow-right-bold (U+F0734) as raw UTF-8 bytes — /bin/bash is 3.2, whose
 # printf has no \u/\U; \xHH works.

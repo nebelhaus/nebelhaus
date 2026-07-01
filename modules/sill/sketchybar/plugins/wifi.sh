@@ -1,8 +1,6 @@
 #!/bin/bash
 
-# Catppuccin Mocha Colors
-RED=0xfff38ba8
-TEAL=0xff94e2d5
+source "$HOME/.config/sketchybar/colors.sh"
 
 # Get Wi-Fi status using ipconfig (more reliable than networksetup on newer macOS)
 INFO=$(ipconfig getsummary en0)

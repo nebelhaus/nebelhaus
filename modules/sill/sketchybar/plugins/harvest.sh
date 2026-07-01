@@ -17,11 +17,7 @@ HEADERS=(
   -H "Pragma: no-cache"
 )
 
-# Colors (Catppuccin Mocha)
-PEACH=0xfffab387
-SURFACE0=0xff313244
-BASE=0xff1e1e2e
-TEXT=0xffcdd6f4
+source "$HOME/.config/sketchybar/colors.sh"
 
 # Helper to format duration
 format_duration() {
