@@ -27,15 +27,22 @@ in
       # Yazi preview: pipe code/text through bat (via piper) so previews match
       # the catppuccin-themed `cat` alias — colours + line numbers.
       batPreviewer = ''piper -- bat --color=always --paging=never --style=numbers --tabs=2 --terminal-width=$w "$1"'';
+
+      # Nebelung glamour port (markdown styling for glow). glow ignores
+      # $GLAMOUR_STYLE in its default "auto" mode (glow 2.x), so the style must
+      # be passed explicitly with `-s`: baked into the yazi previewer plugin
+      # (@glowStyle@ placeholder) and the `glow -p` opener below.
+      glowStyle = "${nebelung.themes}/glow/catppuccin-mocha.json";
+      glowPlugin = pkgs.runCommand "glow.yazi" { } ''
+        cp -r ${./yazi/plugins/glow.yazi} $out
+        chmod -R +w $out
+        substituteInPlace $out/main.lua --subst-var-by glowStyle ${glowStyle}
+      '';
     in
     {
       home.sessionVariables = {
         CLICOLOR = "1";
         HOMEBREW_NO_ENV_HINTS = "1";
-        # glow/glamour theme (replaces catppuccin.glamour, disabled below): the
-        # Nebelung glamour port. glamour reads this when the effective style is
-        # "auto", so the yazi md previewer + `glow -p` opener both pick it up.
-        GLAMOUR_STYLE = "${nebelung.themes}/glow/catppuccin-mocha.json";
       };
 
       # A lean terminal/dev toolbelt. Personal choices (AI CLIs, orbstack, your
@@ -248,8 +255,9 @@ in
         ];
         plugins = {
           # Vendored: nixpkgs' glow plugin still uses the pre-26 Lua API and
-          # crashes on yazi 26.x. This copy ports it to the current API.
-          glow = ./yazi/plugins/glow.yazi;
+          # crashes on yazi 26.x. This copy ports it to the current API, and
+          # bakes the Nebelung glamour style path in (glowPlugin, see the let).
+          glow = glowPlugin;
           piper = pkgs.yaziPlugins.piper;
           # Vendored (not in nixpkgs yet): copy the hovered/selected file(s)'
           # contents — not their path — to the clipboard. `setup` makes
@@ -303,7 +311,7 @@ in
         settings.opener = {
           read = [
             {
-              run = ''glow -p "$@"'';
+              run = ''glow -s "${glowStyle}" -p "$@"'';
               block = true;
               desc = "glow";
             }
