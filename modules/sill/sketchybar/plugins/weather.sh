@@ -187,7 +187,10 @@ $SKETCHYBAR --set weather.uv icon="󰖨" label="UV ${UV_INT} (${UV_LEVEL})"
 $SKETCHYBAR --set weather.precip icon="󰖗" label="${PRECIP_INT}% chance"
 
 # Row 6: Hourly forecast (next 4 hours)
-CURRENT_HOUR=$(date +%H)
+# 10# forces base-10: `date +%H` zero-pads (e.g. "08"), which bash's $(( ))
+# would parse as octal and choke on ("value too great for base") at 08:xx/09:xx,
+# blanking the whole hourly block.
+CURRENT_HOUR=$((10#$(date +%H)))
 for i in 0 1 2 3; do
     HOUR_INDEX=$((CURRENT_HOUR + i + 1))
     if [ $HOUR_INDEX -ge 24 ]; then
