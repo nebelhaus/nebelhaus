@@ -15,10 +15,11 @@ function M:peek(job)
 	-- Fixed preview width (glow wraps to this instead of the pane width).
 	local preview_width = 55
 
+	-- No --style: glow falls back to its default ("auto"), so glamour honours
+	-- $GLAMOUR_STYLE — the Nebelung glamour port wired in hearth. (Upstream
+	-- hardcodes "dark" here, which is what made previews ignore the theme.)
 	local child = Command("glow")
 		:arg({
-			"--style",
-			"dark",
 			"--width",
 			tostring(preview_width),
 			tostring(job.file.url),

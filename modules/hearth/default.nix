@@ -32,6 +32,10 @@ in
       home.sessionVariables = {
         CLICOLOR = "1";
         HOMEBREW_NO_ENV_HINTS = "1";
+        # glow/glamour theme (replaces catppuccin.glamour, disabled below): the
+        # Nebelung glamour port. glamour reads this when the effective style is
+        # "auto", so the yazi md previewer + `glow -p` opener both pick it up.
+        GLAMOUR_STYLE = "${nebelung.themes}/glow/catppuccin-mocha.json";
       };
 
       # A lean terminal/dev toolbelt. Personal choices (AI CLIs, orbstack, your
@@ -377,6 +381,7 @@ in
       catppuccin.starship.enable = false;
       catppuccin.delta.enable = false;
       catppuccin.fzf.enable = false;
+      catppuccin.glamour.enable = false; # GLAMOUR_STYLE wired to nebelung above
       catppuccin.lazygit.enable = false;
       catppuccin.lsd.enable = false;
       catppuccin.yazi.enable = false;
