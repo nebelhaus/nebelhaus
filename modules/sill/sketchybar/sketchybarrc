@@ -6,6 +6,11 @@
 source "$HOME/.config/sketchybar/colors.sh"
 
 # General bar appearance
+# Floating-pill look: the bar background is fully transparent so there's no solid
+# band separating the menu bar from the wallpaper — each item floats on its own
+# opaque pill (SURFACE0/MANTLE/LAVENDER), which keeps fg legible over any
+# wallpaper region. blur_radius frosts whatever shows through the gaps between
+# pills. (A solid `color=$BASE` here is what created the old hard-edged strip.)
 sketchybar --bar \
     height=40 \
     blur_radius=30 \
@@ -14,7 +19,7 @@ sketchybar --bar \
     padding_right=10 \
     margin=0 \
     corner_radius=0 \
-    color=$BASE \
+    color=0x00000000 \
     shadow=off \
     sticky=on \
     notch_width=0
