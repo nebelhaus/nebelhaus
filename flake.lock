@@ -133,16 +133,19 @@
     },
     "pounce": {
       "inputs": {
+        "nebelung": [
+          "nebelung"
+        ],
         "nixpkgs": [
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1782906463,
-        "narHash": "sha256-hhhWOLDmwiJxDvPvwWHeRPKklyDXVK0IcHxcF7oSMeY=",
+        "lastModified": 1782915255,
+        "narHash": "sha256-MRzhDfsYbtFw2ku9akEM3vMeIGyhi/tiFyH88arN/gE=",
         "owner": "nebelhaus",
         "repo": "pounce",
-        "rev": "40bf54133506570095325ee671d5e51106e6b914",
+        "rev": "871220608b43f7723bf0a085f781763f2bfd4c27",
         "type": "github"
       },
       "original": {
