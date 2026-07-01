@@ -38,6 +38,11 @@ in
         chmod -R +w $out
         substituteInPlace $out/main.lua --subst-var-by glowStyle ${glowStyle}
       '';
+
+      # Zen browser accent. Mauve is the family default (matches lazygit/yazi);
+      # the nebelung zen port renders every accent under themes/Mocha/<Accent>/.
+      zenAccent = "Mauve";
+      zenTheme = "${nebelung.themes}/zen/themes/Mocha/${zenAccent}";
     in
     {
       home.sessionVariables = {
@@ -403,6 +408,32 @@ in
       programs.nix-index-database.comma.enable = true;
 
       programs.home-manager.enable = true;
+
+      # Zen browser — drop the Nebelung userChrome/userContent into every Zen
+      # profile. Zen's chrome lives INSIDE the (randomly-named) browser profile,
+      # not under XDG, so home.file can't target it — we symlink into each
+      # Profiles/*/chrome at activation instead. Symlinks (not copies) so a
+      # palette rebuild propagates like every other port. Also flips on Firefox's
+      # legacy userChrome/userContent stylesheets, which fresh profiles ship off.
+      # Zen isn't installed here (themed-but-manual); the loop no-ops if absent.
+      home.activation.zenNebelung = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        zenProfiles="$HOME/Library/Application Support/zen/Profiles"
+        if [ -d "$zenProfiles" ]; then
+          for prof in "$zenProfiles"/*/; do
+            [ -d "$prof" ] || continue
+            chrome="$prof"chrome
+            $DRY_RUN_CMD mkdir -p "$chrome"
+            $DRY_RUN_CMD ln -sf "${zenTheme}/userChrome.css" "$chrome/userChrome.css"
+            $DRY_RUN_CMD ln -sf "${zenTheme}/userContent.css" "$chrome/userContent.css"
+            userjs="$prof"user.js
+            if [ ! -e "$userjs" ] || ! ${pkgs.gnugrep}/bin/grep -qF \
+                'toolkit.legacyUserProfileCustomizations.stylesheets' "$userjs"; then
+              printf '%s\n' 'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);' \
+                | $DRY_RUN_CMD tee -a "$userjs" >/dev/null
+            fi
+          done
+        fi
+      '';
 
       # ---- dotfiles + Nebelung theme drops ----
       home.file = {
