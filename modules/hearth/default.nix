@@ -96,6 +96,11 @@ in
             #   export SOME_API_KEY="$(cat ~/.secrets/some-key)"
           '')
           ''
+            # Nebelung zsh-syntax-highlighting colours (replaces catppuccin's
+            # port). Sourced before the plugin loads — like catppuccin did —
+            # which is fine: ZSH_HIGHLIGHT_STYLES is read at highlight time.
+            source ${nebelung.themes}/zsh-syntax-highlighting/themes/catppuccin_mocha-zsh-syntax-highlighting.zsh
+
             # Custom completions
             fpath=(~/.zsh-completions $fpath)
 
@@ -150,6 +155,11 @@ in
         enable = true;
         userName = gitCfg.name;
         userEmail = gitCfg.email;
+
+        # Nebelung delta theme: defines [delta "catppuccin-mocha"] (referenced by
+        # programs.delta.options.features below). Rendered by whiskers in the
+        # nebelung flake; replaces the catppuccin.delta module's include.
+        includes = [ { path = "${nebelung.themes}/delta/catppuccin.gitconfig"; } ];
         signing = lib.mkIf (gitCfg.signingKey != "") {
           key = gitCfg.signingKey;
           signByDefault = true;
@@ -167,19 +177,58 @@ in
         options = {
           side-by-side = false;
           line-numbers = true;
+          # Nebelung delta styles: the [delta "catppuccin-mocha"] feature is
+          # defined in the whiskers-rendered gitconfig included via
+          # programs.git.includes above. Its syntax-theme points at the
+          # "Catppuccin Mocha" bat theme, now rendered in Nebelung colours.
+          features = "catppuccin-mocha";
         };
       };
 
-      programs.lazygit.enable = true;
+      # Nebelung theme (mauve accent) injected straight into settings from
+      # nebelung.palette — mirrors catppuccin/lazygit's mocha theme in Nebelung
+      # colours (see the lazygit port in the nebelung repo for the file form).
+      programs.lazygit = {
+        enable = true;
+        settings.gui = {
+          theme = {
+            activeBorderColor = [
+              nebelung.palette.mauve
+              "bold"
+            ];
+            inactiveBorderColor = [ nebelung.palette.subtext0 ];
+            searchingActiveBorderColor = [ nebelung.palette.yellow ];
+            optionsTextColor = [ nebelung.palette.blue ];
+            selectedLineBgColor = [ nebelung.palette.surface0 ];
+            inactiveViewSelectedLineBgColor = [ nebelung.palette.overlay0 ];
+            cherryPickedCommitFgColor = [ nebelung.palette.mauve ];
+            cherryPickedCommitBgColor = [ nebelung.palette.surface1 ];
+            markedBaseCommitFgColor = [ nebelung.palette.blue ];
+            markedBaseCommitBgColor = [ nebelung.palette.yellow ];
+            unstagedChangesColor = [ nebelung.palette.red ];
+            defaultFgColor = [ nebelung.palette.text ];
+          };
+          authorColors."*" = nebelung.palette.lavender;
+        };
+      };
 
       programs.lsd.enable = true;
       programs.lsd.enableZshIntegration = false;
 
+      # Theme is the Nebelung-coloured "Catppuccin Mocha" tmTheme from the
+      # nebelung flake (name kept so delta's syntax-theme + yazi's syntect_theme
+      # references stay valid). programs.bat.themes rebuilds the bat cache on
+      # activation so it is picked up.
       programs.bat = {
         enable = true;
         config = {
           style = "header,grid";
           tabs = "2";
+          theme = "Catppuccin Mocha";
+        };
+        themes."Catppuccin Mocha" = {
+          src = "${nebelung.themes}/bat/themes";
+          file = "Catppuccin Mocha.tmTheme";
         };
       };
 
@@ -265,9 +314,29 @@ in
         enableZshIntegration = true;
       };
 
+      # Nebelung colours injected from nebelung.palette (matches catppuccin/fzf's
+      # mocha --color mapping, blue muted out). home-manager turns these into the
+      # --color flags in FZF_DEFAULT_OPTS.
       programs.fzf = {
         enable = true;
         enableZshIntegration = true;
+        colors = {
+          "bg+" = nebelung.palette.surface0;
+          "bg" = nebelung.palette.base;
+          "spinner" = nebelung.palette.rosewater;
+          "hl" = nebelung.palette.red;
+          "fg" = nebelung.palette.text;
+          "header" = nebelung.palette.red;
+          "info" = nebelung.palette.mauve;
+          "pointer" = nebelung.palette.rosewater;
+          "marker" = nebelung.palette.lavender;
+          "fg+" = nebelung.palette.text;
+          "prompt" = nebelung.palette.mauve;
+          "hl+" = nebelung.palette.red;
+          "selected-bg" = nebelung.palette.surface1;
+          "border" = nebelung.palette.overlay0;
+          "label" = nebelung.palette.text;
+        };
       };
 
       programs.zellij.enable = true;
@@ -275,15 +344,24 @@ in
       # Catppuccin: `catppuccin.flavor` is the single source of truth — every
       # integration follows it. Raw dotfiles nix can't inject into (ghostty
       # config, zellij config.kdl) name the flavor manually; keep them in sync.
+      # Every port here is themed by Nebelung instead of stock catppuccin-mocha —
+      # either by pointing the program at a whiskers-rendered file from the
+      # nebelung flake (bat/delta/lsd/yazi), or by injecting nebelung.palette
+      # colours straight into the program's settings (starship/fzf/lazygit).
+      # Each catppuccin integration is disabled so it doesn't clobber our wiring.
+      # Colours are Nebelung; the catppuccin-mocha *names* are kept (nebelung's
+      # own convention — its ghostty output is literally catppuccin-mocha.conf).
       catppuccin.autoEnable = true;
       catppuccin.enable = true;
       catppuccin.flavor = "mocha";
-      catppuccin.bat.enable = true;
-      catppuccin.starship.enable = false; # starship uses the Nebelung palette above
-      catppuccin.delta.enable = true;
-      catppuccin.fzf.enable = true;
-      catppuccin.lazygit.enable = true;
-      catppuccin.lsd.enable = true;
+      catppuccin.bat.enable = false;
+      catppuccin.starship.enable = false;
+      catppuccin.delta.enable = false;
+      catppuccin.fzf.enable = false;
+      catppuccin.lazygit.enable = false;
+      catppuccin.lsd.enable = false;
+      catppuccin.yazi.enable = false;
+      catppuccin.zsh-syntax-highlighting.enable = false;
       catppuccin.zellij.enable = false; # managed as a raw dotfile below
 
       programs.nix-index = {
@@ -301,10 +379,21 @@ in
         ".config/ghostty/themes/nebelung".source =
           "${nebelung.themes}/ghostty/themes/catppuccin-mocha.conf";
 
+        # lsd colours (replaces catppuccin.lsd). lsd auto-reads this file.
+        ".config/lsd/colors.yaml".source = "${nebelung.themes}/lsd/themes/catppuccin-mocha/colors.yaml";
+
+        # yazi theme (replaces catppuccin.yazi): mgr/status/mode palette (mauve
+        # accent) plus the syntect theme its syntect_theme line points at —
+        # reusing the Nebelung bat tmTheme so previews match bat. The yazi-picker
+        # theme.toml symlinks to this one, so it inherits Nebelung too.
+        ".config/yazi/theme.toml".source =
+          "${nebelung.themes}/yazi/themes/mocha/catppuccin-mocha-mauve.toml";
+        ".config/yazi/Catppuccin-mocha.tmTheme".source =
+          "${nebelung.themes}/bat/themes/Catppuccin Mocha.tmTheme";
+
         # zellij
         ".config/zellij/config.kdl".source = ./zellij/config.kdl;
-        ".config/zellij/themes/nebelung.kdl".source =
-          "${nebelung.themes}/zellij/themes/nebelung.kdl";
+        ".config/zellij/themes/nebelung.kdl".source = "${nebelung.themes}/zellij/themes/nebelung.kdl";
         ".config/zellij/layouts" = {
           source = ./zellij/layouts;
           recursive = true;
