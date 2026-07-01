@@ -4,6 +4,24 @@
 repo is the "distro": a personal machine consumes it via `mkNebelhaus` and adds
 only its own host (identity, private apps, secrets).
 
+## Am I in the right repo? (routing)
+
+**This repo (`~/code/nebelhaus/nebelhaus`) owns THE RICE** — the generic, no-identity
+system + shell modules. Personal machine config and the pounce/theme sources live
+elsewhere.
+
+| Want to change… | Repo |
+|---|---|
+| the rice: macOS defaults, tiling (prowl), bar (sill), shell (hearth), security (collar), pounce wiring (den) | `~/code/nebelhaus/nebelhaus` ← **you are here** |
+| the pounce palette app or its command scripts | `~/code/nebelhaus/pounce` |
+| colors / the theme palette | `~/code/nebelhaus/nebelung` |
+| one machine's personal apps / identity / secrets | `~/.config/nix` (or that machine's own config) |
+
+> **Claude: enforce this.** If a request targets a different repo than the one
+> whose files you're in, STOP and say so before editing — e.g. "That's a color
+> change; the palette lives in `~/code/nebelhaus/nebelung`. Want me to switch?"
+> Never hardcode a user's identity here — it's a `nebelhaus.*` option the host sets.
+
 ## Architecture
 
 ```
