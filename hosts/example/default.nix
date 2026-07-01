@@ -12,7 +12,13 @@
 { username, ... }:
 
 {
-  # The one personal bit the rice needs. Find your identity's SHA-1 with:
+  # ---- your identity ----
+  nebelhaus.git.name = "Your Name";
+  nebelhaus.git.email = "you@example.com";
+  # GPG key id for commit signing; leave "" to disable signing.
+  nebelhaus.git.signingKey = "";
+
+  # pounce signing. Find your identity's SHA-1 with:
   #   security find-identity -v -p codesigning
   # Leave "" to run pounce unsigned (palette works; Accessibility features off).
   nebelhaus.pounce.signingIdentity = "";
@@ -25,17 +31,14 @@
     # "zen"
   ];
 
-  # The shell/terminal layer (zsh aliases, starship, git identity, yazi, zellij,
-  # ghostty theming) is yours to bring — drop it into home-manager here:
+  # The shell/terminal layer ships in the `hearth` module (zsh, starship, git,
+  # yazi, zellij, ghostty — all Nebelung-themed). To add YOUR personal bits on
+  # top (extra packages, secret env vars, private aliases), extend home-manager:
   #
   #   home-manager.users.${username} = {
-  #     programs.git = {
-  #       enable = true;
-  #       userName = "Your Name";
-  #       userEmail = "you@example.com";
-  #     };
-  #     # … starship, yazi, zellij, etc.
+  #     home.packages = with pkgs; [ /* your tools */ ];
+  #     programs.zsh.initContent = lib.mkAfter ''
+  #       export SOME_API_KEY="$(cat ~/.secrets/some-key)"
+  #     '';
   #   };
-  #
-  # See the README's "Identity" section for the git-signing / GPG setup.
 }

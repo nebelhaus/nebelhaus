@@ -29,6 +29,7 @@ import one room into your own config.
 | 🛖 **den** | the foundation — macOS defaults (dock/finder/trackpad/keyboard), the Homebrew framework + tap-trust, core CLI tools, fonts, weekly GC |
 | 🐈 **prowl** | opinionated [AeroSpace](https://github.com/nikitabobko/AeroSpace) tiling, launched via launchd (survives cold boot), Caps→F18 leader, wake-time window re-sort |
 | 🪟 **sill** | a [SketchyBar](https://github.com/FelixKratz/SketchyBar) setup perched on the top edge, with stray-agent eviction |
+| 🔥 **hearth** | the terminal experience — zsh, a Nebelung-tinted starship prompt, git, and a themed toolbelt (bat, delta, lazygit, lsd, yazi, zoxide, fzf), plus the ghostty / zellij / yazi dotfiles |
 | 🔖 **collar** | identity & auth — Touch ID for sudo (with `reattach`, so it works inside tmux/zellij) |
 | 🐾 **pounce** | the [Pounce](https://github.com/nebelhaus/pounce) command palette, wired in as a self-signing daemon that holds its Accessibility grant across rebuilds, and ⌘Space freed for it |
 
@@ -80,13 +81,13 @@ darwinConfigurations.mymac = inputs.nebelhaus.mkNebelhaus {
 };
 ```
 
-## the shell layer is yours
+## identity is the only thing that's yours
 
-nebelhaus ships the *system* — window management, bar, launcher, defaults,
-security. The **terminal/shell experience** (zsh aliases, starship, git identity,
-yazi, zellij, ghostty theming) is deliberately left to your host file, because
-that part is the most personal. Wire it into `home-manager.users.<you>` in
-`hosts/<hostname>/default.nix`. See `hosts/example` for where it goes.
+nebelhaus ships everything — system *and* shell. The only things it leaves blank
+are the bits that are personal to you: git name/email/signing key
+(`nebelhaus.git.*`), the pounce signing identity, your secrets, and your private
+app list. All of those live in your host file (`hosts/<hostname>/default.nix`) —
+so the rice is complete out of the box, and you layer *you* on top.
 
 ## identity
 

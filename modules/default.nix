@@ -4,6 +4,7 @@
   imports = [
     ./options.nix
     ./den
+    ./hearth
     ./prowl
     ./sill
     ./collar

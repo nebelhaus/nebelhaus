@@ -94,6 +94,7 @@
       # Import the whole house, or cherry-pick a room. Each is a nix-darwin module.
       darwinModules = {
         den = ./modules/den;
+        hearth = ./modules/hearth;
         prowl = ./modules/prowl;
         sill = ./modules/sill;
         collar = ./modules/collar;

@@ -4,6 +4,31 @@
 
 {
   options.nebelhaus = {
+    git = {
+      name = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        example = "Ada Lovelace";
+        description = "Git user.name for commits (hearth wires it into home-manager).";
+      };
+      email = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        example = "ada@example.com";
+        description = "Git user.email for commits.";
+      };
+      signingKey = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        example = "6F7BD6F43A7C1420";
+        description = ''
+          GPG key id for signing commits/tags. Empty disables commit signing.
+          Key material + any YubiKey/smartcard setup live outside Nix
+          (gpg-agent + pinentry-mac).
+        '';
+      };
+    };
+
     pounce.signingIdentity = lib.mkOption {
       type = lib.types.str;
       default = "";
