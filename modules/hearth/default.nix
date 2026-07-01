@@ -247,12 +247,31 @@ in
           # crashes on yazi 26.x. This copy ports it to the current API.
           glow = ./yazi/plugins/glow.yazi;
           piper = pkgs.yaziPlugins.piper;
+          # Vendored (not in nixpkgs yet): copy the hovered/selected file(s)'
+          # contents — not their path — to the clipboard. `setup` makes
+          # home-manager emit the require(...):setup() call in init.lua;
+          # notification = a toast on copy so there's UI feedback.
+          copy-file-contents = {
+            package = ./yazi/plugins/copy-file-contents.yazi;
+            setup = true;
+            settings = {
+              append_char = "\n";
+              notification = true;
+            };
+          };
         };
         keymap.mgr.prepend_keymap = [
           {
             on = "<Esc>";
             run = "quit";
             desc = "Close the peek browser";
+          }
+          {
+            # cmd+c can't reach a TUI (the terminal eats the Cmd modifier), so
+            # copy-contents lives on Y. `desc` surfaces it in yazi's help (~).
+            on = "Y";
+            run = "plugin copy-file-contents";
+            desc = "Copy file contents to clipboard";
           }
         ];
         settings.plugin.prepend_previewers = [
