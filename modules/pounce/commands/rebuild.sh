@@ -4,6 +4,10 @@
 # pounce: icon = arrow.triangle.2.circlepath
 # Rebuild nix system configuration in a small centered ghostty window.
 #
+# Host-agnostic: `@hostname@` is substituted at build time by modules/pounce
+# (from mkNebelhaus's hostname), and the flake lives at ~/.config/nix by
+# convention — override with $NEBELHAUS_FLAKE if yours is elsewhere.
+#
 # Key constraints driving this script's shape:
 #   - On macOS, `ghostty -e ...` from CLI is unsupported (per `ghostty --help`)
 #     and `+new-window` is also unsupported, so we must use
@@ -65,16 +69,16 @@ cat >"$REBUILD_TMP" <<'EOF'
 #!/bin/bash
 export PATH="/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:$PATH"
 
-cd ~/.config/nix || exit 1
+cd "${NEBELHAUS_FLAKE:-$HOME/.config/nix}" || exit 1
 
 echo "Building nix configuration..."
 echo ""
 
-if nix build .#darwinConfigurations.mbp.system; then
+if nix build ".#darwinConfigurations.@hostname@.system"; then
     echo ""
     echo "Build successful. Switching..."
     echo ""
-    if sudo ./result/sw/bin/darwin-rebuild switch --flake .#mbp; then
+    if sudo ./result/sw/bin/darwin-rebuild switch --flake ".#@hostname@"; then
         echo ""
         echo "✓ System rebuild complete!"
     else

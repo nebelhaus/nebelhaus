@@ -14,11 +14,25 @@
   lib,
   pkgs,
   username,
+  hostname,
   ...
 }:
 
 let
   identity = config.nebelhaus.pounce.signingIdentity;
+
+  # This rice's palette commands (see ./commands — one self-describing script
+  # each, metadata in a `# pounce:` header). rebuild.sh can't guess the flake's
+  # host attr name at runtime, so @hostname@ is substituted here at build time
+  # from mkNebelhaus's hostname.
+  riceCommands = pkgs.runCommand "nebelhaus-pounce-commands" { } ''
+    mkdir -p $out
+    install -m555 ${./commands}/*.sh $out/
+    rm $out/rebuild.sh
+    substitute ${./commands/rebuild.sh} $out/rebuild.sh \
+      --subst-var-by hostname ${lib.escapeShellArg hostname}
+    chmod 555 $out/rebuild.sh
+  '';
 
   # Wait for the GUI session (→ the /nix volume + an unlocked login keychain)
   # before touching the store path or codesign. Exec'ing via /bin/bash (boot
@@ -86,11 +100,9 @@ in
   home-manager.users.${username} = { lib, pkgs, ... }: {
     home.packages = [
       pkgs.pounce
-      # The generic command library, plus this rice's own commands (rebuild,
-      # nix-config, reload-bar, reload-aerospace) layered on via runtime
-      # discovery — each is a self-describing script in ./commands (metadata in
-      # its `# pounce:` header). Same-filename scripts shadow pounce built-ins.
-      (pkgs.pounce-commands.override { extraCommandDirs = [ ./commands ]; })
+      # The generic command library, plus this rice's own commands layered on
+      # via runtime discovery. Same-filename scripts shadow pounce built-ins.
+      (pkgs.pounce-commands.override { extraCommandDirs = [ riceCommands ]; })
     ];
 
     # Palette settings — pounce re-reads this on each open. Edit + rebuild.
