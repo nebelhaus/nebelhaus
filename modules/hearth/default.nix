@@ -13,6 +13,7 @@
 
 let
   gitCfg = config.nebelhaus.git;
+  hearthCfg = config.nebelhaus.hearth;
 in
 {
   home-manager.users.${username} =
@@ -472,6 +473,12 @@ in
         ".config/zellij/newtab.sh" = {
           source = ./zellij/newtab.sh;
           executable = true;
+        };
+        # Shortlist for the Super-Shift-t picker (nebelhaus.hearth.newTabDirs):
+        # newtab.sh builds its picker view from this file, one home-relative
+        # dir per line. Absent (option unset) = the picker browses all of $HOME.
+        ".config/zellij/newtab-dirs" = lib.mkIf (hearthCfg.newTabDirs != [ ]) {
+          text = lib.concatMapStrings (d: d + "\n") hearthCfg.newTabDirs;
         };
         ".config/zellij/copy-clean.pl" = {
           source = ./zellij/copy-clean.pl;

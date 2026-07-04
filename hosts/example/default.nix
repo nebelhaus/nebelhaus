@@ -23,6 +23,13 @@
   # Leave "" to run pounce unsigned (palette works; Accessibility features off).
   nebelhaus.pounce.signingIdentity = "";
 
+  # Optional: shortlist for the Super-Shift-t "new tab" picker — it opens on
+  # just these home-relative dirs instead of all of $HOME. Unset = browse $HOME.
+  nebelhaus.hearth.newTabDirs = [
+    # "code"
+    # ".config"
+  ];
+
   # Your apps — merged with the casks the modules install (ghostty, aerospace).
   homebrew.casks = [
     # "google-chrome"

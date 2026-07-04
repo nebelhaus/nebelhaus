@@ -1,6 +1,7 @@
 #!/bin/bash
 # Super-Shift-t "New tab" flow: launched as a zellij floating pane. Browse in yazi
-# (starts at $HOME; l/Right to enter dirs, h/Left up), then Enter on the folder
+# (starts at $HOME — or at a shortlist of it, see below; l/Right to enter dirs,
+# h/Left up), then Enter on the folder
 # you want spawns a new zellij tab cwd'd there and auto-named after the repo
 # (git-root basename, or the dir basename if it isn't a repo). Press q or Esc to
 # cancel — the pane just closes and no tab is created.
@@ -13,12 +14,39 @@ set -u
 export PATH="/etc/profiles/per-user/$USER/bin:/run/current-system/sw/bin:$PATH"
 export YAZI_CONFIG_HOME="$HOME/.config/yazi-picker"
 
+# Where the picker starts: $HOME by default, but if the host set
+# nebelhaus.hearth.newTabDirs, hearth writes ~/.config/zellij/newtab-dirs
+# (one home-relative dir per line) and we rebuild a throwaway "home" of
+# symlinks to just those dirs — so the picker opens on a shortlist instead of
+# every file in $HOME. Inside them navigation is normal yazi; the picked path
+# is resolved back through the symlink below. This shortlist only exists for
+# this picker — regular yazi sessions are untouched.
+start="$HOME"
+dirs_file="$HOME/.config/zellij/newtab-dirs"
+if [ -s "$dirs_file" ]; then
+    farm="${TMPDIR:-/tmp}/zellij-newtab-picker-$USER/home"
+    rm -rf "$farm" && mkdir -p "$farm"
+    while IFS= read -r d; do
+        [ -n "$d" ] && [ -d "$HOME/$d" ] || continue
+        # Nested entries ("code/work") get their parent dirs materialised so
+        # the shortlist shows the same shape as the real home.
+        case "$d" in */*) mkdir -p "$farm/${d%/*}" ;; esac
+        ln -sfn "$HOME/$d" "$farm/$d"
+    done < "$dirs_file"
+    # If nothing on the list exists (fresh machine, renamed dirs), fall back
+    # to browsing $HOME rather than showing an empty picker.
+    [ -n "$(ls -A "$farm")" ] && start="$farm"
+fi
+
 tmp="$(mktemp -t yazi-cwd.XXXXXX)"
-yazi --cwd-file="$tmp" "$HOME"
+yazi --cwd-file="$tmp" "$start"
 cwd="$(cat -- "$tmp" 2>/dev/null)"
 rm -f -- "$tmp"
 
 if [ -n "$cwd" ] && [ -d "$cwd" ]; then
+    # Resolve through the shortlist's symlinks so the tab cwd (and the name
+    # derived from it) is the real directory, not the picker's throwaway copy.
+    cwd="$(cd "$cwd" && pwd -P)"
     name="$(basename "$cwd")"
     root="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)"
     [ -n "$root" ] && name="$(basename "$root")"
