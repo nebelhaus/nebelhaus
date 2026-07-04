@@ -53,7 +53,11 @@ nix eval .#darwinConfigurations.example.system.drvPath
 
 The `example` host uses placeholder identity (user `you`), so a full build isn't
 meaningful — real testing happens in a consumer (e.g. `~/.config/nix`, host `mbp`).
-After a change here, the consumer runs `nix flake update nebelhaus` + rebuild.
+The workshop's `haus try` (from `~/code/nebelhaus`) builds the consumer against
+this **local checkout** — uncommitted edits included — so nothing needs pushing
+to test. Once committed, `haus ship` pushes and ripples the downstream lock
+updates; hand-rolled alternative: push here, then `nix flake update nebelhaus`
+in the consumer. CI evaluates the example host on every push.
 
 ## Rules
 

@@ -41,16 +41,21 @@ both consumed as flake inputs.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/nebelhaus/nebelhaus/main/bootstrap.sh | bash
+# or, once nix is installed:
+nix run github:nebelhaus/nebelhaus#bootstrap
 ```
 
-It installs the prerequisites (Xcode CLT, Determinate Nix), clones the repo, and
-hands you the exact rebuild command scoped to your machine. It won't switch a
-config that isn't yours — you personalize a host file first (the bootstrap
-scaffolds one from `hosts/example`).
+It installs the prerequisites (Xcode CLT, Determinate Nix), then scaffolds a
+**thin config of your own** at `~/.config/nix` — a ~18-line flake that consumes
+this repo as an input, plus one host file for the personal bits. You never edit
+this repo to use it; your machine stays yours, the rice stays upstream, and
+`nix flake update nebelhaus` pulls new fog whenever you like.
 
-The rebuild, always build-first:
+It won't switch a config that isn't yours — you personalize the generated host
+file first, then rebuild (always build-first):
 
 ```sh
+cd ~/.config/nix
 nix build .#darwinConfigurations.<hostname>.system \
   && sudo ./result/sw/bin/darwin-rebuild switch --flake .#<hostname>
 ```
@@ -99,6 +104,15 @@ so the rice is complete out of the box, and you layer *you* on top.
 - **git / GPG / YubiKey** — commit signing is configured in your host's
   home-manager block; key material and any smartcard/YubiKey setup live outside
   Nix (gpg-agent + pinentry-mac).
+
+## hack on the house
+
+This repo is one of a family (`nebelung` the theme, `pounce` the palette,
+this rice, and your own thin config on top). The
+[workshop](https://github.com/nebelhaus/workshop) checks them all out side by
+side and ships a `haus` CLI that handles the cross-repo flow — most usefully
+`haus try`, which builds your real machine against your **local, uncommitted**
+checkouts, so you never push to find out whether something works.
 
 ## the fog
 

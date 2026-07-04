@@ -110,6 +110,25 @@
       # `nix run github:nebelhaus/nebelhaus#pounce`
       packages.aarch64-darwin.pounce = pounce.packages.aarch64-darwin.default;
 
+      # `nix run github:nebelhaus/nebelhaus#bootstrap` — raise the house on a
+      # fresh Mac. Scaffolds a thin personal config at ~/.config/nix; it never
+      # touches this repo. Same script as the curl|bash path (bootstrap.sh).
+      apps = nixpkgs.lib.genAttrs [ "aarch64-darwin" "x86_64-darwin" ] (system: {
+        bootstrap = {
+          type = "app";
+          program = "${
+            nixpkgs.legacyPackages.${system}.writeShellScriptBin "nebelhaus-bootstrap" (
+              builtins.readFile ./bootstrap.sh
+            )
+          }/bin/nebelhaus-bootstrap";
+        };
+      });
+
+      # `nix fmt` — nixfmt, the house style.
+      formatter = nixpkgs.lib.genAttrs [ "aarch64-darwin" "x86_64-darwin" ] (
+        system: nixpkgs.legacyPackages.${system}.nixfmt
+      );
+
       # The template others copy. Build with:
       #   nix build .#darwinConfigurations.example.system
       darwinConfigurations.example = mkNebelhaus {

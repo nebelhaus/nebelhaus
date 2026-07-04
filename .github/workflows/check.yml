@@ -1,0 +1,18 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  eval:
+    name: eval the example host
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      # Pure evaluation of the full darwin system — catches syntax errors, bad
+      # option names, and broken module wiring before any consumer does. (Eval
+      # is platform-independent; no macOS runner needed until we *build*.)
+      - run: nix eval .#darwinConfigurations.example.system.drvPath
