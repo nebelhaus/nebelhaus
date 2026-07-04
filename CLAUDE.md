@@ -94,6 +94,10 @@ After a change here, the consumer runs `nix flake update nebelhaus` + rebuild.
 - **Theme**: `catppuccin.flavor` (in `hearth`) is the single source of truth; the
   Nebelung palette is injected from the `nebelung` input. Raw dotfiles nix can't inject
   into (ghostty `config`, zellij `config.kdl`) name the flavor manually — keep in sync.
-- **New pounce command**: lives in the [pounce repo](https://github.com/nebelhaus/pounce)
-  now (`pkgs/pounce-commands`), not here.
+- **New pounce command**: generic ones live in the
+  [pounce repo](https://github.com/nebelhaus/pounce) (`pkgs/pounce-commands/commands`);
+  rice/machine-specific ones live HERE in `modules/pounce/commands/` — one
+  self-describing script each (metadata in a `# pounce: key = value` header),
+  layered onto the palette via `pounce-commands.override { extraCommandDirs … }`.
+  No registry to edit in either repo; drop the script and rebuild.
 ```

@@ -86,7 +86,11 @@ in
   home-manager.users.${username} = { lib, pkgs, ... }: {
     home.packages = [
       pkgs.pounce
-      pkgs.pounce-commands
+      # The generic command library, plus this rice's own commands (rebuild,
+      # nix-config, reload-bar, reload-aerospace) layered on via runtime
+      # discovery — each is a self-describing script in ./commands (metadata in
+      # its `# pounce:` header). Same-filename scripts shadow pounce built-ins.
+      (pkgs.pounce-commands.override { extraCommandDirs = [ ./commands ]; })
     ];
 
     # Palette settings — pounce re-reads this on each open. Edit + rebuild.
