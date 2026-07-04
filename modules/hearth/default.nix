@@ -170,8 +170,6 @@ in
       # Git — identity comes from nebelhaus.git.* (your host sets it).
       programs.git = {
         enable = true;
-        userName = gitCfg.name;
-        userEmail = gitCfg.email;
 
         # Nebelung delta theme: defines [delta "catppuccin-mocha"] (referenced by
         # programs.delta.options.features below). Rendered by whiskers in the
@@ -181,7 +179,9 @@ in
           key = gitCfg.signingKey;
           signByDefault = true;
         };
-        extraConfig = {
+        settings = {
+          user.name = gitCfg.name;
+          user.email = gitCfg.email;
           color.ui = "auto";
           push.autoSetupRemote = true;
           tag.gpgSign = gitCfg.signingKey != "";
