@@ -154,6 +154,7 @@ shift-down = ['volume set 0', 'mode main']
 # bail out without launching anything.
 [mode.launch.binding]
 esc = ['exec-and-forget /Users/julienmartel/.config/sketchybar/plugins/launch_mode.sh off', 'mode main']
+slash = ['exec-and-forget /Users/julienmartel/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget /etc/profiles/per-user/julienmartel/bin/pounce --cheatsheet ~/.config/pounce/cheatsheet.json', 'mode main']
 # Non-launch leader actions. v = clipboard history; e = emoji picker.
 # (palette is on cmd+space now, so the old space->palette leader is gone.)
 v = ['exec-and-forget /Users/julienmartel/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget /etc/profiles/per-user/julienmartel/bin/pounce --clipboard', 'mode main']

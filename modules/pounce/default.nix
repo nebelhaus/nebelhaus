@@ -116,6 +116,67 @@ in
       };
     };
 
+    home.file.".config/pounce/cheatsheet.json".text = builtins.toJSON [
+      {
+        title = "Launch Mode [Caps Lock]";
+        items = [
+          { key = "t"; action = "Ghostty (Terminal)"; }
+          { key = "s"; action = "Slack"; }
+          { key = "b"; action = "Zen (Browser)"; }
+          { key = "f"; action = "Figma"; }
+          { key = "m"; action = "Music"; }
+          { key = "h"; action = "Swather"; }
+          { key = "c"; action = "Claude"; }
+          { key = "d"; action = "Notion Calendar"; }
+          { key = "n"; action = "Obsidian"; }
+          { key = "r"; action = "Things3"; }
+          { key = "p"; action = "Passwords"; }
+          { key = "- / ="; action = "Resize active tile"; }
+          { key = "v / e"; action = "Clipboard / Emoji"; }
+        ];
+      }
+      {
+        title = "Window Management";
+        items = [
+          { key = "⌥ hjkl"; action = "Focus direction"; }
+          { key = "⌥ ⇧ hjkl"; action = "Move window"; }
+          { key = "⌥ ⌘ ⌃ ⇧ hjkl"; action = "Move window (arrows)"; }
+          { key = "⌥ ⌘ ⌃ ⇧ -/="; action = "Resize window"; }
+          { key = "⌥ /"; action = "Tiles layout"; }
+          { key = "⌥ ,"; action = "Accordion layout"; }
+          { key = "⌥ f"; action = "Fullscreen toggle"; }
+          { key = "⌥ ⇥"; action = "Back and forth"; }
+          { key = "⌥ ⇧ ⇥"; action = "Move to next monitor"; }
+        ];
+      }
+      {
+        title = "Workspaces";
+        items = [
+          { key = "⌥ 1-4"; action = "Focus workspace 1-4"; }
+          { key = "⌥ ⇧ 1-4"; action = "Move to workspace 1-4"; }
+          { key = "⌥ ⇧ [Letter]"; action = "Move to app workspace"; }
+        ];
+      }
+      {
+        title = "Service Mode [⌥ ⇧ ;]";
+        items = [
+          { key = "r"; action = "Flatten tree"; }
+          { key = "f"; action = "Toggle floating"; }
+          { key = "⌫"; action = "Close others"; }
+          { key = "⌥ ⇧ hjkl"; action = "Join with"; }
+        ];
+      }
+      {
+        title = "System";
+        items = [
+          { key = "⌘ Space"; action = "Command Palette"; }
+          { key = "⌥ ⇧ r"; action = "Resort windows"; }
+          { key = "↑ / ↓"; action = "Volume up / down"; }
+          { key = "⇧ ↓"; action = "Mute volume"; }
+        ];
+      }
+    ];
+
     # Free ⌘Space for the palette by disabling Spotlight's "Show Spotlight
     # search" shortcut (symbolic hotkey 64). Integer-typed values are REQUIRED —
     # a string fragment leaves the binding half-alive and it races AeroSpace's
