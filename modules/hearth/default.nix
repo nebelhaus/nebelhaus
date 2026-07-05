@@ -61,6 +61,7 @@ in
         mdcat
         fd # fast finder; used by yazi/zoxide navigation
         iina
+        opencode
       ];
 
       programs.zsh = {
@@ -438,6 +439,15 @@ in
 
       # ---- dotfiles + Nebelung theme drops ----
       home.file = {
+        # opencode
+        ".config/opencode/themes/nebelung.json".source = "${nebelung.themes}/opencode/nebelung.json";
+        ".config/opencode/tui.json".text = ''
+          {
+            "$schema": "https://opencode.ai/tui.json",
+            "theme": "nebelung"
+          }
+        '';
+
         # ghostty (config lives in Application Support; theme lookup is XDG)
         "Library/Application Support/com.mitchellh.ghostty/config".source = ./ghostty/config;
         ".config/ghostty/themes/nebelung".source =
