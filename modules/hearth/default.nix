@@ -481,8 +481,7 @@ in
             [ "@mantle@" "@text@" "@green@" "@overlay0@" "@peach@" ]
             (with nebelung.palette; [ mantle text green overlay0 peach ])
             (builtins.readFile ./zellij/custom.kdl);
-        ".config/zellij/plugins/zellij_link_handler.wasm".source =
-          ./zellij/plugins/zellij_link_handler.wasm;
+
         # zjstatus (dj95/zjstatus) — the configurable tab-bar the custom layout
         # uses; pinned release wasm, built against zellij-tile 0.44.
         ".config/zellij/plugins/zjstatus.wasm".source = pkgs.fetchurl {
