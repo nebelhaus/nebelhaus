@@ -16,6 +16,9 @@
 //   - URL_REGEX + open_target: http(s) URLs are highlighted too and open in
 //     the default browser via `open` (hence RunCommands). open_target is the
 //     dispatch point for any future per-kind click behavior.
+//   - image files open a near-fullscreen floating pane running
+//     ~/.config/zellij/image-preview.sh (chafa render + copy/open hotkeys)
+//     instead of a new tab.
 //   - tooltip says where the click goes.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -30,6 +33,16 @@ const FILE_PATH_REGEX: &str = r#"(?:^|\s)((?:(?:\./|\.\./|/)[A-Za-z0-9_./\-+@%,#
 const URL_REGEX: &str = r#"\b(https?://[^\s"'<>]+)"#;
 
 const CWD_CONTEXT_KEY: &str = "cwd";
+
+const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "ico", "tiff"];
+
+fn is_image_file(path: &Path) -> bool {
+    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+        IMAGE_EXTENSIONS.contains(&ext.to_lowercase().as_str())
+    } else {
+        false
+    }
+}
 
 #[derive(Default)]
 struct State {
@@ -183,6 +196,31 @@ impl State {
             Ok(m) => m,
             Err(_) => return, // path does not exist — silently ignore
         };
+
+        if metadata.is_file() && is_image_file(&absolute_path) {
+            if let Some(home) = self.env_vars.get("HOME") {
+                let preview_script = PathBuf::from(home)
+                    .join(".config/zellij/image-preview.sh");
+                let cmd = CommandToRun {
+                    path: preview_script,
+                    args: vec![absolute_path.to_string_lossy().into_owned()],
+                    cwd: None,
+                };
+                // Near-fullscreen: the default floating size is a small
+                // centered window; a preview wants all the cells it can get
+                // since the image renders as character art.
+                let coords = FloatingPaneCoordinates::new(
+                    Some("2%".to_owned()),
+                    Some("2%".to_owned()),
+                    Some("96%".to_owned()),
+                    Some("96%".to_owned()),
+                    None,
+                    None,
+                );
+                open_command_pane_floating(cmd, coords, BTreeMap::new());
+            }
+            return;
+        }
 
         // A file opens at its parent directory; a directory opens at itself.
         let dir = if metadata.is_dir() {
