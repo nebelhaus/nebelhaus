@@ -20,6 +20,13 @@ keybind = cmd+p=unbind
 keybind = cmd+y=unbind
 keybind = cmd+shift+y=unbind
 keybind = cmd+shift+t=unbind
+# ghostty binds ctrl+tab to its own next_tab/previous_tab by default, and
+# even unbound, macOS AppKit swallows ctrl+tab for focus navigation before
+# the terminal core sees it. So bind it to SEND the kitty-keyboard-protocol
+# encoding explicitly (CSI 9;5u / 9;6u = ctrl+Tab / ctrl+shift+Tab); zellij's
+# config.kdl binds those to tab cycling.
+keybind = ctrl+tab=text:\x1b[9;5u
+keybind = ctrl+shift+tab=text:\x1b[9;6u
 
 macos-icon-frame = chrome
 macos-icon-ghost-color = 333333

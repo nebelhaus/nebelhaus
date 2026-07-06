@@ -1,4 +1,4 @@
-// Custom layout = built-in tab-bar + 1-line status-bar + swap layouts.
+// Custom layout = zjstatus tab-bar + 1-line status-bar + swap layouts.
 // Three tiled swap layouts, cycled with Alt+[ / Alt+]: spiral (default,
 // balanced), columns (equal side-by-side), grid (equal-area balanced grid).
 // Need to wire up the bars explicitly here because zellij only injects them
@@ -6,10 +6,44 @@
 // status-bar normally renders two rows (hotkeys + tips); we constrain it to
 // size=1 so only the hotkey-hints row shows. The bar updates in place when
 // entering chord modes (e.g. Ctrl-t shows tab-mode hints).
+//
+// The top bar is zjstatus (dj95/zjstatus, wasm pinned in default.nix) instead
+// of zellij:tab-bar, purely so the right edge can carry the ctrl+tab reminder
+// — the built-in bar has no configurable slots. Tab ribbons mirror the
+// nebelung theme's ribbon_selected/unselected. This file is NOT installed
+// verbatim: default.nix renders it to ~/.config/zellij/layouts/custom.kdl,
+// substituting the @…@ tokens from nebelung.palette (colour hexes live in the
+// nebelung repo, never here).
 layout {
     default_tab_template {
         pane size=1 borderless=true {
-            plugin location="zellij:tab-bar"
+            plugin location="file:/Users/julienmartel/.config/zellij/plugins/zjstatus.wasm" {
+                format_left  "{tabs}"
+                // Right edge mirrors the built-in bar: dim ctrl+tab reminder,
+                // then the Alt <[]> swap-layout hint (hidden in locked mode,
+                // via the {mode} widget), then the active swap layout as a
+                // green ribbon. Clicking the ribbon cycles swap layouts.
+                format_right "#[fg=@overlay0@,bg=@mantle@,bold]Ctrl+Tab #[fg=@overlay0@,bg=@mantle@]{mode}{swap_layout}"
+                format_space "#[bg=@mantle@]"
+                border_enabled "false"
+                hide_frame_for_single_pane "false"
+
+                // Tab ribbons: flat left edge, arrow point on the right. Far-left tab
+                // sits perfectly flat against the window border. Green = active, gray = inactive.
+                tab_normal "#[bg=@overlay0@,fg=@mantle@] {name} {fullscreen_indicator}{sync_indicator}{floating_indicator} #[fg=@overlay0@,bg=@mantle@]"
+                tab_active "#[bg=@green@,fg=@mantle@,bold] {name} {fullscreen_indicator}{sync_indicator}{floating_indicator} #[fg=@green@,bg=@mantle@]"
+                tab_separator "#[bg=@mantle@]"
+                tab_fullscreen_indicator "[] "
+                tab_sync_indicator "<> "
+                tab_floating_indicator "⬚ "
+
+                mode_normal "#[fg=@peach@,bg=@mantle@,bold]Alt <[]> "
+                mode_locked ""
+                mode_default_to_mode "normal"
+
+                swap_layout_format "#[fg=@mantle@,bg=@green@,bold] {name} "
+                swap_layout_hide_if_empty "true"
+            }
         }
         children
         pane size=1 borderless=true {
@@ -28,7 +62,7 @@ layout {
     // pane count, so closing any pane reflows to the same canonical form
     // regardless of which side was closed.
     // max_panes is content+2 (tab-bar + status-bar panes count too — see grid).
-    swap_tiled_layout name="spiral" {
+    swap_tiled_layout name="SPIRAL" {
         tab max_panes=3 {  // 1
             pane
         }
@@ -97,7 +131,7 @@ layout {
     // Columns: every pane an equal full-height column, side by side. Best for
     // eyeballing 2–4 agents at once on a wide display; gets narrow past ~5.
     // max_panes is content+2 (tab-bar + status-bar panes count too — see grid).
-    swap_tiled_layout name="columns" {
+    swap_tiled_layout name="COLUMNS" {
         tab max_panes=3 {  // 1
             pane
         }
@@ -158,7 +192,7 @@ layout {
     // the trailing comment is the content count each template targets. (Without the
     // +2, zellij matches a too-large template and partial-fills it — e.g. 6 content
     // panes fell into the 8-slot template and rendered [2,3,1] instead of 3×2.)
-    swap_tiled_layout name="grid" {
+    swap_tiled_layout name="GRID" {
         tab max_panes=3 {  // 1
             pane
         }

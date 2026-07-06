@@ -473,9 +473,21 @@ in
         # zellij
         ".config/zellij/config.kdl".source = ./zellij/config.kdl;
         ".config/zellij/themes/nebelung.kdl".source = "${nebelung.themes}/zellij/themes/nebelung.kdl";
-        ".config/zellij/layouts" = {
-          source = ./zellij/layouts;
-          recursive = true;
+        # Custom layout, rendered from the in-repo template with Nebelung
+        # colours injected from nebelung.palette (zjstatus can't read zellij
+        # theme files, so the bar colours ride in here — like lazygit's do).
+        ".config/zellij/layouts/custom.kdl".text =
+          builtins.replaceStrings
+            [ "@mantle@" "@text@" "@green@" "@overlay0@" "@peach@" ]
+            (with nebelung.palette; [ mantle text green overlay0 peach ])
+            (builtins.readFile ./zellij/custom.kdl);
+        ".config/zellij/plugins/zellij_link_handler.wasm".source =
+          ./zellij/plugins/zellij_link_handler.wasm;
+        # zjstatus (dj95/zjstatus) — the configurable tab-bar the custom layout
+        # uses; pinned release wasm, built against zellij-tile 0.44.
+        ".config/zellij/plugins/zjstatus.wasm".source = pkgs.fetchurl {
+          url = "https://github.com/dj95/zjstatus/releases/download/v0.23.0/zjstatus.wasm";
+          hash = "sha256-4AaQEiNSQjnbYYAh5MxdF/gtxL+uVDKJW6QfA/E4Yf8=";
         };
         ".config/zellij/plugins/link-handler.wasm".source = "${linkHandler}/bin/link-handler.wasm";
         ".config/zellij/launch.sh" = {

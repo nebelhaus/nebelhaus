@@ -25,6 +25,7 @@ theme "nebelung"
 load_plugins {
     "file:~/.config/zellij/plugins/link-handler.wasm"
 }
+}
 
 keybinds {
     shared {
@@ -81,5 +82,12 @@ keybinds {
                 x "5%"; y "5%"; width "90%"; height "90%"
             }
         }
+        // Ctrl (Shift) Tab — cycle tabs, in any mode. Only works because
+        // ghostty/config explicitly sends the kitty-protocol encoding for
+        // these (macOS AppKit otherwise swallows ctrl+tab before the
+        // terminal sees it). The custom layout's zjstatus bar shows the
+        // "ctrl+tab ↻" reminder top-right.
+        bind "Ctrl Tab" { GoToNextTab; }
+        bind "Ctrl Shift Tab" { GoToPreviousTab; }
     }
 }
