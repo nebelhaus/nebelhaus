@@ -13,6 +13,9 @@
 //     background plugin there is no pane to show the grant prompt in, so
 //     hearth pre-seeds zellij's permission cache (see modules/hearth).
 //   - handle_highlight_clicked: new-tab-with-cwd instead of $EDITOR/filepicker.
+//   - URL_REGEX + open_target: http(s) URLs are highlighted too and open in
+//     the default browser via `open` (hence RunCommands). open_target is the
+//     dispatch point for any future per-kind click behavior.
 //   - tooltip says where the click goes.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -20,6 +23,11 @@ use std::path::{Path, PathBuf};
 use zellij_tile::prelude::*;
 
 const FILE_PATH_REGEX: &str = r#"(?:^|\s)((?:(?:\./|\.\./|/)[A-Za-z0-9_./\-+@%,#=~!\$\{\}\[\]]+|~/[A-Za-z0-9_./\-+@%,#=~!\$\{\}\[\]]+|\$\{?[A-Za-z_][A-Za-z0-9_]*\}?/[A-Za-z0-9_./\-+@%,#=~!\$\{\}\[\]]+)(?::\d+(?::\d+)?)?)(?::|\s|$)"#;
+
+// Ends at whitespace or a quote/angle delimiter; trailing sentence
+// punctuation the character class can't exclude (a URL inside parens or at
+// the end of a sentence) is trimmed on click by parse_url.
+const URL_REGEX: &str = r#"(?:^|\s)(https?://[^\s"'<>]+)"#;
 
 const CWD_CONTEXT_KEY: &str = "cwd";
 
@@ -47,6 +55,7 @@ impl ZellijPlugin for State {
             PermissionType::ReadApplicationState,
             PermissionType::ChangeApplicationState,
             PermissionType::FullHdAccess,
+            PermissionType::RunCommands,
             PermissionType::ReadSessionEnvironmentVariables,
         ]);
         subscribe(&[
@@ -141,7 +150,17 @@ impl State {
         self.set_all_highlights_for_pane(pane_id);
     }
 
+    /// Dispatch a click by what was matched. Future per-kind behaviors
+    /// (GitHub URLs, image files, …) branch from here.
     fn handle_highlight_clicked(&self, matched_string: String, context: BTreeMap<String, String>) {
+        if let Some(url) = parse_url(matched_string.trim()) {
+            run_command(&["/usr/bin/open", url], BTreeMap::new());
+            return;
+        }
+        self.open_path_in_new_tab(matched_string, context);
+    }
+
+    fn open_path_in_new_tab(&self, matched_string: String, context: BTreeMap<String, String>) {
         let (path_str, _line_number) = parse_path_and_line(&matched_string);
         let path_str = path_str.trim();
         let expanded = expand_path(path_str, &self.env_vars);
@@ -239,6 +258,19 @@ impl State {
             tooltip_text: Some("Open in new tab".to_string()),
         });
 
+        // http(s) URLs (always present)
+        highlights.push(RegexHighlight {
+            pattern: URL_REGEX.to_owned(),
+            style: HighlightStyle::None,
+            layer: HighlightLayer::Hint,
+            context: context.clone(),
+            on_hover: true,
+            bold: false,
+            italic: true,
+            underline: true,
+            tooltip_text: Some("Open in browser".to_string()),
+        });
+
         // Directory-entry patterns for the pane's current CWD
         if let Some(entries) = self.pane_dir_entries.get(&pane_id) {
             for entry_name in entries {
@@ -303,6 +335,16 @@ fn tab_name_for(dir: &Path) -> String {
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or_else(|| "new".to_string())
+}
+
+/// Recognize an http(s) URL in a clicked highlight. URL_REGEX runs to the
+/// next whitespace, so sentence punctuation and closing brackets around the
+/// URL get matched too — trim them here.
+fn parse_url(s: &str) -> Option<&str> {
+    if !(s.starts_with("http://") || s.starts_with("https://")) {
+        return None;
+    }
+    Some(s.trim_end_matches(|c| ".,;:!?)]}'\"".contains(c)))
 }
 
 fn kdl_escape(s: &str) -> String {
@@ -523,6 +565,30 @@ mod tests {
     fn expand_path_no_expansion_needed() {
         let env = BTreeMap::new();
         assert_eq!(expand_path("/absolute/path", &env), "/absolute/path");
+    }
+
+    // --- parse_url tests ---
+
+    #[test]
+    fn parse_url_plain() {
+        assert_eq!(
+            parse_url("https://github.com/zellij-org/zellij"),
+            Some("https://github.com/zellij-org/zellij")
+        );
+        assert_eq!(parse_url("http://localhost:3000/path"), Some("http://localhost:3000/path"));
+    }
+
+    #[test]
+    fn parse_url_trims_trailing_punctuation() {
+        assert_eq!(parse_url("https://example.com/a)."), Some("https://example.com/a"));
+        assert_eq!(parse_url("https://example.com/x,"), Some("https://example.com/x"));
+    }
+
+    #[test]
+    fn parse_url_rejects_non_urls() {
+        assert_eq!(parse_url("/some/file/path"), None);
+        assert_eq!(parse_url("~/code/nebelhaus"), None);
+        assert_eq!(parse_url("httpsish://nope"), None);
     }
 
     // --- regex_escape tests ---

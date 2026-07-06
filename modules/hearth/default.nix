@@ -511,24 +511,35 @@ in
       # zellij grants plugin permissions through an interactive prompt in the
       # plugin's pane — but link-handler is a background plugin (load_plugins)
       # with no pane, so the prompt is unreachable and an ungranted plugin
-      # would sit event-less forever. Seed the grant straight into zellij's
-      # permission cache instead (keyed by the plugin's expanded path). Append,
-      # don't own the file: zellij rewrites it when other plugins are granted,
-      # so a store symlink would break those; the grep guard keeps this
-      # idempotent.
+      # would sit event-less forever (zellij only auto-grants when EVERY
+      # requested permission is cached). Seed the grant straight into zellij's
+      # permission cache instead (keyed by the plugin's expanded path):
+      # replace our plugin's block wholesale so permission-list changes
+      # propagate, but never own the file — zellij rewrites it when other
+      # plugins are granted interactively, so those entries must survive.
       home.activation.zellijLinkHandlerPermissions = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         permissions="$HOME/Library/Caches/org.Zellij-Contributors.Zellij/permissions.kdl"
         plugin="$HOME/.config/zellij/plugins/link-handler.wasm"
-        if ! grep -qsF "\"$plugin\"" "$permissions"; then
-          run mkdir -p "''${permissions%/*}"
-          run sh -c 'printf "%s\n" \
-            "\"$0\" {" \
+        run sh -c '
+          permissions="$0" plugin="$1" tmp="$0.hm-seed"
+          mkdir -p "''${permissions%/*}"
+          if [ -f "$permissions" ]; then
+            awk -v open="\"$plugin\" {" \
+              "\$0 == open { skip = 1; next } skip && \$0 == \"}\" { skip = 0; next } !skip" \
+              "$permissions" > "$tmp"
+          else
+            : > "$tmp"
+          fi
+          printf "%s\n" \
+            "\"$plugin\" {" \
             "    ReadApplicationState" \
             "    ChangeApplicationState" \
             "    FullHdAccess" \
+            "    RunCommands" \
             "    ReadSessionEnvironmentVariables" \
-            "}" >> "$1"' "$plugin" "$permissions"
-        fi
+            "}" >> "$tmp"
+          mv "$tmp" "$permissions"
+        ' "$permissions" "$plugin"
       '';
     };
 }
