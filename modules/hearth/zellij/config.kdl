@@ -13,6 +13,19 @@ show_startup_tips false
 // the nebelung flake. Keep this name in sync with that block's name.
 theme "nebelung"
 
+// Option+Click a path in any pane → new tab cwd'd there, named after the repo
+// (hover shows the underline/italic hint). link-handler is our fork of
+// zellij's built-in `link` plugin — same path detection, but the click opens
+// a tab like newtab.sh instead of $EDITOR. Declaring load_plugins here
+// REPLACES the default config's list (which auto-loads "zellij:link"), so
+// this one line both disables the built-in and loads the fork. The wasm is
+// built by nix from zellij/link-handler/ and dropped here by home-manager;
+// its permissions are pre-seeded into zellij's cache (see hearth) because a
+// background plugin has no pane to show the grant prompt in.
+load_plugins {
+    "file:~/.config/zellij/plugins/link-handler.wasm"
+}
+
 keybinds {
     shared {
         // Ctrl Alt c — spawn an ISOLATED claude agent. --worktree hands the
