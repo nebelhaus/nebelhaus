@@ -27,7 +27,7 @@ const FILE_PATH_REGEX: &str = r#"(?:^|\s)((?:(?:\./|\.\./|/)[A-Za-z0-9_./\-+@%,#
 // Ends at whitespace or a quote/angle delimiter; trailing sentence
 // punctuation the character class can't exclude (a URL inside parens or at
 // the end of a sentence) is trimmed on click by parse_url.
-const URL_REGEX: &str = r#"(?:^|\s)(https?://[^\s"'<>]+)"#;
+const URL_REGEX: &str = r#"\b(https?://[^\s"'<>]+)"#;
 
 const CWD_CONTEXT_KEY: &str = "cwd";
 
@@ -344,7 +344,53 @@ fn parse_url(s: &str) -> Option<&str> {
     if !(s.starts_with("http://") || s.starts_with("https://")) {
         return None;
     }
-    Some(s.trim_end_matches(|c| ".,;:!?)]}'\"".contains(c)))
+    let mut trimmed = s;
+    while !trimmed.is_empty() {
+        let last_char = trimmed.chars().next_back()?;
+        if ".,;:!?\"'".contains(last_char) {
+            trimmed = &trimmed[..trimmed.len() - last_char.len_utf8()];
+        } else if last_char == ')' {
+            // Trim trailing ')' ONLY if parentheses are unbalanced
+            if trimmed.contains('(') {
+                let open_count = trimmed.chars().filter(|&c| c == '(').count();
+                let close_count = trimmed.chars().filter(|&c| c == ')').count();
+                if close_count > open_count {
+                    trimmed = &trimmed[..trimmed.len() - 1];
+                } else {
+                    break;
+                }
+            } else {
+                trimmed = &trimmed[..trimmed.len() - 1];
+            }
+        } else if last_char == ']' {
+            if trimmed.contains('[') {
+                let open_count = trimmed.chars().filter(|&c| c == '[').count();
+                let close_count = trimmed.chars().filter(|&c| c == ']').count();
+                if close_count > open_count {
+                    trimmed = &trimmed[..trimmed.len() - 1];
+                } else {
+                    break;
+                }
+            } else {
+                trimmed = &trimmed[..trimmed.len() - 1];
+            }
+        } else if last_char == '}' {
+            if trimmed.contains('{') {
+                let open_count = trimmed.chars().filter(|&c| c == '{').count();
+                let close_count = trimmed.chars().filter(|&c| c == '}').count();
+                if close_count > open_count {
+                    trimmed = &trimmed[..trimmed.len() - 1];
+                } else {
+                    break;
+                }
+            } else {
+                trimmed = &trimmed[..trimmed.len() - 1];
+            }
+        } else {
+            break;
+        }
+    }
+    Some(trimmed)
 }
 
 fn kdl_escape(s: &str) -> String {
@@ -582,6 +628,23 @@ mod tests {
     fn parse_url_trims_trailing_punctuation() {
         assert_eq!(parse_url("https://example.com/a)."), Some("https://example.com/a"));
         assert_eq!(parse_url("https://example.com/x,"), Some("https://example.com/x"));
+        assert_eq!(parse_url("https://example.com/a)"), Some("https://example.com/a"));
+    }
+
+    #[test]
+    fn parse_url_balanced_parentheses() {
+        assert_eq!(
+            parse_url("https://en.wikipedia.org/wiki/Worm_(search_engine)"),
+            Some("https://en.wikipedia.org/wiki/Worm_(search_engine)")
+        );
+        assert_eq!(
+            parse_url("https://en.wikipedia.org/wiki/Worm_(search_engine)."),
+            Some("https://en.wikipedia.org/wiki/Worm_(search_engine)")
+        );
+        assert_eq!(
+            parse_url("https://en.wikipedia.org/wiki/Worm_(search_engine))"),
+            Some("https://en.wikipedia.org/wiki/Worm_(search_engine)")
+        );
     }
 
     #[test]
