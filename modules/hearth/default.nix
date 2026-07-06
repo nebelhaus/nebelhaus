@@ -44,6 +44,11 @@ in
       # the nebelung zen port renders every accent under themes/Mocha/<Accent>/.
       zenAccent = "Mauve";
       zenTheme = "${nebelung.themes}/zen/themes/Mocha/${zenAccent}";
+
+      # Option+Click a path in zellij → new tab cwd'd there. A fork of
+      # zellij's built-in `link` plugin (see zellij/link-handler/), cross-built
+      # to wasm32-wasip1 the same way nixpkgs builds its zellijPlugins.
+      linkHandler = pkgs.pkgsCross.wasi32.callPackage ./zellij/link-handler { };
     in
     {
       home.sessionVariables = {
@@ -472,6 +477,7 @@ in
           source = ./zellij/layouts;
           recursive = true;
         };
+        ".config/zellij/plugins/link-handler.wasm".source = "${linkHandler}/bin/link-handler.wasm";
         ".config/zellij/launch.sh" = {
           source = ./zellij/launch.sh;
           executable = true;
@@ -501,5 +507,28 @@ in
         ".config/yazi-picker/theme.toml".source =
           config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.config/yazi/theme.toml";
       };
+
+      # zellij grants plugin permissions through an interactive prompt in the
+      # plugin's pane — but link-handler is a background plugin (load_plugins)
+      # with no pane, so the prompt is unreachable and an ungranted plugin
+      # would sit event-less forever. Seed the grant straight into zellij's
+      # permission cache instead (keyed by the plugin's expanded path). Append,
+      # don't own the file: zellij rewrites it when other plugins are granted,
+      # so a store symlink would break those; the grep guard keeps this
+      # idempotent.
+      home.activation.zellijLinkHandlerPermissions = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        permissions="$HOME/Library/Caches/org.Zellij-Contributors.Zellij/permissions.kdl"
+        plugin="$HOME/.config/zellij/plugins/link-handler.wasm"
+        if ! grep -qsF "\"$plugin\"" "$permissions"; then
+          run mkdir -p "''${permissions%/*}"
+          run sh -c 'printf "%s\n" \
+            "\"$0\" {" \
+            "    ReadApplicationState" \
+            "    ChangeApplicationState" \
+            "    FullHdAccess" \
+            "    ReadSessionEnvironmentVariables" \
+            "}" >> "$1"' "$plugin" "$permissions"
+        fi
+      '';
     };
 }
