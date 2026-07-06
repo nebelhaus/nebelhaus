@@ -187,5 +187,19 @@ in
         -dict-add 64 '<dict><key>enabled</key><integer>0</integer><key>value</key><dict><key>type</key><string>standard</string><key>parameters</key><array><integer>32</integer><integer>49</integer><integer>1048576</integer></array></dict></dict>'
       $DRY_RUN_CMD /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u || true
     '';
+
+    # A rebuild swaps the store path under the KeepAlive'd daemon, but launchd
+    # keeps the OLD image running until something bounces it. The .signed-from
+    # marker records which store path the running copy was signed from — when it
+    # lags pkgs.pounce, kick the agent; the respawn re-copies + re-signs (the
+    # stable identity keeps the Accessibility grant) and clipboard history is
+    # on disk, so the bounce loses nothing. Marker match → pounce unchanged →
+    # no bounce. Runs in home-manager activation, i.e. after nix-darwin has
+    # loaded the new agent plist.
+    home.activation.kickstartPounce = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      if [ "$(/bin/cat "$HOME/.local/state/pounce/.signed-from" 2>/dev/null)" != "${pkgs.pounce}/Applications/Pounce.app" ]; then
+        $DRY_RUN_CMD /bin/launchctl kickstart -k "gui/$(/usr/bin/id -u)/org.nixos.pounce" || true
+      fi
+    '';
   };
 }
