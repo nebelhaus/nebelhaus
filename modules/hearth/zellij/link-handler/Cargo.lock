@@ -1037,13 +1037,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "link-handler"
-version = "0.1.0"
-dependencies = [
- "zellij-tile",
-]
-
-[[package]]
 name = "linux-raw-sys"
 version = "0.4.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2518,6 +2511,13 @@ dependencies = [
  "quote",
  "syn 2.0.118",
  "synstructure",
+]
+
+[[package]]
+name = "zellij-link-handler"
+version = "0.1.0"
+dependencies = [
+ "zellij-tile",
 ]
 
 [[package]]

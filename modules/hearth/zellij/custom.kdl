@@ -18,7 +18,7 @@ layout {
     default_tab_template {
         pane size=1 borderless=true {
             plugin location="file:/Users/julienmartel/.config/zellij/plugins/zjstatus.wasm" {
-                format_left  "{tabs}"
+                format_left  "#[bg=@peach@,fg=@mantle@,bold] @username@ #[fg=@peach@,bg=@mantle@]{tabs}"
                 // Right edge mirrors the built-in bar: dim ctrl+tab reminder,
                 // then the Alt <[]> swap-layout hint (hidden in locked mode,
                 // via the {mode} widget), then the active swap layout as a
@@ -28,10 +28,12 @@ layout {
                 border_enabled "false"
                 hide_frame_for_single_pane "false"
 
-                // Tab ribbons: flat left edge, arrow point on the right. Far-left tab
-                // sits perfectly flat against the window border. Green = active, gray = inactive.
-                tab_normal "#[bg=@overlay0@,fg=@mantle@] {name} {fullscreen_indicator}{sync_indicator}{floating_indicator} #[fg=@overlay0@,bg=@mantle@]"
-                tab_active "#[bg=@green@,fg=@mantle@,bold] {name} {fullscreen_indicator}{sync_indicator}{floating_indicator} #[fg=@green@,bg=@mantle@]"
+                // Tab ribbons in the built-in bar's powerline style: dark
+                // notch cut into the left edge, arrow point on the right, no
+                // gap between ribbons so they chain like the old bar. Green =
+                // active (theme ribbon_selected), light = inactive.
+                tab_normal "#[fg=@mantle@,bg=@overlay0@]#[fg=@mantle@,bg=@overlay0@] {name} {fullscreen_indicator}{sync_indicator}{floating_indicator}#[fg=@overlay0@,bg=@mantle@]"
+                tab_active "#[fg=@mantle@,bg=@green@]#[fg=@mantle@,bg=@green@,bold] {name} {fullscreen_indicator}{sync_indicator}{floating_indicator}#[fg=@green@,bg=@mantle@]"
                 tab_separator "#[bg=@mantle@]"
                 tab_fullscreen_indicator "[] "
                 tab_sync_indicator "<> "

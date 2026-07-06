@@ -25,7 +25,6 @@ theme "nebelung"
 load_plugins {
     "file:~/.config/zellij/plugins/link-handler.wasm"
 }
-}
 
 keybinds {
     shared {

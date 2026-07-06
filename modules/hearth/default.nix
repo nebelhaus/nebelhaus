@@ -44,11 +44,6 @@ in
       # the nebelung zen port renders every accent under themes/Mocha/<Accent>/.
       zenAccent = "Mauve";
       zenTheme = "${nebelung.themes}/zen/themes/Mocha/${zenAccent}";
-
-      # Option+Click a path in zellij → new tab cwd'd there. A fork of
-      # zellij's built-in `link` plugin (see zellij/link-handler/), cross-built
-      # to wasm32-wasip1 the same way nixpkgs builds its zellijPlugins.
-      linkHandler = pkgs.pkgsCross.wasi32.callPackage ./zellij/link-handler { };
     in
     {
       home.sessionVariables = {
@@ -478,17 +473,17 @@ in
         # theme files, so the bar colours ride in here — like lazygit's do).
         ".config/zellij/layouts/custom.kdl".text =
           builtins.replaceStrings
-            [ "@mantle@" "@text@" "@green@" "@overlay0@" "@peach@" ]
-            (with nebelung.palette; [ mantle text green overlay0 peach ])
+            [ "@mantle@" "@text@" "@green@" "@overlay0@" "@peach@" "@username@" ]
+            ((with nebelung.palette; [ mantle text green overlay0 peach ]) ++ [ (builtins.substring 0 6 username) ])
             (builtins.readFile ./zellij/custom.kdl);
-
+        ".config/zellij/plugins/zellij_link_handler.wasm".source =
+          ./zellij/plugins/zellij_link_handler.wasm;
         # zjstatus (dj95/zjstatus) — the configurable tab-bar the custom layout
         # uses; pinned release wasm, built against zellij-tile 0.44.
         ".config/zellij/plugins/zjstatus.wasm".source = pkgs.fetchurl {
           url = "https://github.com/dj95/zjstatus/releases/download/v0.23.0/zjstatus.wasm";
           hash = "sha256-4AaQEiNSQjnbYYAh5MxdF/gtxL+uVDKJW6QfA/E4Yf8=";
         };
-        ".config/zellij/plugins/link-handler.wasm".source = "${linkHandler}/bin/link-handler.wasm";
         ".config/zellij/launch.sh" = {
           source = ./zellij/launch.sh;
           executable = true;
@@ -518,39 +513,5 @@ in
         ".config/yazi-picker/theme.toml".source =
           config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.config/yazi/theme.toml";
       };
-
-      # zellij grants plugin permissions through an interactive prompt in the
-      # plugin's pane — but link-handler is a background plugin (load_plugins)
-      # with no pane, so the prompt is unreachable and an ungranted plugin
-      # would sit event-less forever (zellij only auto-grants when EVERY
-      # requested permission is cached). Seed the grant straight into zellij's
-      # permission cache instead (keyed by the plugin's expanded path):
-      # replace our plugin's block wholesale so permission-list changes
-      # propagate, but never own the file — zellij rewrites it when other
-      # plugins are granted interactively, so those entries must survive.
-      home.activation.zellijLinkHandlerPermissions = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        permissions="$HOME/Library/Caches/org.Zellij-Contributors.Zellij/permissions.kdl"
-        plugin="$HOME/.config/zellij/plugins/link-handler.wasm"
-        run sh -c '
-          permissions="$0" plugin="$1" tmp="$0.hm-seed"
-          mkdir -p "''${permissions%/*}"
-          if [ -f "$permissions" ]; then
-            awk -v open="\"$plugin\" {" \
-              "\$0 == open { skip = 1; next } skip && \$0 == \"}\" { skip = 0; next } !skip" \
-              "$permissions" > "$tmp"
-          else
-            : > "$tmp"
-          fi
-          printf "%s\n" \
-            "\"$plugin\" {" \
-            "    ReadApplicationState" \
-            "    ChangeApplicationState" \
-            "    FullHdAccess" \
-            "    RunCommands" \
-            "    ReadSessionEnvironmentVariables" \
-            "}" >> "$tmp"
-          mv "$tmp" "$permissions"
-        ' "$permissions" "$plugin"
-      '';
     };
 }
