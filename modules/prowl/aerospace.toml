@@ -195,7 +195,12 @@ run = 'layout floating'
 
 [[on-window-detected]]
 if.app-id = 'com.mitchellh.ghostty'
-if.window-title-regex-substring = '^(?!quick-terminal).*$'
+if.window-title-regex-substring = '[yY]azi|[pP]eek'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.mitchellh.ghostty'
+if.window-title-regex-substring = '^(?!(quick-terminal|[yY]azi|[pP]eek)).*$'
 run = 'move-node-to-workspace T'
 
 [[on-window-detected]]

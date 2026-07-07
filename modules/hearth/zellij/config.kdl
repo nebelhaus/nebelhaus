@@ -54,7 +54,7 @@ keybinds {
         //            cwd (its repo). Live markdown/code preview; Enter pages a
         //            file fullscreen. Pure "browse the tree / read the docs".
         bind "Super y" {
-            Run "yazi" {
+            Run "/Users/julienmartel/.config/zellij/peek.sh" {
                 floating true
                 close_on_exit true
                 name "peek"

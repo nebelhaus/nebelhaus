@@ -67,6 +67,8 @@ in
       home.sessionVariables = {
         CLICOLOR = "1";
         HOMEBREW_NO_ENV_HINTS = "1";
+        EDITOR = "hx";
+        VISUAL = "hx";
       };
 
       # A lean terminal/dev toolbelt. Personal choices (AI CLIs, orbstack, your
@@ -81,6 +83,7 @@ in
         fd # fast finder; used by yazi/zoxide navigation
         iina
         opencode
+        duti
       ];
 
       programs.zsh = {
@@ -362,8 +365,38 @@ in
               desc = "bat";
             }
           ];
+          image_preview = [
+            {
+              run = ''~/.config/zellij/image-preview.sh "$@"'';
+              block = true;
+              desc = "Preview";
+            }
+          ];
+          open = [
+            {
+              run = ''open "$@"'';
+              orphan = true;
+              desc = "Open";
+            }
+          ];
         };
         settings.open.rules = [
+          {
+            mime = "image/*";
+            use = "image_preview";
+          }
+          {
+            mime = "video/*";
+            use = "open";
+          }
+          {
+            mime = "audio/*";
+            use = "open";
+          }
+          {
+            mime = "application/pdf";
+            use = "open";
+          }
           {
             url = "*.md";
             use = "read";
@@ -409,6 +442,41 @@ in
         };
       };
 
+      programs.helix = {
+        enable = true;
+        settings = {
+          theme = "nebelung";
+          editor = {
+            line-number = "relative";
+            mouse = true;
+            cursorline = true;
+            color-modes = true;
+            cursor-shape = {
+              normal = "block";
+              insert = "bar";
+              select = "underline";
+            };
+            file-picker = {
+              hidden = false;
+            };
+            lsp = {
+              display-messages = true;
+            };
+            statusline = {
+              left = [ "mode" "spinner" ];
+              center = [ "file-name" ];
+              right = [ "diagnostics" "selections" "position" "file-encoding" "file-line-ending" "file-type" ];
+              separator = "│";
+              mode = {
+                normal = "NORMAL";
+                insert = "INSERT";
+                select = "SELECT";
+              };
+            };
+          };
+        };
+      };
+
       programs.zellij.enable = true;
 
       # Catppuccin: `catppuccin.flavor` is the single source of truth — every
@@ -429,6 +497,7 @@ in
       catppuccin.delta.enable = false;
       catppuccin.fzf.enable = false;
       catppuccin.glamour.enable = false; # GLAMOUR_STYLE wired to nebelung above
+      catppuccin.helix.enable = false;
       catppuccin.lazygit.enable = false;
       catppuccin.lsd.enable = false;
       catppuccin.yazi.enable = false;
@@ -478,6 +547,39 @@ in
             "$schema": "https://opencode.ai/tui.json",
             "theme": "nebelung"
           }
+        '';
+
+        # Helix nebelung theme
+        ".config/helix/themes/nebelung.toml".text = ''
+          inherits = "catppuccin_mocha"
+
+          [palette]
+          rosewater = "${nebelung.palette.rosewater}"
+          flamingo = "${nebelung.palette.flamingo}"
+          pink = "${nebelung.palette.pink}"
+          mauve = "${nebelung.palette.mauve}"
+          red = "${nebelung.palette.red}"
+          maroon = "${nebelung.palette.maroon}"
+          peach = "${nebelung.palette.peach}"
+          yellow = "${nebelung.palette.yellow}"
+          green = "${nebelung.palette.green}"
+          teal = "${nebelung.palette.teal}"
+          sky = "${nebelung.palette.sky}"
+          sapphire = "${nebelung.palette.sapphire}"
+          blue = "${nebelung.palette.blue}"
+          lavender = "${nebelung.palette.lavender}"
+          text = "${nebelung.palette.text}"
+          subtext1 = "${nebelung.palette.subtext1}"
+          subtext0 = "${nebelung.palette.subtext0}"
+          overlay2 = "${nebelung.palette.overlay2}"
+          overlay1 = "${nebelung.palette.overlay1}"
+          overlay0 = "${nebelung.palette.overlay0}"
+          surface2 = "${nebelung.palette.surface2}"
+          surface1 = "${nebelung.palette.surface1}"
+          surface0 = "${nebelung.palette.surface0}"
+          base = "${nebelung.palette.base}"
+          mantle = "${nebelung.palette.mantle}"
+          crust = "${nebelung.palette.crust}"
         '';
 
         # ghostty (config lives in Application Support; theme lookup is XDG)
@@ -531,6 +633,14 @@ in
         };
         ".config/zellij/image-preview.sh" = {
           source = ./zellij/image-preview.sh;
+          executable = true;
+        };
+        ".config/zellij/peek.sh" = {
+          source = ./zellij/peek.sh;
+          executable = true;
+        };
+        ".config/zellij/helix-open-pane.sh" = {
+          source = ./zellij/helix-open-pane.sh;
           executable = true;
         };
         ".config/zellij/yazi-shell.sh" = {
@@ -592,6 +702,20 @@ in
             "}" >> "$tmp"
           mv "$tmp" "$permissions"
         ' "$permissions" "$plugin"
+      '';
+
+      home.activation.helixOpenApp = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        appDir="$HOME/Applications"
+        $DRY_RUN_CMD mkdir -p "$appDir"
+        $DRY_RUN_CMD /usr/bin/osacompile -o "$appDir/HelixOpen.app" -e 'on open theFiles' -e 'repeat with theFile in theFiles' -e 'set file_path to POSIX path of theFile' -e 'do shell script "$HOME/.config/zellij/helix-open-pane.sh " & quoted form of file_path' -e 'end repeat' -e 'end open'
+        $DRY_RUN_CMD /usr/bin/plutil -replace CFBundleIdentifier -string "org.nebelhaus.helixopen" "$appDir/HelixOpen.app/Contents/Info.plist"
+        
+        # Now set default handlers using duti
+        if [ -x "${pkgs.duti}/bin/duti" ]; then
+          for ext in json txt md ts tsx js jsx yaml yml toml nix css html sh; do
+            $DRY_RUN_CMD "${pkgs.duti}/bin/duti" -s org.nebelhaus.helixopen "$ext" all
+          done
+        fi
       '';
     };
 }

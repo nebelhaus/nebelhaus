@@ -73,27 +73,43 @@ draw() {
     local body_rows=$((rows - 4))
     ((body_rows < 1)) && body_rows=1
 
-    local art
-    if ! art=$(chafa -f symbols -c full --center=on --size="${cols}x${body_rows}" "$path" 2>&1); then
-        clear
-        printf '\n  %schafa failed to render %s:%s\n\n%s\n' "$ERR" "$name" "$RESET" "$art"
-        draw_hints
-        return
+    local fmt="symbols"
+    if [ -z "${ZELLIJ:-}" ] && [ "${TERM_PROGRAM:-}" = "Ghostty" -o -n "${GHOSTTY_RESOURCES_DIR:-}" ]; then
+        fmt="kitty"
     fi
 
-    local art_rows pad
-    art_rows=$(printf '%s\n' "$art" | wc -l | tr -d ' ')
-    pad=$(( (body_rows - art_rows) / 2 ))
-    ((pad < 0)) && pad=0
+    if [ "$fmt" = "symbols" ]; then
+        local art
+        if ! art=$(chafa -f symbols -c full --center=on --size="${cols}x${body_rows}" "$path" 2>&1); then
+            clear
+            printf '\n  %schafa failed to render %s:%s\n\n%s\n' "$ERR" "$name" "$RESET" "$art"
+            draw_hints
+            return
+        fi
 
-    clear
-    printf '  %s%s%s' "$BOLD" "$name" "$RESET"
-    [ -n "$dims" ] && printf '  %s%s px%s' "$DIM" "$dims" "$RESET"
-    printf '  %s%s%s' "$DIM" "$size" "$RESET"
+        local art_rows pad
+        art_rows=$(printf '%s\n' "$art" | wc -l | tr -d ' ')
+        pad=$(( (body_rows - art_rows) / 2 ))
+        ((pad < 0)) && pad=0
 
-    tput cup $((2 + pad)) 0
-    printf '%s\n' "$art"
-    draw_hints
+        clear
+        printf '  %s%s%s' "$BOLD" "$name" "$RESET"
+        [ -n "$dims" ] && printf '  %s%s px%s' "$DIM" "$dims" "$RESET"
+        printf '  %s%s%s' "$DIM" "$size" "$RESET"
+
+        tput cup $((2 + pad)) 0
+        printf '%s\n' "$art"
+        draw_hints
+    else
+        clear
+        printf '  %s%s%s' "$BOLD" "$name" "$RESET"
+        [ -n "$dims" ] && printf '  %s%s px%s' "$DIM" "$dims" "$RESET"
+        printf '  %s%s%s' "$DIM" "$size" "$RESET"
+
+        tput cup 2 0
+        chafa -f kitty --center=on --size="${cols}x${body_rows}" "$path"
+        draw_hints
+    fi
 }
 
 quit() {
