@@ -1,5 +1,5 @@
 #!/bin/bash
-# peek.sh — Super y: summon the floating yazi "peek" window, rooted at the
+# peek.sh — Super y: summon the floating yazi "peek" panel, rooted at the
 # focused pane's cwd.
 #
 # Why a separate Ghostty instance instead of a zellij floating pane: zellij's
@@ -8,53 +8,33 @@
 # graphics protocol — crisp side-pane previews — and image-preview.sh (the
 # Enter opener for images) upgrades itself to full-res kitty rendering too.
 #
-# Why the window PERSISTS (peek-run.sh keeps it alive, hidden, after yazi
-# quits): every smooth-spawn avenue is a dead end — ghostty's
-# --window-position/--window-width CLI configs are silently ignored on macOS
-# (the window inherits an AppKit saved-state frame instead), and a macOS
-# -hidden app exposes zero AX windows, so a window can't be positioned before
-# it's first shown. Any fresh spawn therefore visibly pops somewhere wrong
-# and then jumps. So we pay the spawn + center dance ONCE (cold path); after
-# that, q merely hides the window and summoning is an instant unhide of an
-# already-perfect frame. Aerospace floats every runtime ghostty window at
-# detection (see prowl/aerospace.toml), so even the cold spawn never tiles or
-# reflows the workspace.
+# Why the window PERSISTS (peek-run.sh keeps it alive after yazi quits):
+# every smooth-spawn avenue is a dead end — ghostty's --window-position/
+# --window-width CLI configs are silently ignored on macOS (the window
+# inherits an AppKit saved-state frame instead), and a macOS-hidden app
+# exposes zero AX windows, so a window can't be positioned before it's first
+# shown. Any fresh spawn therefore visibly pops somewhere wrong and then
+# jumps. So the spawn + center dance runs ONCE (cold path); afterwards the
+# window is a panel in all but name: --macos-hidden=always removes it from
+# the dock and cmd+tab, q teleports it offscreen (no minimize animation, no
+# dock tile), and summoning teleports it back already painted. Aerospace
+# floats every runtime ghostty window at detection (see prowl/aerospace.toml)
+# so even the cold spawn never tiles or reflows the workspace.
 
 set -u
 export PATH="/opt/homebrew/bin:/etc/profiles/per-user/$USER/bin:/run/current-system/sw/bin:$PATH"
 
 FIFO="$HOME/.cache/peek.fifo"
 PIDFILE="$HOME/.cache/peek.pid"
+RETURNFILE="$HOME/.cache/peek.return"
 WINDOW_TITLE="quick-terminal-peek"
 
-# ---- warm path: the peek instance is alive — just summon it -----------------
-if [ -s "$PIDFILE" ]; then
-    read -r GPID RPID < "$PIDFILE"
-    # GPID may be 0 if the runner failed to identify its instance — and
-    # `kill -0 0` would "succeed" (it signals our own process group), so
-    # guard the range explicitly.
-    if [ "${GPID:-0}" -gt 1 ] 2>/dev/null && kill -0 "$GPID" 2>/dev/null; then
-        if ! pgrep -P "$RPID" -x yazi >/dev/null 2>&1; then
-            # Runner is parked on the fifo: hand it the cwd, then give yazi a
-            # beat to start and paint before the reveal, so the window appears
-            # already-drawn. The write is backgrounded + reaped so a wedged
-            # fifo can never hang the keybind.
-            printf '%s\n' "$PWD" > "$FIFO" &
-            WRITER=$!
-            sleep 0.15
-            kill "$WRITER" 2>/dev/null
-        fi
-        # Restore (un-minimize) and focus. By now yazi has repainted, so the
-        # restore animation reveals an already-drawn browser.
-        osascript >/dev/null 2>&1 -e "tell application \"System Events\" to tell (first process whose unix id is $GPID) to set value of attribute \"AXMinimized\" of window 1 to false"
-        osascript >/dev/null 2>&1 -l JavaScript -e "ObjC.import('AppKit'); \$.NSRunningApplication.runningApplicationWithProcessIdentifier($GPID).activateWithOptions(\$.NSApplicationActivateIgnoringOtherApps);"
-        exit 0
-    fi
-fi
+# Record where to hand focus back on dismiss (the app the user is in now).
+osascript -l JavaScript -e 'ObjC.import("AppKit"); String($.NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier)' 2>/dev/null > "$RETURNFILE"
 
-# ---- cold path: spawn the instance and center it (once per boot) ------------
-
-# Find the visible frame of the screen the cursor is on, in top-origin coords.
+# The target frame: 85% of the visible frame of the screen the cursor is on,
+# centered. Recomputed on every summon so the panel follows the user across
+# displays and survives monitor changes.
 FRAME=$(osascript -l JavaScript -e '
   ObjC.import("AppKit");
   ObjC.import("CoreGraphics");
@@ -82,12 +62,42 @@ FRAME=$(osascript -l JavaScript -e '
 ' 2>/dev/null)
 [ -z "$FRAME" ] && FRAME="0 0 1920 1080"
 read -r SCREEN_X SCREEN_Y SCREEN_W SCREEN_H <<< "$FRAME"
-
-# 85% of the visible frame, centered.
 WIN_W=$(( SCREEN_W * 85 / 100 ))
 WIN_H=$(( SCREEN_H * 85 / 100 ))
 POS_X=$(( SCREEN_X + (SCREEN_W - WIN_W) / 2 ))
 POS_Y=$(( SCREEN_Y + (SCREEN_H - WIN_H) / 2 ))
+
+# ---- warm path: the peek instance is alive — teleport it in ----------------
+if [ -s "$PIDFILE" ]; then
+    read -r GPID RPID < "$PIDFILE"
+    # GPID may be 0 if the runner failed to identify its instance — and
+    # `kill -0 0` would "succeed" (it signals our own process group), so
+    # guard the range explicitly.
+    if [ "${GPID:-0}" -gt 1 ] 2>/dev/null && kill -0 "$GPID" 2>/dev/null; then
+        if ! pgrep -P "$RPID" -x yazi >/dev/null 2>&1; then
+            # Runner is parked on the fifo: hand it the cwd, then give yazi a
+            # beat to start and paint while the window is still offscreen, so
+            # it teleports in already-drawn. The write is backgrounded +
+            # reaped so a wedged fifo can never hang the keybind.
+            printf '%s\n' "$PWD" > "$FIFO" &
+            WRITER=$!
+            sleep 0.15
+            kill "$WRITER" 2>/dev/null
+        fi
+        osascript >/dev/null 2>&1 <<APPLESCRIPT
+tell application "System Events"
+    tell (first process whose unix id is $GPID)
+        set position of window 1 to {$POS_X, $POS_Y}
+        set size of window 1 to {$WIN_W, $WIN_H}
+    end tell
+end tell
+APPLESCRIPT
+        osascript >/dev/null 2>&1 -l JavaScript -e "ObjC.import('AppKit'); \$.NSRunningApplication.runningApplicationWithProcessIdentifier($GPID).activateWithOptions(\$.NSApplicationActivateIgnoringOtherApps);"
+        exit 0
+    fi
+fi
+
+# ---- cold path: spawn the instance and center it (once per boot) ------------
 
 # Reap any stale runner (e.g. its window was closed but the orphan lived on)
 # before spawning fresh state.
@@ -98,6 +108,7 @@ rm -f "$PIDFILE" "$FIFO"
 # nix profile dirs itself. cwd rides in via --working-directory.
 open -na Ghostty.app --args \
     --title="$WINDOW_TITLE" \
+    --macos-hidden=always \
     --working-directory="$PWD" \
     --command="/bin/bash $HOME/.config/zellij/peek-run.sh"
 

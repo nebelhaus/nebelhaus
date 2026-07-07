@@ -1,11 +1,14 @@
 #!/bin/bash
 # peek-run.sh — runs INSIDE the peek ghostty instance (spawned by peek.sh).
 #
-# Keeps the peek window alive across yazi sessions: when yazi quits (q/Esc),
-# the window is macOS-hidden instead of torn down, and this script parks on a
-# fifo waiting for the next summon. peek.sh then just writes a directory to
-# the fifo and unhides the window — no window creation, no aerospace event,
-# no repositioning, so summoning is instant and visually seamless.
+# Keeps the peek window alive across yazi sessions, panel-style: when yazi
+# quits (q/Esc), the window teleports offscreen (bottom-right, the same
+# parking trick aerospace uses — no minimize animation, no dock tile; the
+# instance runs --macos-hidden=always so it has no dock icon or cmd+tab
+# entry either) and focus is handed back to wherever the user summoned from.
+# This script then parks on a fifo waiting for the next summon. peek.sh
+# writes a directory to the fifo, lets yazi repaint while offscreen, and
+# teleports the window back — instant and seamless in both directions.
 
 set -u
 export PATH="/etc/profiles/per-user/$USER/bin:/run/current-system/sw/bin:$PATH"
@@ -18,6 +21,7 @@ unset ZELLIJ ZELLIJ_SESSION_NAME ZELLIJ_PANE_ID
 
 FIFO="$HOME/.cache/peek.fifo"
 PIDFILE="$HOME/.cache/peek.pid"
+RETURNFILE="$HOME/.cache/peek.return"
 
 # Find the ghostty instance that owns our window. Ghostty runs its command
 # under a `login` wrapper, so $PPID is NOT the app — walk the ancestor chain.
@@ -40,16 +44,23 @@ trap 'exit 0' HUP INT TERM
 
 [ -p "$FIFO" ] || { rm -f "$FIFO"; mkfifo "$FIFO"; }
 
+dismiss() {
+    # Teleport offscreen — ask for the far corner and let macOS clamp to
+    # whatever it allows (a sliver below the screen edge).
+    osascript >/dev/null 2>&1 -e "tell application \"System Events\" to tell (first process whose unix id is $GPID) to set position of window 1 to {9999, 9999}"
+    # Hand focus back to the app the user summoned from (peek.sh records it);
+    # without this, keystrokes would keep landing in the invisible window.
+    local rpid
+    rpid=$(cat "$RETURNFILE" 2>/dev/null)
+    kill -0 "${rpid:-0}" 2>/dev/null || rpid=$(pgrep -x ghostty | sort -n | head -1)
+    [ -n "${rpid:-}" ] && osascript >/dev/null 2>&1 -l JavaScript -e "ObjC.import('AppKit'); \$.NSRunningApplication.runningApplicationWithProcessIdentifier($rpid).activateWithOptions(\$.NSApplicationActivateIgnoringOtherApps);"
+}
+
 dir="$PWD"
 while :; do
     [ -d "$dir" ] || dir="$HOME"
     yazi "$dir"
-    # yazi quit → minimize our window; everything stays warm for the next
-    # summon. (Minimize, not app-hide: NSRunningApplication.hide() and System
-    # Events' `visible` both silently refuse to hide these open -na spawned
-    # ghostty instances; AXMinimized works, animates natively, and macOS
-    # hands focus back to the previous app by itself.)
-    osascript -e "tell application \"System Events\" to tell (first process whose unix id is $GPID) to set value of attribute \"AXMinimized\" of window 1 to true" >/dev/null 2>&1
+    dismiss
     # Park until peek.sh hands us the next starting directory.
     dir=$(cat "$FIFO")
 done
