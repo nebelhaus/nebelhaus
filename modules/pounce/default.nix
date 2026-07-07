@@ -177,6 +177,53 @@ in
           { key = "⌥ ⇧ r"; action = "Resort windows"; }
         ];
       }
+      # ── Tips page (⇥ flips to it) — workflows and the stuff that's hard to
+      # remember. Keep every entry TRUE to the configs it describes: keys from
+      # hearth/zellij/config.kdl + prowl/aerospace.toml, palette queries from
+      # the `# pounce: name` headers in ./commands.
+      {
+        title = "Terminal · Zellij";
+        page = "Tips";
+        items = [
+          { key = "⌃ ⇥"; action = "Cycle tabs, in any mode"; }
+          { key = "⌥ Click path"; action = "Open a repo-named tab cwd'd there"; }
+          { key = "Click image"; action = "Near-fullscreen chafa preview"; }
+          { key = "⌘ p / ⌘ t"; action = "New pane (same cwd) / new tab (~)"; }
+          { key = "⌘ ⇧ t"; action = "New tab via folder picker"; }
+          { key = "⌘ y / ⌘ ⇧ y"; action = "Yazi: peek files / jump to a shell"; }
+        ];
+      }
+      {
+        title = "Claude Agents";
+        page = "Tips";
+        items = [
+          { key = "⌃ ⌥ c"; action = "Agent in an isolated worktree branch"; }
+          { key = "⌃ ⌥ ⇧ c"; action = "Agent in this checkout (one per tab)"; }
+          { key = "haus status"; action = "Agent branches, dirty repos, stale locks"; }
+          { key = "haus try"; action = "Build against local checkouts (no push)"; }
+          { key = "haus ship"; action = "Push the chain, bumping locks per hop"; }
+        ];
+      }
+      {
+        title = "Workflows";
+        page = "Tips";
+        items = [
+          { key = "⇪ v ↵"; action = "Pastes straight into the app you left"; }
+          { key = "⌥ ⇧ x → ⇪ x"; action = "Throw window to app's workspace, follow it"; }
+          { key = "⇪ - - -"; action = "Resize repeats without re-tapping caps (⎋ ends)"; }
+          { key = "⌥ ⇧ r"; action = "Untangle windows after a laptop wake"; }
+        ];
+      }
+      {
+        title = "Palette Recipes [⌘ Space]";
+        page = "Tips";
+        items = [
+          { key = "rebuild"; action = "Rebuild + switch this Mac"; }
+          { key = "nix"; action = "Open the nix config in your editor"; }
+          { key = "reload"; action = "Reload SketchyBar / AeroSpace"; }
+          { key = "force"; action = "Force-quit an app"; }
+        ];
+      }
     ];
 
     # Free ⌘Space for the palette by disabling Spotlight's "Show Spotlight
