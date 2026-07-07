@@ -62,6 +62,31 @@ in
             ++ [ (builtins.substring 0 6 username) ]
           )
           (builtins.readFile ./zellij/custom.kdl);
+
+      # Seeds a zellij plugin's grants into the permission cache (see the
+      # home.activation entries near the end of this file for the why).
+      seedZellijPluginPermissions =
+        wasm: perms:
+        lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          permissions="$HOME/Library/Caches/org.Zellij-Contributors.Zellij/permissions.kdl"
+          plugin="$HOME/.config/zellij/plugins/${wasm}"
+          run sh -c '
+            permissions="$0" plugin="$1" tmp="$0.hm-seed"
+            mkdir -p "''${permissions%/*}"
+            if [ -f "$permissions" ]; then
+              # /usr/bin path: home-manager activation runs with a bare PATH
+              /usr/bin/awk -v open="\"$plugin\" {" \
+                "\$0 == open { skip = 1; next } skip && \$0 == \"}\" { skip = 0; next } !skip" \
+                "$permissions" > "$tmp"
+            else
+              : > "$tmp"
+            fi
+            printf "%s\n" \
+              "\"$plugin\" {" \
+              ${lib.concatMapStrings (p: "\"    ${p}\" \\\n              ") perms}"}" >> "$tmp"
+            mv "$tmp" "$permissions"
+          ' "$permissions" "$plugin"
+        '';
     in
     {
       home.sessionVariables = {
@@ -574,44 +599,17 @@ in
       # permission-list changes propagate, but never own the file — zellij
       # rewrites it when other plugins are granted interactively, so those
       # entries must survive.
-      home.activation =
-        let
-          seedZellijPluginPermissions =
-            wasm: perms:
-            lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-              permissions="$HOME/Library/Caches/org.Zellij-Contributors.Zellij/permissions.kdl"
-              plugin="$HOME/.config/zellij/plugins/${wasm}"
-              run sh -c '
-                permissions="$0" plugin="$1" tmp="$0.hm-seed"
-                mkdir -p "''${permissions%/*}"
-                if [ -f "$permissions" ]; then
-                  # /usr/bin path: home-manager activation runs with a bare PATH
-                  /usr/bin/awk -v open="\"$plugin\" {" \
-                    "\$0 == open { skip = 1; next } skip && \$0 == \"}\" { skip = 0; next } !skip" \
-                    "$permissions" > "$tmp"
-                else
-                  : > "$tmp"
-                fi
-                printf "%s\n" \
-                  "\"$plugin\" {" \
-                  ${lib.concatMapStrings (p: "\"    ${p}\" \\\n                  ") perms}"}" >> "$tmp"
-                mv "$tmp" "$permissions"
-              ' "$permissions" "$plugin"
-            '';
-        in
-        {
-          zellijLinkHandlerPermissions = seedZellijPluginPermissions "link-handler.wasm" [
-            "ReadApplicationState"
-            "ChangeApplicationState"
-            "FullHdAccess"
-            "RunCommands"
-            "ReadSessionEnvironmentVariables"
-          ];
-          # ModeUpdate/TabUpdate/PaneUpdate — everything the bar renders from —
-          # are gated on ReadApplicationState (zellij's check_event_permission).
-          zellijStatusBarPermissions = seedZellijPluginPermissions "status-bar.wasm" [
-            "ReadApplicationState"
-          ];
-        };
+      home.activation.zellijLinkHandlerPermissions = seedZellijPluginPermissions "link-handler.wasm" [
+        "ReadApplicationState"
+        "ChangeApplicationState"
+        "FullHdAccess"
+        "RunCommands"
+        "ReadSessionEnvironmentVariables"
+      ];
+      # ModeUpdate/TabUpdate/PaneUpdate — everything the bar renders from —
+      # are gated on ReadApplicationState (zellij's check_event_permission).
+      home.activation.zellijStatusBarPermissions = seedZellijPluginPermissions "status-bar.wasm" [
+        "ReadApplicationState"
+      ];
     };
 }
