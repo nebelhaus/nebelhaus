@@ -44,6 +44,24 @@ in
       # the nebelung zen port renders every accent under themes/Mocha/<Accent>/.
       zenAccent = "Mauve";
       zenTheme = "${nebelung.themes}/zen/themes/Mocha/${zenAccent}";
+
+      # The zellij custom layout, rendered from the in-repo template with
+      # Nebelung colours injected from nebelung.palette (zjstatus can't read
+      # zellij theme files, so the bar colours ride in here — like lazygit's
+      # do). Shared by custom.kdl and its $HOME-pinned home.kdl variant below.
+      zellijLayout =
+        builtins.replaceStrings [ "@mantle@" "@text@" "@green@" "@overlay0@" "@peach@" "@username@" ]
+          (
+            (with nebelung.palette; [
+              mantle
+              text
+              green
+              overlay0
+              peach
+            ])
+            ++ [ (builtins.substring 0 6 username) ]
+          )
+          (builtins.readFile ./zellij/custom.kdl);
     in
     {
       home.sessionVariables = {
@@ -143,6 +161,19 @@ in
 
             # Auto-name the current zellij tab after the repo whenever you cd.
             if [[ -n "$ZELLIJ" ]]; then
+              # New panes inherit the focused pane's cwd (Super p) — which,
+              # next to a claude --worktree pane, is the agent's throwaway
+              # checkout under ~/.cache/claude-worktrees. A fresh interactive
+              # shell has no business starting there: hop to the repo the
+              # worktree belongs to (the parent of the shared .git).
+              # $CLAUDECODE spares the agent's own subshells — those must
+              # stay in the worktree.
+              if [[ -z "$CLAUDECODE" && "$PWD" == "$HOME/.cache/claude-worktrees/"* ]]; then
+                _wt_main="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
+                [[ -n "$_wt_main" ]] && cd "''${_wt_main:h}"
+                unset _wt_main
+              fi
+
               _zj_name_tab() {
                 local root name
                 root=$(git rev-parse --show-toplevel 2>/dev/null)
@@ -469,16 +500,25 @@ in
         # zellij
         ".config/zellij/config.kdl".source = ./zellij/config.kdl;
         ".config/zellij/themes/nebelung.kdl".source = "${nebelung.themes}/zellij/themes/nebelung.kdl";
-        # Custom layout, rendered from the in-repo template with Nebelung
-        # colours injected from nebelung.palette (zjstatus can't read zellij
-        # theme files, so the bar colours ride in here — like lazygit's do).
-        ".config/zellij/layouts/custom.kdl".text =
-          builtins.replaceStrings
-            [ "@mantle@" "@text@" "@green@" "@overlay0@" "@peach@" "@username@" ]
-            ((with nebelung.palette; [ mantle text green overlay0 peach ]) ++ [ (builtins.substring 0 6 username) ])
-            (builtins.readFile ./zellij/custom.kdl);
-        ".config/zellij/plugins/link-handler.wasm".source =
-          ./zellij/plugins/zellij_link_handler.wasm;
+        # Custom layout, rendered from the in-repo template (see zellijLayout
+        # in the let above).
+        ".config/zellij/layouts/custom.kdl".text = zellijLayout;
+        # The same layout with the content tab pinned to $HOME — the Super-t
+        # NewTab bind opens tabs from this file, so a new tab always starts at
+        # ~ no matter where the focused pane lives. Tab-level cwd is the only
+        # form zellij honors under a default_tab_template (newtab.sh pulls the
+        # same trick per-pick); the assert trips at eval time if custom.kdl's
+        # content-tab line ever changes shape, instead of silently shipping a
+        # layout that no-ops back to cwd inheritance.
+        ".config/zellij/layouts/home.kdl".text =
+          let
+            pinned =
+              builtins.replaceStrings [ "\n    tab {\n" ] [ "\n    tab cwd=\"${config.home.homeDirectory}\" {\n" ]
+                zellijLayout;
+          in
+          assert pinned != zellijLayout;
+          pinned;
+        ".config/zellij/plugins/link-handler.wasm".source = ./zellij/plugins/zellij_link_handler.wasm;
         # zjstatus (dj95/zjstatus) — the configurable tab-bar the custom layout
         # uses; pinned release wasm, built against zellij-tile 0.44.
         ".config/zellij/plugins/zjstatus.wasm".source = pkgs.fetchurl {
