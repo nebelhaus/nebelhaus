@@ -712,7 +712,7 @@ in
         
         # Now set default handlers using duti
         if [ -x "${pkgs.duti}/bin/duti" ]; then
-          for ext in json txt md ts tsx js jsx yaml yml toml nix css html sh; do
+          for ext in json txt md ts tsx js jsx yaml yml toml nix css sh; do
             $DRY_RUN_CMD "${pkgs.duti}/bin/duti" -s org.nebelhaus.helixopen "$ext" all
           done
         fi
