@@ -201,6 +201,14 @@ impl ZellijPlugin for State {
             .map(|c| c == "true")
             .unwrap_or(false);
         set_selectable(false);
+        // The built-in status-bar is is_builtin() and bypasses the permission
+        // check entirely; loaded as a file: plugin we are NOT builtin, so the
+        // events we render from (ModeUpdate/TabUpdate/PaneUpdate/InputReceived,
+        // all gated on ReadApplicationState) get denied unless we ask for it —
+        // without this the bar sits stuck on "…", event-less. hearth seeds the
+        // grant into zellij's permission cache, so request_permission
+        // auto-grants silently instead of prompting in the bar's own pane.
+        request_permission(&[PermissionType::ReadApplicationState]);
         subscribe(&[
             EventType::ModeUpdate,
             EventType::TabUpdate,
@@ -209,6 +217,7 @@ impl ZellijPlugin for State {
             EventType::InputReceived,
             EventType::SystemClipboardFailure,
             EventType::InitialKeybinds,
+            EventType::PermissionRequestResult,
         ]);
     }
 
