@@ -21,12 +21,16 @@ if ! zellij list-sessions 2>/dev/null | grep -q "main"; then
     done
 fi
 
-# 3. Open the file in a new pane
+# 3. Open the file in a new tab with zsh and helix
 if zellij list-sessions 2>/dev/null | grep -q "main"; then
     # Focus Ghostty to bring it to front
     osascript -e 'tell application "Ghostty" to activate'
-    # Send action to open a new pane running helix
-    zellij -s main action new-pane -- hx "$FILE_PATH"
+    
+    # Resolve the parent directory of the file
+    DIR_PATH="$(dirname "$FILE_PATH")"
+    
+    # Open in a new tab running zsh, cd to the file's dir, run helix, and exec zsh on exit
+    zellij -s main action new-tab -- zsh -c 'cd "$1" && hx "$2"; exec zsh' "helix-launcher" "$DIR_PATH" "$FILE_PATH"
 else
     # Fallback: Open a fresh Ghostty window running helix on the file
     open -na "Ghostty" --args -e "hx \"$FILE_PATH\""
