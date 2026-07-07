@@ -62,6 +62,31 @@ in
             ++ [ (builtins.substring 0 6 username) ]
           )
           (builtins.readFile ./zellij/custom.kdl);
+
+      # Seeds a zellij plugin's grants into the permission cache (see the
+      # home.activation entries near the end of this file for the why).
+      seedZellijPluginPermissions =
+        wasm: perms:
+        lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          permissions="$HOME/Library/Caches/org.Zellij-Contributors.Zellij/permissions.kdl"
+          plugin="$HOME/.config/zellij/plugins/${wasm}"
+          run sh -c '
+            permissions="$0" plugin="$1" tmp="$0.hm-seed"
+            mkdir -p "''${permissions%/*}"
+            if [ -f "$permissions" ]; then
+              # /usr/bin path: home-manager activation runs with a bare PATH
+              /usr/bin/awk -v open="\"$plugin\" {" \
+                "\$0 == open { skip = 1; next } skip && \$0 == \"}\" { skip = 0; next } !skip" \
+                "$permissions" > "$tmp"
+            else
+              : > "$tmp"
+            fi
+            printf "%s\n" \
+              "\"$plugin\" {" \
+              ${lib.concatMapStrings (p: "\"    ${p}\" \\\n              ") perms}"}" >> "$tmp"
+            mv "$tmp" "$permissions"
+          ' "$permissions" "$plugin"
+        '';
     in
     {
       home.sessionVariables = {
@@ -467,9 +492,19 @@ in
               display-messages = true;
             };
             statusline = {
-              left = [ "mode" "spinner" ];
+              left = [
+                "mode"
+                "spinner"
+              ];
               center = [ "file-name" ];
-              right = [ "diagnostics" "selections" "position" "file-encoding" "file-line-ending" "file-type" ];
+              right = [
+                "diagnostics"
+                "selections"
+                "position"
+                "file-encoding"
+                "file-line-ending"
+                "file-type"
+              ];
               separator = "│";
               mode = {
                 normal = "NORMAL";
@@ -625,6 +660,10 @@ in
           assert pinned != zellijLayout;
           pinned;
         ".config/zellij/plugins/link-handler.wasm".source = ./zellij/plugins/zellij_link_handler.wasm;
+        # Our status-bar fork (see zellij/status-bar/): identical to the
+        # built-in except the bottom-right quick hints also surface NewTab,
+        # so Super-t shows next to Super-p. Wasm vendored by its build.sh.
+        ".config/zellij/plugins/status-bar.wasm".source = ./zellij/plugins/zellij_status_bar.wasm;
         # zjstatus (dj95/zjstatus) — the configurable tab-bar the custom layout
         # uses; pinned release wasm, built against zellij-tile 0.44.
         ".config/zellij/plugins/zjstatus.wasm".source = pkgs.fetchurl {
@@ -674,46 +713,35 @@ in
       };
 
       # zellij grants plugin permissions through an interactive prompt in the
-      # plugin's pane — but link-handler is a background plugin (load_plugins)
-      # with no pane, so the prompt is unreachable and an ungranted plugin
-      # would sit event-less forever (zellij only auto-grants when EVERY
-      # requested permission is cached). Seed the grant straight into zellij's
-      # permission cache instead (keyed by the plugin's expanded path):
-      # replace our plugin's block wholesale so permission-list changes
-      # propagate, but never own the file — zellij rewrites it when other
-      # plugins are granted interactively, so those entries must survive.
-      home.activation.zellijLinkHandlerPermissions = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        permissions="$HOME/Library/Caches/org.Zellij-Contributors.Zellij/permissions.kdl"
-        plugin="$HOME/.config/zellij/plugins/link-handler.wasm"
-        run sh -c '
-          permissions="$0" plugin="$1" tmp="$0.hm-seed"
-          mkdir -p "''${permissions%/*}"
-          if [ -f "$permissions" ]; then
-            # /usr/bin path: home-manager activation runs with a bare PATH
-            /usr/bin/awk -v open="\"$plugin\" {" \
-              "\$0 == open { skip = 1; next } skip && \$0 == \"}\" { skip = 0; next } !skip" \
-              "$permissions" > "$tmp"
-          else
-            : > "$tmp"
-          fi
-          printf "%s\n" \
-            "\"$plugin\" {" \
-            "    ReadApplicationState" \
-            "    ChangeApplicationState" \
-            "    FullHdAccess" \
-            "    RunCommands" \
-            "    ReadSessionEnvironmentVariables" \
-            "}" >> "$tmp"
-          mv "$tmp" "$permissions"
-        ' "$permissions" "$plugin"
-      '';
+      # plugin's pane — but neither of our forks can reach it: link-handler is
+      # a background plugin (load_plugins) with no pane, and status-bar never
+      # calls request_permission (built-ins don't need to, and we keep the fork
+      # diff minimal), so an ungranted plugin would sit event-less forever
+      # (zellij only auto-grants when EVERY requested permission is cached).
+      # Seed the grants straight into zellij's permission cache instead (keyed
+      # by the plugin's expanded path): replace our plugin's block wholesale so
+      # permission-list changes propagate, but never own the file — zellij
+      # rewrites it when other plugins are granted interactively, so those
+      # entries must survive.
+      home.activation.zellijLinkHandlerPermissions = seedZellijPluginPermissions "link-handler.wasm" [
+        "ReadApplicationState"
+        "ChangeApplicationState"
+        "FullHdAccess"
+        "RunCommands"
+        "ReadSessionEnvironmentVariables"
+      ];
+      # ModeUpdate/TabUpdate/PaneUpdate — everything the bar renders from —
+      # are gated on ReadApplicationState (zellij's check_event_permission).
+      home.activation.zellijStatusBarPermissions = seedZellijPluginPermissions "status-bar.wasm" [
+        "ReadApplicationState"
+      ];
 
       home.activation.helixOpenApp = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         appDir="$HOME/Applications"
         $DRY_RUN_CMD mkdir -p "$appDir"
         $DRY_RUN_CMD /usr/bin/osacompile -o "$appDir/HelixOpen.app" -e 'on open theFiles' -e 'repeat with theFile in theFiles' -e 'set file_path to POSIX path of theFile' -e 'do shell script "$HOME/.config/zellij/helix-open-pane.sh " & quoted form of file_path' -e 'end repeat' -e 'end open'
         $DRY_RUN_CMD /usr/bin/plutil -replace CFBundleIdentifier -string "org.nebelhaus.helixopen" "$appDir/HelixOpen.app/Contents/Info.plist"
-        
+
         # Now set default handlers using duti
         if [ -x "${pkgs.duti}/bin/duti" ]; then
           for ext in json txt md ts tsx js jsx yaml yml toml nix css sh; do

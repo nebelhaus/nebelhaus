@@ -5,7 +5,10 @@
 // automatically when using the built-in default layout, not a custom one.
 // status-bar normally renders two rows (hotkeys + tips); we constrain it to
 // size=1 so only the hotkey-hints row shows. The bar updates in place when
-// entering chord modes (e.g. Ctrl-t shows tab-mode hints).
+// entering chord modes (e.g. Ctrl-t shows tab-mode hints). The bottom bar is
+// our fork of zellij:status-bar (see zellij/status-bar/): identical except the
+// bottom-right quick hints also surface NewTab, so Super-t shows next to
+// Super-p — upstream hardcodes that hint list and never includes NewTab.
 //
 // The top bar is zjstatus (dj95/zjstatus, wasm pinned in default.nix) instead
 // of zellij:tab-bar, purely so the right edge can carry the ctrl+tab reminder
@@ -49,7 +52,7 @@ layout {
         }
         children
         pane size=1 borderless=true {
-            plugin location="zellij:status-bar"
+            plugin location="file:/Users/julienmartel/.config/zellij/plugins/status-bar.wasm"
         }
     }
 
