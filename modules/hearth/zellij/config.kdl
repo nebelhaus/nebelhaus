@@ -40,6 +40,11 @@ keybinds {
         // whatever branch you're looking at. At most one per tab, by
         // convention — it's the only claude allowed to touch the real tree.
         bind "Ctrl Alt Shift c" { Run "claude" "--dangerously-skip-permissions"; }
+        // Super p — New pane, inheriting the focused pane's cwd — except next
+        //            to a claude --worktree pane: hearth's zshrc notices a
+        //            fresh shell starting inside ~/.cache/claude-worktrees and
+        //            hops it to the repo's main checkout instead (the agent's
+        //            throwaway dir is no place for a human shell).
         bind "Super p" { NewPane; }
 
         // yazi as a floating overlay — appears on top of the tiled claude panes,
@@ -65,11 +70,15 @@ keybinds {
                 x "5%"; y "5%"; width "90%"; height "90%"
             }
         }
-        // Super t — New tab in the focused pane's current dir. Bound to the plain
-        //            NewTab action (not a script) so zellij's status bar renders
-        //            the "Super + t  New Tab" hint in locked mode, mirroring
-        //            Super p → New Pane. NewTab inherits the focused pane's cwd.
-        bind "Super t" { NewTab; }
+        // Super t — New tab, always at $HOME. Kept on the NewTab action (not a
+        //            script) so zellij's status bar renders the "Super + t
+        //            New Tab" hint in locked mode, mirroring Super p → New
+        //            Pane. Bare NewTab would inherit the focused pane's cwd,
+        //            and a `cwd` arg here is silently ignored under a custom
+        //            default_tab_template (see newtab.sh) — so the bind opens
+        //            home.kdl: custom.kdl with the content tab pinned
+        //            cwd=$HOME, rendered next to it by hearth.
+        bind "Super t" { NewTab { layout "/Users/julienmartel/.config/zellij/layouts/home.kdl"; }; }
         // Super Shift t — New tab via yazi picker: browse (floating), Enter on a
         //            folder opens a new tab cwd'd there (auto-named after the repo),
         //            q/Esc cancels. See dotfiles/zellij/newtab.sh + yazi-picker.
