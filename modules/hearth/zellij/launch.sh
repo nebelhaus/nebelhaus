@@ -35,6 +35,28 @@ if [[ "${title}" == *quick-terminal* ]]; then
     run_shell
 fi
 
+# This is a regular terminal window. Aerospace floats every runtime ghostty
+# window (see prowl/aerospace.toml — popups must never be tiled, and title
+# rules race detection), so tile ourselves onto workspace T. From in here the
+# window certainly exists, and it has focus (it was just opened by the user),
+# so targeting the focused window is race-free in practice.
+(
+    export PATH="/opt/homebrew/bin:$PATH"
+    WID=""
+    for _ in $(seq 1 20); do
+        WID=$(aerospace list-windows --focused --format '%{window-id}' 2>/dev/null)
+        [ -n "$WID" ] && break
+        sleep 0.05
+    done
+    if [ -n "$WID" ]; then
+        aerospace move-node-to-workspace --window-id "$WID" T 2>>"$LOG"
+        aerospace layout --window-id "$WID" tiling 2>>"$LOG"
+        log "self-tiled window $WID onto workspace T"
+    else
+        log "self-tile: no focused window found"
+    fi
+) &
+
 # Session policy: attach if "main" is alive, resurrect if exited, otherwise
 # create fresh. Resurrection restores tabs/panes/cwds across mac restarts but
 # uses the layout cached at session creation — to pick up custom.kdl edits,

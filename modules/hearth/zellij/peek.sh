@@ -1,6 +1,6 @@
 #!/bin/bash
-# peek.sh — Super y: spawn a native, centered, floating Ghostty window running
-# yazi, rooted at the focused pane's cwd.
+# peek.sh — Super y: summon the floating yazi "peek" window, rooted at the
+# focused pane's cwd.
 #
 # Why a separate Ghostty instance instead of a zellij floating pane: zellij's
 # VTE parser strips kitty-graphics APC sequences, so yazi inside zellij can
@@ -8,38 +8,53 @@
 # graphics protocol — crisp side-pane previews — and image-preview.sh (the
 # Enter opener for images) upgrades itself to full-res kitty rendering too.
 #
-# The spawn/position dance mirrors modules/pounce/commands/rebuild.sh, the
-# proven pattern for one-shot "quick-terminal-*" windows:
-#   - macOS ghostty can't `-e`/`+new-window` from the CLI; it must be
-#     `open -na Ghostty.app --args ...` (a fresh instance).
-#   - `--command` overrides ghostty's `command = launch.sh`, so the window
-#     runs yazi instead of attaching a nested zellij.
-#   - Title `quick-terminal-peek` matches the aerospace float rule, but rule
-#     detection can race the title — so we also re-float and re-position the
-#     window by PID / window-id after spawn instead of trusting the rule.
+# Why the window PERSISTS (peek-run.sh keeps it alive, hidden, after yazi
+# quits): every smooth-spawn avenue is a dead end — ghostty's
+# --window-position/--window-width CLI configs are silently ignored on macOS
+# (the window inherits an AppKit saved-state frame instead), and a macOS
+# -hidden app exposes zero AX windows, so a window can't be positioned before
+# it's first shown. Any fresh spawn therefore visibly pops somewhere wrong
+# and then jumps. So we pay the spawn + center dance ONCE (cold path); after
+# that, q merely hides the window and summoning is an instant unhide of an
+# already-perfect frame. Aerospace floats every runtime ghostty window at
+# detection (see prowl/aerospace.toml), so even the cold spawn never tiles or
+# reflows the workspace.
 
 set -u
-
-# Runs from a zellij run-pane (nix paths present) but aerospace lives in
-# /opt/homebrew/bin, and defensive in case of a bare environment.
 export PATH="/opt/homebrew/bin:/etc/profiles/per-user/$USER/bin:/run/current-system/sw/bin:$PATH"
 
+FIFO="$HOME/.cache/peek.fifo"
+PIDFILE="$HOME/.cache/peek.pid"
 WINDOW_TITLE="quick-terminal-peek"
 
-# Runner for the spawned instance: `open` hands ghostty launchd's minimal
-# PATH, so the nix profile dirs must be re-added before exec'ing yazi.
-RUN_TMP="/tmp/peek-yazi-run.sh"
-cat >"$RUN_TMP" <<'EOF'
-#!/bin/bash
-export PATH="/etc/profiles/per-user/$USER/bin:/run/current-system/sw/bin:$PATH"
-exec yazi
-EOF
-xattr -d com.apple.quarantine "$RUN_TMP" 2>/dev/null || true
+# ---- warm path: the peek instance is alive — just summon it -----------------
+if [ -s "$PIDFILE" ]; then
+    read -r GPID RPID < "$PIDFILE"
+    # GPID may be 0 if the runner failed to identify its instance — and
+    # `kill -0 0` would "succeed" (it signals our own process group), so
+    # guard the range explicitly.
+    if [ "${GPID:-0}" -gt 1 ] 2>/dev/null && kill -0 "$GPID" 2>/dev/null; then
+        if ! pgrep -P "$RPID" -x yazi >/dev/null 2>&1; then
+            # Runner is parked on the fifo: hand it the cwd, then give yazi a
+            # beat to start and paint before the reveal, so the window appears
+            # already-drawn. The write is backgrounded + reaped so a wedged
+            # fifo can never hang the keybind.
+            printf '%s\n' "$PWD" > "$FIFO" &
+            WRITER=$!
+            sleep 0.15
+            kill "$WRITER" 2>/dev/null
+        fi
+        # Restore (un-minimize) and focus. By now yazi has repainted, so the
+        # restore animation reveals an already-drawn browser.
+        osascript >/dev/null 2>&1 -e "tell application \"System Events\" to tell (first process whose unix id is $GPID) to set value of attribute \"AXMinimized\" of window 1 to false"
+        osascript >/dev/null 2>&1 -l JavaScript -e "ObjC.import('AppKit'); \$.NSRunningApplication.runningApplicationWithProcessIdentifier($GPID).activateWithOptions(\$.NSApplicationActivateIgnoringOtherApps);"
+        exit 0
+    fi
+fi
 
-# Find the frame of the screen the user is currently on, in Ghostty's
-# top-origin coord system. Pick the screen by cursor location so multi-display
-# setups center on the monitor the user is on right now; `visibleFrame`
-# excludes menu bar / dock so the window doesn't get clipped.
+# ---- cold path: spawn the instance and center it (once per boot) ------------
+
+# Find the visible frame of the screen the cursor is on, in top-origin coords.
 FRAME=$(osascript -l JavaScript -e '
   ObjC.import("AppKit");
   ObjC.import("CoreGraphics");
@@ -73,79 +88,42 @@ WIN_W=$(( SCREEN_W * 85 / 100 ))
 WIN_H=$(( SCREEN_H * 85 / 100 ))
 POS_X=$(( SCREEN_X + (SCREEN_W - WIN_W) / 2 ))
 POS_Y=$(( SCREEN_Y + (SCREEN_H - WIN_H) / 2 ))
-# Rough px→cell factors (rebuild.sh's 80 cols ≈ 750 px, 20 rows ≈ 400 px) so
-# the window *spawns* near its final size; AppleScript sets exact pixels.
-COLS=$(( WIN_W * 80 / 750 ))
-ROWS=$(( WIN_H * 20 / 400 ))
 
-# Capture state BEFORE spawn: the source workspace (to pin the window there
-# even if aerospace's catch-all rule grabs it to workspace T) and existing
-# ghostty PIDs (to identify the new instance and target it precisely).
-SOURCE_WS=$(aerospace list-workspaces --focused 2>/dev/null)
-BEFORE_PIDS=$(pgrep -x ghostty 2>/dev/null | sort -u)
+# Reap any stale runner (e.g. its window was closed but the orphan lived on)
+# before spawning fresh state.
+pkill -f "zellij/peek-run.sh" 2>/dev/null
+rm -f "$PIDFILE" "$FIFO"
 
+# `open` hands the instance launchd's minimal PATH; peek-run.sh re-adds the
+# nix profile dirs itself. cwd rides in via --working-directory.
 open -na Ghostty.app --args \
-  --title="$WINDOW_TITLE" \
-  --working-directory="$PWD" \
-  --window-width=$COLS \
-  --window-height=$ROWS \
-  --window-position-x=$POS_X \
-  --window-position-y=$POS_Y \
-  --command="bash $RUN_TMP"
+    --title="$WINDOW_TITLE" \
+    --working-directory="$PWD" \
+    --command="/bin/bash $HOME/.config/zellij/peek-run.sh"
 
-# Step 1: find the PID of the new ghostty instance spawned by `open -na`.
-NEW_PID=""
-for _ in $(seq 1 100); do
-  AFTER_PIDS=$(pgrep -x ghostty 2>/dev/null | sort -u)
-  NEW_PID=$(comm -13 <(printf '%s\n' "$BEFORE_PIDS") <(printf '%s\n' "$AFTER_PIDS") | head -1)
-  [ -n "$NEW_PID" ] && break
-  sleep 0.02
+# peek-run.sh writes the instance pid the moment it starts.
+GPID=""
+for _ in $(seq 1 150); do
+    [ -s "$PIDFILE" ] && { read -r GPID _ < "$PIDFILE"; break; }
+    sleep 0.02
 done
+[ -n "$GPID" ] || exit 0
 
-# Step 2: exact size + position, targeted at the new instance by PID.
-if [ -n "$NEW_PID" ]; then
-  osascript >/dev/null 2>&1 <<APPLESCRIPT
+# Frame the window as soon as AX exposes it. Aerospace already floated it at
+# detection, so this is the only geometry event — one quick settle, once.
+osascript >/dev/null 2>&1 <<APPLESCRIPT
 tell application "System Events"
-  tell (first process whose unix id is $NEW_PID)
-    repeat 100 times
-      try
-        if (count windows) > 0 then
-          set size of window 1 to {$WIN_W, $WIN_H}
-          set position of window 1 to {$POS_X, $POS_Y}
-          exit repeat
-        end if
-      end try
-      delay 0.02
-    end repeat
-  end tell
+    tell (first process whose unix id is $GPID)
+        repeat 150 times
+            try
+                if (count windows) > 0 then
+                    set position of window 1 to {$POS_X, $POS_Y}
+                    set size of window 1 to {$WIN_W, $WIN_H}
+                    exit repeat
+                end if
+            end try
+            delay 0.02
+        end repeat
+    end tell
 end tell
 APPLESCRIPT
-fi
-
-# Step 3: aerospace cleanup — move the window back to the source workspace
-# (in case the catch-all rule already moved it to T) and force-float it.
-# Runs after positioning so we don't fight our own AppleScript.
-for _ in $(seq 1 30); do
-  WID=$(aerospace list-windows --all --format '%{window-id}|%{app-name}|%{window-title}' 2>/dev/null \
-        | awk -F'|' -v t="$WINDOW_TITLE" '$2 == "Ghostty" && $3 == t {print $1; exit}')
-  if [ -n "$WID" ]; then
-    [ -n "$SOURCE_WS" ] && aerospace move-node-to-workspace --window-id "$WID" "$SOURCE_WS" 2>/dev/null
-    aerospace layout --window-id "$WID" floating 2>/dev/null
-    break
-  fi
-  sleep 0.03
-done
-
-# Floating may have restored a stale pre-float frame — reassert the geometry.
-if [ -n "$NEW_PID" ]; then
-  osascript >/dev/null 2>&1 <<APPLESCRIPT
-tell application "System Events"
-  tell (first process whose unix id is $NEW_PID)
-    try
-      set size of window 1 to {$WIN_W, $WIN_H}
-      set position of window 1 to {$POS_X, $POS_Y}
-    end try
-  end tell
-end tell
-APPLESCRIPT
-fi

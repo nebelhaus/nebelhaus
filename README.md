@@ -1,13 +1,18 @@
 <div align="center">
 
-# 🏠 nebelhaus
+<!-- identity banner — pink-on-gray wordmark (assets/nebelhaus-banner-gray-bg-rounded.png) -->
+<img src="./assets/nebelhaus-banner-gray-bg-rounded.png" alt="nebelhaus" width="520">
 
 **an opinionated macOS, raised in the fog**
 
 silver-grey · keyboard-first · reproducible · nix-native
 
+![part of nebelhaus](https://img.shields.io/badge/part_of-nebelhaus-f2c4e5?labelColor=202020)
+![themed by nebelung](https://img.shields.io/badge/themed_by-nebelung-c9a8f1?labelColor=202020)
+![license](https://img.shields.io/badge/license-MIT-d7d7d7?labelColor=202020)
+
 <!-- assets/hero.png — the whole desktop: Sill bar, Prowl tiling, Pounce open, Nebelung everywhere -->
-![nebelhaus](./assets/hero.png)
+![the nebelhaus desktop](./assets/hero.png)
 
 </div>
 

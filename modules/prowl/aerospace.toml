@@ -179,20 +179,22 @@ equal = 'resize smart +50'
 esc = ['exec-and-forget /Users/julienmartel/.config/sketchybar/plugins/resize_mode.sh off', 'mode main']
 enter = ['exec-and-forget /Users/julienmartel/.config/sketchybar/plugins/resize_mode.sh off', 'mode main']
 
+# Ghostty routing. Title matching races window detection (the AX title lands
+# after the window is mapped), so popup windows (peek, rebuild) used to get
+# tiled for a beat — reflowing the whole workspace — before any float rule
+# could win. Instead: every ghostty window spawned at runtime floats (floating
+# never reflows the tiles), and regular terminal windows tile themselves onto
+# workspace T from inside zellij/launch.sh, which knows what it is with
+# certainty. At aerospace (re)start, existing windows go straight to T tiled,
+# same as before.
 [[on-window-detected]]
 if.app-id = 'com.mitchellh.ghostty'
-if.window-title-regex-substring = 'quick-terminal'
-run = 'layout floating'
-
-[[on-window-detected]]
-if.app-id = 'com.mitchellh.ghostty'
-if.window-title-regex-substring = 'quick-terminal-rebuild'
-run = 'layout floating'
-
-[[on-window-detected]]
-if.app-id = 'com.mitchellh.ghostty'
-if.window-title-regex-substring = '^(?!quick-terminal).*$'
+if.during-aerospace-startup = true
 run = 'move-node-to-workspace T'
+
+[[on-window-detected]]
+if.app-id = 'com.mitchellh.ghostty'
+run = 'layout floating'
 
 [[on-window-detected]]
 if.app-id = 'com.culturedcode.ThingsMac'

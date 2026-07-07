@@ -682,6 +682,10 @@ in
           source = ./zellij/peek.sh;
           executable = true;
         };
+        ".config/zellij/peek-run.sh" = {
+          source = ./zellij/peek-run.sh;
+          executable = true;
+        };
         ".config/zellij/helix-open-pane.sh" = {
           source = ./zellij/helix-open-pane.sh;
           executable = true;
