@@ -83,8 +83,6 @@ alt-shift-n = 'move-node-to-workspace N'
 alt-shift-s = 'move-node-to-workspace S'
 # Browser
 alt-shift-b = 'move-node-to-workspace B'
-# Figma
-alt-shift-f = 'move-node-to-workspace F'
 # Music
 alt-shift-m = 'move-node-to-workspace M'
 # AI
@@ -104,7 +102,6 @@ alt-shift-d = 'move-node-to-workspace D'
 cmd-alt-ctrl-shift-t = 'exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Ghostty" T'
 cmd-alt-ctrl-shift-s = 'exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Slack" S'
 cmd-alt-ctrl-shift-b = 'exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Zen" B'
-cmd-alt-ctrl-shift-f = 'exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Figma" F'
 cmd-alt-ctrl-shift-m = 'exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Music" M'
 cmd-alt-ctrl-shift-h = 'exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Swather" H'
 cmd-alt-ctrl-shift-c = 'exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Claude" C'
@@ -166,7 +163,6 @@ equal = ['exec-and-forget /Users/julienmartel/.config/sketchybar/plugins/launch_
 t = ['exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Ghostty" T', 'mode main']
 s = ['exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Slack" S', 'mode main']
 b = ['exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Zen" B', 'mode main']
-f = ['exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Figma" F', 'mode main']
 m = ['exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Music" M', 'mode main']
 h = ['exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Swather" H', 'mode main']
 c = ['exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Claude" C', 'mode main']
@@ -195,12 +191,7 @@ run = 'layout floating'
 
 [[on-window-detected]]
 if.app-id = 'com.mitchellh.ghostty'
-if.window-title-regex-substring = '[yY]azi|[pP]eek'
-run = 'layout floating'
-
-[[on-window-detected]]
-if.app-id = 'com.mitchellh.ghostty'
-if.window-title-regex-substring = '^(?!(quick-terminal|[yY]azi|[pP]eek)).*$'
+if.window-title-regex-substring = '^(?!quick-terminal).*$'
 run = 'move-node-to-workspace T'
 
 [[on-window-detected]]
@@ -217,10 +208,6 @@ run = 'move-node-to-workspace S'
 [[on-window-detected]]
 if.app-id = 'app.zen-browser.zen'
 run = 'move-node-to-workspace B'
-
-[[on-window-detected]]
-if.app-id = 'com.figma.Desktop'
-run = 'move-node-to-workspace F'
 
 [[on-window-detected]]
 if.app-id = 'com.apple.Music'

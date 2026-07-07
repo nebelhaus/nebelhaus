@@ -141,7 +141,7 @@ sketchybar --add item apple.reload popup.apple.logo \
 
 # Spaces - All AeroSpace workspaces
 sketchybar --add event aerospace_workspace_change
-WORKSPACES=("1" "2" "3" "4" "T" "N" "R" "S" "B" "F" "M" "H" "C" "D")
+WORKSPACES=("1" "2" "3" "4" "T" "N" "R" "S" "B" "M" "H" "C" "D")
 
 # App-workspaces show the app's logo (sketchybar-app-font ligature tokens);
 # numbered workspaces keep their digit in the bar's Nerd Font. N is a shared
@@ -156,7 +156,6 @@ do
         R) ICON=":things:"      ; IFONT="sketchybar-app-font:Regular:16.0" ;;
         S) ICON=":slack:"       ; IFONT="sketchybar-app-font:Regular:16.0" ;;
         B) ICON=":zen_browser:" ; IFONT="sketchybar-app-font:Regular:16.0" ;;
-        F) ICON=":figma:"       ; IFONT="sketchybar-app-font:Regular:16.0" ;;
         M) ICON=":music:"       ; IFONT="sketchybar-app-font:Regular:16.0" ;;
         # Swather has no app-font glyph — use the Nerd Font hourglass (its icon).
         # fa-hourglass U+F254 as raw UTF-8 bytes (bash 3.2 printf has no \u).

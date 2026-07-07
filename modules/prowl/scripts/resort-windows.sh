@@ -34,7 +34,6 @@ while IFS='|' read -r id bundle title; do
         com.linear) target="L" ;;
         com.tinyspeck.slackmacgap) target="S" ;;
         app.zen-browser.zen) target="B" ;;
-        com.figma.Desktop) target="F" ;;
         com.apple.Music) target="M" ;;
         com.swather.app) target="H" ;;
         *) continue ;;

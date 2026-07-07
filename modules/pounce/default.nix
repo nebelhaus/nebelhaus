@@ -123,7 +123,6 @@ in
           { key = "t"; action = "Ghostty (Terminal)"; }
           { key = "s"; action = "Slack"; }
           { key = "b"; action = "Zen (Browser)"; }
-          { key = "f"; action = "Figma"; }
           { key = "m"; action = "Music"; }
           { key = "h"; action = "Swather"; }
           { key = "c"; action = "Claude"; }
