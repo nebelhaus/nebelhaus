@@ -131,22 +131,23 @@ in
           { key = "n"; action = "Obsidian"; }
           { key = "r"; action = "Things3"; }
           { key = "p"; action = "Passwords"; }
-          { key = "- / ="; action = "Resize active tile"; }
+          { key = "- / ="; action = "Resize active tile (repeats)"; }
           { key = "v / e"; action = "Clipboard / Emoji"; }
+          { key = "/"; action = "This cheatsheet"; }
+          { key = "⎋"; action = "Exit launch mode"; }
         ];
       }
       {
         title = "Window Management";
         items = [
           { key = "⌥ hjkl"; action = "Focus direction"; }
-          { key = "⌥ ⇧ hjkl"; action = "Move window"; }
-          { key = "⌥ ⌘ ⌃ ⇧ hjkl"; action = "Move window (arrows)"; }
+          { key = "⌥ ⌘ ⌃ ⇧ ←↓↑→"; action = "Move window"; }
           { key = "⌥ ⌘ ⌃ ⇧ -/="; action = "Resize window"; }
           { key = "⌥ /"; action = "Tiles layout"; }
           { key = "⌥ ,"; action = "Accordion layout"; }
           { key = "⌥ f"; action = "Fullscreen toggle"; }
           { key = "⌥ ⇥"; action = "Back and forth"; }
-          { key = "⌥ ⇧ ⇥"; action = "Move to next monitor"; }
+          { key = "⌥ ⇧ ⇥"; action = "Move workspace to next monitor"; }
         ];
       }
       {
@@ -164,6 +165,9 @@ in
           { key = "f"; action = "Toggle floating"; }
           { key = "⌫"; action = "Close others"; }
           { key = "⌥ ⇧ hjkl"; action = "Join with"; }
+          { key = "↑ / ↓"; action = "Volume up / down"; }
+          { key = "⇧ ↓"; action = "Mute volume"; }
+          { key = "⎋"; action = "Reload config + exit"; }
         ];
       }
       {
@@ -171,8 +175,6 @@ in
         items = [
           { key = "⌘ Space"; action = "Command Palette"; }
           { key = "⌥ ⇧ r"; action = "Resort windows"; }
-          { key = "↑ / ↓"; action = "Volume up / down"; }
-          { key = "⇧ ↓"; action = "Mute volume"; }
         ];
       }
     ];
