@@ -295,6 +295,10 @@ in
           4
           4
         ];
+        # Default preview caps (600×900 px) leave kitty-protocol previews soft
+        # on a retina display; size them for the near-fullscreen peek window.
+        settings.preview.max_width = 2400;
+        settings.preview.max_height = 1800;
         plugins = {
           # Vendored: nixpkgs' glow plugin still uses the pre-26 Lua API and
           # crashes on yazi 26.x. This copy ports it to the current API, and
