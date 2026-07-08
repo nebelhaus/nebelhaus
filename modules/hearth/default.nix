@@ -125,6 +125,15 @@ in
         autosuggestion.enable = true;
         syntaxHighlighting.enable = true;
 
+        # ~/.zshenv — sourced by EVERY zsh (interactive or not, login or not),
+        # before zshrc and before home-manager's zoxide init. Keeping _ZO_DOCTOR
+        # here rather than in initContent means non-interactive shells (Claude
+        # agents, anything that shells out) also silence zoxide's false-positive
+        # doctor warning — zshrc is interactive-only, so it never reached them.
+        envExtra = ''
+          export _ZO_DOCTOR=0
+        '';
+
         shellAliases = {
           cat = "bat --style=header,grid --tabs=2";
           ls = "lsd";
@@ -162,13 +171,13 @@ in
           (lib.mkBefore ''
             export GPG_TTY=$(tty)
 
-            # zoxide's self-check wants its init to be the LAST thing in the
-            # zshrc, but home-manager injects `zoxide init` early — and we
-            # deliberately add chpwd hooks after it (fnm --use-on-cd, the zellij
-            # tab-namer). Those coexist fine with zoxide's `cd` override (see
-            # programs.zoxide below), so the doctor is a false positive here;
-            # silence it as the warning itself suggests.
-            export _ZO_DOCTOR=0
+            # zoxide's doctor wants its init to be the LAST thing in the zshrc,
+            # but home-manager injects `zoxide init` early — and we deliberately
+            # add chpwd hooks after it (fnm --use-on-cd, the zellij tab-namer).
+            # Those coexist fine with zoxide's `cd` override (see programs.zoxide
+            # below), so the doctor is a false positive; it's silenced via
+            # _ZO_DOCTOR=0 in the envExtra above (~/.zshenv) so agent shells —
+            # which never source the interactive-only zshrc — get it too.
 
             # Homebrew (Apple Silicon)
             eval "$(/opt/homebrew/bin/brew shellenv)"

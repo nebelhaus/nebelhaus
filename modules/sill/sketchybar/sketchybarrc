@@ -65,7 +65,8 @@ sketchybar --add item apple.logo left \
         background.padding_right=4 \
         background.color=$SURFACE0 \
         background.image="$HOME/.config/sketchybar/nebelhaus-ears.png" \
-        background.image.scale=0.072 \
+        background.image.scale=0.060 \
+        background.image.y_offset=-2 \
         background.image.drawing=on \
         popup.background.border_width=2 \
         popup.background.corner_radius=10 \
