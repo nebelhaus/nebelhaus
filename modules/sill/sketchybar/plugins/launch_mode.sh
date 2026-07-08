@@ -82,8 +82,10 @@ do_arm() {
     eval "sketchybar $hide $colors"
 
     # Lead glyph (separate call: the byte-glyph + spaced font name need quoting).
+    # Hide the ears image so the arrow glyph shows alone (the image otherwise
+    # draws on top of it); do_disarm turns it back on from the snapshot.
     sketchybar --set apple.logo icon="$ARROW" icon.font="Hack Nerd Font:Bold:17.0" \
-               icon.color=$BASE background.color=$MAUVE
+               icon.color=$BASE background.color=$MAUVE background.image.drawing=off
 
     # Move open/active hints to the left, original relative order preserved.
     sketchybar --reorder $active $closed
@@ -118,7 +120,7 @@ do_disarm() {
     local ai af ac ab
     ai=$(jq -r '.icon'  "$SNAP"); af=$(jq -r '.font'  "$SNAP")
     ac=$(jq -r '.color' "$SNAP"); ab=$(jq -r '.bg'    "$SNAP")
-    a+=" --set apple.logo icon=$ai icon.font='$af' icon.color=$ac background.color=$ab"
+    a+=" --set apple.logo icon=$ai icon.font='$af' icon.color=$ac background.color=$ab background.image.drawing=on"
 
     eval "sketchybar $a"
     rm -f "$SNAP"

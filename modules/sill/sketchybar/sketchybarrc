@@ -48,18 +48,25 @@ sketchybar --default \
 
 ##### LEFT SIDE #####
 
-# Apple logo
+# Nebelhaus logo — the org's cat-ears mark on a SURFACE0 pill (matches the other
+# left-side pills), replacing the old blue-on-MANTLE Apple glyph. It's drawn as a
+# background.image (sketchybar can't render an SVG/PNG as an icon glyph, and no
+# Nerd Font carries the ears): a tinted PNG deployed by modules/sill/default.nix.
+# The item id stays `apple.logo` so the popup menu + launch_mode.sh keep working.
+# NB: launch_mode.sh toggles background.image.drawing off while it overlays the
+# leader-mode → arrow glyph, else the ears would draw on top of it.
 sketchybar --add item apple.logo left \
     --set apple.logo \
-        icon= \
-        icon.font="SF Pro:Black:16.0" \
-        icon.color=$BLUE \
-        icon.padding_left=6 \
-        icon.padding_right=6 \
+        icon="" \
         label.drawing=off \
+        icon.padding_left=14 \
+        icon.padding_right=14 \
         background.padding_left=4 \
         background.padding_right=4 \
-        background.color=$MANTLE \
+        background.color=$SURFACE0 \
+        background.image="$HOME/.config/sketchybar/nebelhaus-ears.png" \
+        background.image.scale=0.072 \
+        background.image.drawing=on \
         popup.background.border_width=2 \
         popup.background.corner_radius=10 \
         popup.background.border_color=$SURFACE0 \

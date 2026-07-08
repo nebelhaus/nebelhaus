@@ -181,6 +181,10 @@ lib.mkIf config.nebelhaus.sill.enable {
         ".config/sketchybar/workspaces.sh".text = workspacesSh;
         ".config/sketchybar/optional_items.sh".text = optionalItemsSh;
         ".config/sketchybar/sketchybarrc".source = ./sketchybar/sketchybarrc;
+        # The far-left logo pill's image: the nebelhaus ears (the two cat-ear
+        # shapes of the org mark, extracted from web/logos/nebelhaus-mark and
+        # tinted PINK). Drawn as apple.logo's background.image in sketchybarrc.
+        ".config/sketchybar/nebelhaus-ears.png".source = ./sketchybar/nebelhaus-ears.png;
         ".config/sketchybar/aerospace-notify.sh".source = ./sketchybar/aerospace-notify.sh;
         ".config/sketchybar/plugins".source = sketchybarPlugins;
       };
