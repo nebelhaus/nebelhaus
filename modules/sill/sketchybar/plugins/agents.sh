@@ -41,14 +41,16 @@ fi
 # untouched for >12h. Live agents re-stamp their epoch on every hook.
 [ -d "$DIR" ] && find "$DIR" -name '*.state' -mmin +720 -delete 2>/dev/null
 
-shopt -s nullglob
-files=("$DIR"/*.state)
+# Iterate the glob with a -e guard rather than an array: macOS bash 3.2 under
+# `set -u` throws on "${arr[@]}" when the array is empty, and "no agents" is the
+# common case. The literal-pattern-when-no-match is caught by [ -e ].
 
 # ── click: rebuild the popup as one row per agent, then toggle it ─────────────
 if [ "${SENDER:-}" = "mouse.clicked" ]; then
   sketchybar --remove '/agents.popup\..*/' 2>/dev/null
   i=0
-  for f in "${files[@]}"; do
+  for f in "$DIR"/*.state; do
+    [ -e "$f" ] || continue
     IFS=$'\t' read -r st sess pane label epoch < "$f"
     state_style "$st"
     sketchybar --add item "agents.popup.$i" popup.agents 2>/dev/null \
@@ -70,7 +72,8 @@ fi
 
 # ── update: count states, paint the pill by the most-urgent one present ───────
 working=0 waiting=0 idle=0
-for f in "${files[@]}"; do
+for f in "$DIR"/*.state; do
+  [ -e "$f" ] || continue
   IFS=$'\t' read -r st _ < "$f"
   case "$st" in
     working) working=$((working + 1)) ;;

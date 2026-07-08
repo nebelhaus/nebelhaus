@@ -67,6 +67,7 @@ let
     # reap stale files. Starts hidden (drawing=off) — agents.sh flips it on only
     # when a pane is live. Popup styling mirrors the apple-logo menu.
     agents = ''
+      sketchybar --add event agent_update
       sketchybar --add item agents right \
           --set agents \
               update_freq=20 \
