@@ -39,7 +39,9 @@ state_style() {
 # ── popup-row click: go to the agent (left) or peek it (⌥/right) ──────────────
 if [ "${1:-}" = "row" ]; then
   sess="$2"; pane="$3"
-  if [ "${BUTTON:-left}" = "right" ] || [ -n "${MODIFIER:-}" ]; then
+  # A plain click sends MODIFIER=none (not empty), so test against "none" — any
+  # real modifier (alt/cmd/shift/ctrl) or a right-click means "peek instead".
+  if [ "${BUTTON:-left}" = "right" ] || [ "${MODIFIER:-none}" != "none" ]; then
     # peek: live-tail the pane in a throwaway Ghostty, without stealing focus
     open -na Ghostty.app --args --title="peek" \
       --command="/bin/bash $PLUGINS/agents-peek.sh $sess $pane"
