@@ -4,6 +4,7 @@
   imports = [
     ./options.nix
     ./den
+    ./theme
     ./hearth
     ./prowl
     ./sill
