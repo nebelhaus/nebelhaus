@@ -55,6 +55,10 @@ sketchybar --default \
 # The item id stays `apple.logo` so the popup menu + launch_mode.sh keep working.
 # NB: launch_mode.sh toggles background.image.drawing off while it overlays the
 # leader-mode → arrow glyph, else the ears would draw on top of it.
+# The PNG carries a symmetric transparent border on purpose: sketchybar draws
+# background.image LEFT-anchored and has no image x_offset, so any pill-vs-image
+# slack piles up on one side — baking even padding into the asset self-centers
+# it (both axes) as long as icon.padding keeps the pill ~= the image width.
 sketchybar --add item apple.logo left \
     --set apple.logo \
         icon="" \
@@ -66,7 +70,6 @@ sketchybar --add item apple.logo left \
         background.color=$SURFACE0 \
         background.image="$HOME/.config/sketchybar/nebelhaus-ears.png" \
         background.image.scale=0.060 \
-        background.image.y_offset=-2 \
         background.image.drawing=on \
         popup.background.border_width=2 \
         popup.background.corner_radius=10 \
