@@ -55,6 +55,10 @@ let
     }) config.nebelhaus.prowl.apps)
     ++ [
       {
+        key = "1-4";
+        action = "Focus workspace 1-4";
+      }
+      {
         key = "- / =";
         action = "Resize active tile (repeats)";
       }

@@ -84,16 +84,11 @@
   {
     title = "Workspaces";
     items = [
-      {
-        keys = "⌥ 1-4";
-        action = "Focus workspace 1-4";
-        binds = {
-          alt-1 = "workspace 1";
-          alt-2 = "workspace 2";
-          alt-3 = "workspace 3";
-          alt-4 = "workspace 4";
-        };
-      }
+      # Focusing workspaces 1-4 is a caps-leader action now (tap caps, then a
+      # digit — same as tapping caps then a letter for an app). That binding
+      # lives in [mode.launch.binding] in aerospace.toml and on the Launch Mode
+      # cheatsheet page, so there's no main-mode focus chord here. Moving a
+      # window to one stays ⌥⇧1-4 below, mirroring the app-workspace throws.
       {
         keys = "⌥ ⇧ 1-4";
         action = "Move to workspace 1-4";

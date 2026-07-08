@@ -46,7 +46,9 @@ let
     #!/bin/bash
     # GENERATED from nebelhaus.prowl.apps by modules/sill/default.nix — do not edit.
     WORKSPACES=(${bashArray ([ "1" "2" "3" "4" ] ++ appWorkspaces)})
-    LAUNCHER_KEYS=(${bashArray (map (a: a.key) apps)})
+    # Leader picker bubbles: the digits 1-4 (focus a numbered workspace) plus one
+    # per app key (jump to its workspace) — mirrors [mode.launch.binding].
+    LAUNCHER_KEYS=(${bashArray ([ "1" "2" "3" "4" ] ++ map (a: a.key) apps)})
 
     # ws_icon <workspace>: sets ICON + IFONT. Default is the workspace's own
     # letter in the bar's Nerd Font; app-workspaces override to their logo glyph.
