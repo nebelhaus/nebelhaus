@@ -445,6 +445,10 @@ in
       programs.zoxide = {
         enable = true;
         enableZshIntegration = true;
+        # Let zoxide take over `cd`: `cd proj` jumps by frecency, `cdi` opens
+        # the interactive fzf picker. The chpwd hooks below (zellij tab-naming)
+        # still fire — zoxide's cd triggers the same chpwd event as builtin cd.
+        options = [ "--cmd cd" ];
       };
 
       # Nebelung colours injected from nebelung.palette (matches catppuccin/fzf's
