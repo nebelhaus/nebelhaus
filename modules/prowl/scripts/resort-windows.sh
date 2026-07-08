@@ -22,20 +22,15 @@ while IFS='|' read -r id bundle title; do
 
     target=""
     case "$bundle" in
-        com.todesktop.230313mzl4w4u92) target="C" ;;
-        com.google.Chrome.app.caidcmannjgahlnbpmidmiecjcoiiigg) target="G" ;;
         com.mitchellh.ghostty)
             case "$title" in
                 quick-terminal*) continue ;;
                 *) target="T" ;;
             esac
             ;;
-        com.apple.Notes|com.culturedcode.ThingsMac|md.obsidian) target="N" ;;
-        com.linear) target="L" ;;
-        com.tinyspeck.slackmacgap) target="S" ;;
-        app.zen-browser.zen) target="B" ;;
-        com.apple.Music) target="M" ;;
-        com.swather.app) target="H" ;;
+        # Generated from nebelhaus.prowl.apps (appId -> workspace) so this stays
+        # in lockstep with aerospace.toml's on-window-detected rules.
+@RESORT_CASES@
         *) continue ;;
     esac
 

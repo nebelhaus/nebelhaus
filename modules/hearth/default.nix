@@ -51,7 +51,7 @@ in
       # zellij theme files, so the bar colours ride in here — like lazygit's
       # do). Shared by custom.kdl and its $HOME-pinned home.kdl variant below.
       zellijLayout =
-        builtins.replaceStrings [ "@mantle@" "@text@" "@green@" "@overlay0@" "@peach@" "@username@" ]
+        builtins.replaceStrings [ "@mantle@" "@text@" "@green@" "@overlay0@" "@peach@" "@username@" "@HOME@" ]
           (
             (with nebelung.palette; [
               mantle
@@ -60,7 +60,10 @@ in
               overlay0
               peach
             ])
-            ++ [ (builtins.substring 0 6 username) ]
+            ++ [
+              (builtins.substring 0 6 username)
+              config.home.homeDirectory
+            ]
           )
           (builtins.readFile ./zellij/custom.kdl);
 
@@ -642,7 +645,12 @@ in
         '';
 
         # ghostty (config lives in Application Support; theme lookup is XDG)
-        "Library/Application Support/com.mitchellh.ghostty/config".source = ./ghostty/config;
+        # ghostty's `command` runs the zellij launcher by absolute path; render
+        # @HOME@ → the user's home so it isn't pinned to one account.
+        "Library/Application Support/com.mitchellh.ghostty/config".text =
+          builtins.replaceStrings [ "@HOME@" ] [ config.home.homeDirectory ] (
+            builtins.readFile ./ghostty/config
+          );
         ".config/ghostty/themes/nebelung".source =
           "${nebelung.themes}/ghostty/themes/catppuccin-mocha.conf";
 
@@ -659,7 +667,11 @@ in
           "${nebelung.themes}/bat/themes/Catppuccin Mocha.tmTheme";
 
         # zellij
-        ".config/zellij/config.kdl".source = ./zellij/config.kdl;
+        # config.kdl bakes absolute script paths (zellij doesn't expand $HOME in
+        # copy_command / Run / layout), so render @HOME@ → the user's home.
+        ".config/zellij/config.kdl".text = builtins.replaceStrings [ "@HOME@" ] [
+          config.home.homeDirectory
+        ] (builtins.readFile ./zellij/config.kdl);
         ".config/zellij/themes/nebelung.kdl".source = "${nebelung.themes}/zellij/themes/nebelung.kdl";
         # Custom layout, rendered from the in-repo template (see zellijLayout
         # in the let above).

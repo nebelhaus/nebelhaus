@@ -1,7 +1,14 @@
 # Prowl — stake out your screen. AeroSpace tiling, launched via nix-darwin
 # (not Login Items) so it survives cold boot, plus the Caps→F18 leader remap and
 # a wake-time window re-sort.
+#
+# The launcher (which app lives on which workspace, its leader key + window
+# rules) is data-driven: nebelhaus.prowl.apps is the single source of truth, and
+# this module renders it into aerospace.toml (+ the wake-time resort script).
+# SketchyBar and the pounce cheatsheet read the same option so nothing drifts.
 {
+  config,
+  lib,
   pkgs,
   username,
   ...
@@ -10,11 +17,64 @@
 let
   withGUIWait = import ../lib/gui-wait.nix;
   userPath = "/run/current-system/sw/bin:/etc/profiles/per-user/${username}/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin:/usr/sbin:/sbin";
+
+  # Absolute paths baked into the generated configs. AeroSpace's exec-and-forget
+  # doesn't shell-expand $HOME, so the home path must be a literal — hence the
+  # generation (a plain source file couldn't be user-agnostic).
+  homeDir = "/Users/${username}";
+  binDir = "/etc/profiles/per-user/${username}/bin";
+  launchSh = "${homeDir}/.config/aerospace/launch.sh";
+
+  apps = config.nebelhaus.prowl.apps;
+
+  # ⌥⇧<key> throws a window to an app's workspace. Skip keys already bound in
+  # main mode by a non-app action (r = resort-windows).
+  reservedMoveKeys = [ "r" ];
+  isRealAssign = a: a.appId != null && a.workspace != null && a.appId != "com.mitchellh.ghostty";
+  launchInvocation = a: ''${launchSh} "${a.name}"'' + lib.optionalString (a.workspace != null) " ${a.workspace}";
+
+  mainMoves = lib.concatMapStrings (
+    a:
+    lib.optionalString (a.workspace != null && !(lib.elem a.key reservedMoveKeys))
+      "alt-shift-${a.key} = 'move-node-to-workspace ${a.workspace}'\n"
+  ) apps;
+
+  hyperChords = lib.concatMapStrings (
+    a: "cmd-alt-ctrl-shift-${a.key} = 'exec-and-forget ${launchInvocation a}'\n"
+  ) apps;
+
+  launchLetters = lib.concatMapStrings (
+    a: "${a.key} = ['exec-and-forget ${launchInvocation a}', 'mode main']\n"
+  ) apps;
+
+  windowRules = lib.concatMapStrings (
+    a:
+    lib.optionalString (isRealAssign a)
+      "[[on-window-detected]]\nif.app-id = '${a.appId}'\nrun = 'move-node-to-workspace ${a.workspace}'\n\n"
+  ) apps;
+
+  resortCases = lib.concatMapStrings (
+    a: lib.optionalString (isRealAssign a) ''        ${a.appId}) target="${a.workspace}" ;;''
+    + lib.optionalString (isRealAssign a) "\n"
+  ) apps;
+
+  aerospaceToml = builtins.replaceStrings
+    [ "@HOME@" "@BIN@" "@MAIN_MOVES@" "@HYPER_CHORDS@" "@LAUNCH_LETTERS@" "@WINDOW_RULES@" ]
+    [ homeDir binDir mainMoves hyperChords launchLetters windowRules ]
+    (builtins.readFile ./aerospace.toml);
+
+  resortScript = builtins.replaceStrings [ "@RESORT_CASES@" ] [ resortCases ] (
+    builtins.readFile ./scripts/resort-windows.sh
+  );
+
+  # Any roster app with a cask installs itself — declaring the app also brings it.
+  rosterCasks = lib.filter (c: c != null) (map (a: a.cask) apps);
 in
 {
-  # AeroSpace itself (cask) + its tap. Merged into den's homebrew config.
+  # AeroSpace itself (cask) + its tap. Roster apps that name a cask ride along.
+  # Merged into den's homebrew config.
   homebrew.taps = [ "nikitabobko/tap" ];
-  homebrew.casks = [ "aerospace" ];
+  homebrew.casks = [ "aerospace" ] ++ rosterCasks;
 
   # Caps Lock → F18, feeding AeroSpace's `launch` leader mode. Decimal values are
   # the hidutil HID usage codes (caps lock → F18).
@@ -59,9 +119,9 @@ in
   };
 
   home-manager.users.${username}.home.file = {
-    ".config/aerospace/aerospace.toml".source = ./aerospace.toml;
+    ".config/aerospace/aerospace.toml".text = aerospaceToml;
     ".config/aerospace/resort-windows.sh" = {
-      source = ./scripts/resort-windows.sh;
+      text = resortScript;
       executable = true;
     };
     ".config/aerospace/on-wake.sh" = {

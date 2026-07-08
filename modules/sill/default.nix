@@ -1,7 +1,14 @@
 # Sill — a windowsill for your menu bar. SketchyBar, launched via nix-darwin,
 # with the stray-agent eviction that keeps a rogue `brew services` instance from
 # stealing the lock file.
+#
+# The workspace pills are data-driven: WORKSPACES / LAUNCHER_KEYS / ws_icon are
+# generated from nebelhaus.prowl.apps (the shared app roster) so the bar can't
+# drift from AeroSpace's launcher. Two personal items (elgato, harvest) are
+# gated behind nebelhaus.sill.plugins and off by default.
 {
+  config,
+  lib,
   pkgs,
   username,
   ...
@@ -10,6 +17,66 @@
 let
   withGUIWait = import ../lib/gui-wait.nix;
   userPath = "/run/current-system/sw/bin:/etc/profiles/per-user/${username}/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin:/usr/sbin:/sbin";
+
+  apps = config.nebelhaus.prowl.apps;
+  bashArray = xs: lib.concatMapStringsSep " " (x: ''"${x}"'') xs;
+  appWorkspaces = lib.filter (w: w != null) (map (a: a.workspace) apps);
+  iconFont =
+    icon: if lib.hasPrefix ":" icon then "sketchybar-app-font:Regular:16.0" else "Hack Nerd Font:Bold:17.0";
+  wsIconCases = lib.concatMapStrings (
+    a:
+    lib.optionalString (
+      a.workspace != null && a.barIcon != null
+    ) "    ${a.workspace}) ICON=${lib.escapeShellArg a.barIcon} ; IFONT=${lib.escapeShellArg (iconFont a.barIcon)} ;;\n"
+  ) apps;
+
+  # Sourced by sketchybarrc: the workspace roster + a per-workspace icon lookup.
+  # bash 3.2 (macOS /bin/bash) has no associative arrays, hence the case in a fn.
+  workspacesSh = ''
+    #!/bin/bash
+    # GENERATED from nebelhaus.prowl.apps by modules/sill/default.nix — do not edit.
+    WORKSPACES=(${bashArray ([ "1" "2" "3" "4" ] ++ appWorkspaces)})
+    LAUNCHER_KEYS=(${bashArray (map (a: a.key) apps)})
+
+    # ws_icon <workspace>: sets ICON + IFONT. Default is the workspace's own
+    # letter in the bar's Nerd Font; app-workspaces override to their logo glyph.
+    ws_icon() {
+      ICON="$1"
+      IFONT="Hack Nerd Font:Bold:17.0"
+      case "$1" in
+    ${wsIconCases}  esac
+    }
+  '';
+
+  # The two gated personal items, emitted only when nebelhaus.sill.plugins lists
+  # them. They reference $SURFACE0 (from colors.sh) and $HOME, both live when
+  # sketchybarrc sources this file.
+  optionalPluginBlocks = {
+    elgato = ''
+      sketchybar --add item elgato right \
+          --set elgato \
+              update_freq=5 \
+              script="$HOME/.config/sketchybar/plugins/elgato.sh" \
+              background.color=$SURFACE0 \
+              icon.padding_left=10 \
+              icon.padding_right=10 \
+              click_script="$HOME/.config/sketchybar/plugins/elgato.sh" \
+          --subscribe elgato mouse.clicked
+    '';
+    harvest = ''
+      sketchybar --add item harvest right \
+          --set harvest \
+              update_freq=3 \
+              script="$HOME/.config/sketchybar/plugins/harvest.sh" \
+          --subscribe harvest mouse.clicked harvest_update system_woke
+    '';
+  };
+  optionalItemsSh =
+    ''
+      #!/bin/bash
+      # GENERATED from nebelhaus.sill.plugins by modules/sill/default.nix — do not edit.
+    ''
+    + lib.concatMapStrings (name: optionalPluginBlocks.${name}) config.nebelhaus.sill.plugins;
 in
 {
   # SketchyBar (brew) + its tap. sketchybar-app-font renders the workspace pill
@@ -74,6 +141,8 @@ in
     {
       home.file = {
         ".config/sketchybar/colors.sh".text = colorsSh;
+        ".config/sketchybar/workspaces.sh".text = workspacesSh;
+        ".config/sketchybar/optional_items.sh".text = optionalItemsSh;
         ".config/sketchybar/sketchybarrc".source = ./sketchybar/sketchybarrc;
         ".config/sketchybar/aerospace-notify.sh".source = ./sketchybar/aerospace-notify.sh;
         ".config/sketchybar/plugins" = {

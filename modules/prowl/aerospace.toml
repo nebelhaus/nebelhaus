@@ -1,9 +1,13 @@
+# GENERATED WRAPPER — templated by modules/prowl/default.nix. The @TOKENS@
+# below are filled from nebelhaus.prowl.apps (the app roster) and the resolved
+# home path at build time; don't deploy this file directly. Everything OUTSIDE
+# the tokens is the static, hand-tuned AeroSpace config.
 after-login-command = []
 
 after-startup-command = []
 
 exec-on-workspace-change = [
-    '/Users/julienmartel/.config/sketchybar/aerospace-notify.sh',
+    '@HOME@/.config/sketchybar/aerospace-notify.sh',
 ]
 
 start-at-login = false
@@ -74,62 +78,30 @@ alt-shift-3 = 'move-node-to-workspace 3'
 # 4
 alt-4 = 'workspace 4'
 alt-shift-4 = 'move-node-to-workspace 4'
-# Terminal
-alt-shift-t = 'move-node-to-workspace T'
-# Notes
-alt-shift-n = 'move-node-to-workspace N'
-# Slack
-alt-shift-s = 'move-node-to-workspace S'
-# Browser
-alt-shift-b = 'move-node-to-workspace B'
-# Music
-alt-shift-m = 'move-node-to-workspace M'
-# AI
-alt-shift-a = 'move-node-to-workspace AI'
-# Swather
-alt-shift-h = 'move-node-to-workspace H'
-# Claude
-alt-shift-c = 'move-node-to-workspace C'
-# Notion Calendar
-alt-shift-d = 'move-node-to-workspace D'
 
-# App launchers — hyper (caps lock, = cmd-alt-ctrl-shift) + letter.
-# launch.sh switches to the assigned workspace first, then opens/focuses the
-# app (no workspace arg = open/focus in the current workspace). These physical
-# cmd-alt-ctrl-shift chords are a fallback for when useNativeHyper is off; the
-# caps-tap leader below is the usual path.
-cmd-alt-ctrl-shift-t = 'exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Ghostty" T'
-cmd-alt-ctrl-shift-s = 'exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Slack" S'
-cmd-alt-ctrl-shift-b = 'exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Zen" B'
-cmd-alt-ctrl-shift-m = 'exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Music" M'
-cmd-alt-ctrl-shift-h = 'exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Swather" H'
-cmd-alt-ctrl-shift-c = 'exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Claude" C'
-cmd-alt-ctrl-shift-d = 'exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Notion Calendar" D'
-cmd-alt-ctrl-shift-n = 'exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Obsidian" N'
-cmd-alt-ctrl-shift-r = 'exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Things3" R'
-# Unassigned — opens/focuses in the current workspace (no workspace switch).
-cmd-alt-ctrl-shift-p = 'exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Passwords"'
-
+# App-workspace throws (⌥⇧<key>) — generated from nebelhaus.prowl.apps.
+@MAIN_MOVES@
+# App launchers — hyper (caps lock, = cmd-alt-ctrl-shift) + letter. Generated
+# from nebelhaus.prowl.apps. launch.sh switches to the assigned workspace first,
+# then opens/focuses the app (no workspace arg = open/focus in place). These
+# physical cmd-alt-ctrl-shift chords are a fallback for when useNativeHyper is
+# off; the caps-tap leader below is the usual path.
+@HYPER_CHORDS@
 # Leader: Caps Lock is remapped to F18 (see configuration.nix useNativeHyper).
 # Tap caps -> enter `launch` mode -> letter -> open app. The hyper chords above
 # stay as a fallback for when useNativeHyper is flipped off.
-f18 = ['mode launch', 'exec-and-forget /Users/julienmartel/.config/sketchybar/plugins/launch_mode.sh on']
+f18 = ['mode launch', 'exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh on']
 
-# cmd+space opens the command palette. The pounce DAEMON now registers ⌘Space
-# itself, in-process (Carbon RegisterEventHotKey via config.json `hotkey`), so the
-# palette opens with no shell/client spawn — the low-latency path. AeroSpace must
-# NOT also bind it: two Carbon registrations for the same combo race, and an
-# exec-and-forget on top would double-fire. (Spotlight's ⌘Space stays disabled in
-# Keyboard settings — see modules/pounce.) The caps→letter leader below is
-# unaffected. To hand ⌘Space back to AeroSpace, set `hotkey.enabled = false` in
-# modules/pounce config.json and restore the exec-and-forget here.
+# cmd+space opens the command palette directly (macOS Spotlight's cmd+space is
+# disabled in Keyboard settings). A direct alternative to the caps -> space leader.
+cmd-space = 'exec-and-forget @BIN@/pounce-palette'
 
 alt-f = 'fullscreen'
 
 # Re-apply on-window-detected workspace assignments (manual recovery from
 # macOS wake-up window pile-up). Also runs automatically on wake via
 # sleepwatcher.
-alt-shift-r = 'exec-and-forget /Users/julienmartel/.config/aerospace/resort-windows.sh'
+alt-shift-r = 'exec-and-forget @HOME@/.config/aerospace/resort-windows.sh'
 
 alt-tab = 'workspace-back-and-forth'
 alt-shift-tab = 'move-workspace-to-monitor --wrap-around next'
@@ -154,34 +126,25 @@ shift-down = ['volume set 0', 'mode main']
 # hyper chords above, then drops back to main. esc / any unbound key + esc to
 # bail out without launching anything.
 [mode.launch.binding]
-esc = ['exec-and-forget /Users/julienmartel/.config/sketchybar/plugins/launch_mode.sh off', 'mode main']
-slash = ['exec-and-forget /Users/julienmartel/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget /etc/profiles/per-user/julienmartel/bin/pounce --cheatsheet ~/.config/pounce/cheatsheet.json', 'mode main']
+esc = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'mode main']
+slash = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget @BIN@/pounce --cheatsheet ~/.config/pounce/cheatsheet.json', 'mode main']
 # Non-launch leader actions. v = clipboard history; e = emoji picker.
 # (palette is on cmd+space now, so the old space->palette leader is gone.)
-v = ['exec-and-forget /Users/julienmartel/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget /etc/profiles/per-user/julienmartel/bin/pounce --clipboard', 'mode main']
-e = ['exec-and-forget /Users/julienmartel/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget /etc/profiles/per-user/julienmartel/bin/pounce --emoji', 'mode main']
+v = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget @BIN@/pounce --clipboard', 'mode main']
+e = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget @BIN@/pounce --emoji', 'mode main']
 # - / = resize the focused tiled window (growing it shrinks its neighbour). The
 # first press also drops into `resize` mode so further -/= repeat without re-tapping caps.
-minus = ['exec-and-forget /Users/julienmartel/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget /Users/julienmartel/.config/sketchybar/plugins/resize_mode.sh on', 'resize smart -50', 'mode resize']
-equal = ['exec-and-forget /Users/julienmartel/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget /Users/julienmartel/.config/sketchybar/plugins/resize_mode.sh on', 'resize smart +50', 'mode resize']
-t = ['exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Ghostty" T', 'mode main']
-s = ['exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Slack" S', 'mode main']
-b = ['exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Zen" B', 'mode main']
-m = ['exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Music" M', 'mode main']
-h = ['exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Swather" H', 'mode main']
-c = ['exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Claude" C', 'mode main']
-d = ['exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Notion Calendar" D', 'mode main']
-n = ['exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Obsidian" N', 'mode main']
-r = ['exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Things3" R', 'mode main']
-p = ['exec-and-forget /Users/julienmartel/.config/aerospace/launch.sh "Passwords"', 'mode main']
-
+minus = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget @HOME@/.config/sketchybar/plugins/resize_mode.sh on', 'resize smart -50', 'mode resize']
+equal = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget @HOME@/.config/sketchybar/plugins/resize_mode.sh on', 'resize smart +50', 'mode resize']
+# App launcher letters — generated from nebelhaus.prowl.apps.
+@LAUNCH_LETTERS@
 # Resize mode (entered via the launch leader's -/=). Repeat -/= to keep
 # growing/shrinking the focused tiled window; esc/enter to return to main.
 [mode.resize.binding]
 minus = 'resize smart -50'
 equal = 'resize smart +50'
-esc = ['exec-and-forget /Users/julienmartel/.config/sketchybar/plugins/resize_mode.sh off', 'mode main']
-enter = ['exec-and-forget /Users/julienmartel/.config/sketchybar/plugins/resize_mode.sh off', 'mode main']
+esc = ['exec-and-forget @HOME@/.config/sketchybar/plugins/resize_mode.sh off', 'mode main']
+enter = ['exec-and-forget @HOME@/.config/sketchybar/plugins/resize_mode.sh off', 'mode main']
 
 # Ghostty routing. Title matching races window detection (the AX title lands
 # after the window is mapped), so popup windows (peek, rebuild) used to get
@@ -190,7 +153,8 @@ enter = ['exec-and-forget /Users/julienmartel/.config/sketchybar/plugins/resize_
 # never reflows the tiles), and regular terminal windows tile themselves onto
 # workspace T from inside zellij/launch.sh, which knows what it is with
 # certainty. At aerospace (re)start, existing windows go straight to T tiled,
-# same as before.
+# same as before. (Ghostty's workspace lives in the roster but its window rules
+# are bespoke, so the generated auto-assign block below skips it.)
 [[on-window-detected]]
 if.app-id = 'com.mitchellh.ghostty'
 if.during-aerospace-startup = true
@@ -200,37 +164,8 @@ run = 'move-node-to-workspace T'
 if.app-id = 'com.mitchellh.ghostty'
 run = 'layout floating'
 
-[[on-window-detected]]
-if.app-id = 'com.culturedcode.ThingsMac'
-run = 'move-node-to-workspace R'
-[[on-window-detected]]
-if.app-id = 'md.obsidian'
-run = 'move-node-to-workspace N'
-
-[[on-window-detected]]
-if.app-id = 'com.tinyspeck.slackmacgap'
-run = 'move-node-to-workspace S'
-
-[[on-window-detected]]
-if.app-id = 'app.zen-browser.zen'
-run = 'move-node-to-workspace B'
-
-[[on-window-detected]]
-if.app-id = 'com.apple.Music'
-run = 'move-node-to-workspace M'
-
-[[on-window-detected]]
-if.app-id = 'com.swather.app'
-run = 'move-node-to-workspace H'
-
-[[on-window-detected]]
-if.app-id = 'com.anthropic.claudefordesktop'
-run = 'move-node-to-workspace C'
-
-[[on-window-detected]]
-if.app-id = 'com.cron.electron'
-run = 'move-node-to-workspace D'
-
+# App window auto-assignment — generated from nebelhaus.prowl.apps.
+@WINDOW_RULES@
 [[on-window-detected]]
 if.app-id = 'com.apple.FaceTime'
 run = 'layout floating'

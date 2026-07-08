@@ -3,4 +3,4 @@
 # rehydrating windows before we re-sort them.
 
 sleep 2
-exec /Users/julienmartel/.config/aerospace/resort-windows.sh
+exec "$HOME/.config/aerospace/resort-windows.sh"

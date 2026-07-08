@@ -1,6 +1,7 @@
 # Den — the foundation the rest of the house rests on. macOS system defaults,
 # the Homebrew framework, core CLI tools, fonts, and periodic GC.
 {
+  config,
   pkgs,
   username,
   ...
@@ -35,9 +36,11 @@
   homebrew = {
     enable = true;
     onActivation = {
-      autoUpdate = true;
-      upgrade = true;
-      cleanup = "zap"; # remove anything not declared across all modules
+      # Policy is host-tunable (see modules/options.nix). Safe defaults: never
+      # auto-update/upgrade (keeps rebuilds reproducible) and never delete
+      # undeclared casks (cleanup = "none") so the rice can't eat an app you
+      # installed yourself. A declarative-minded host can opt into "zap".
+      inherit (config.nebelhaus.homebrew) autoUpdate upgrade cleanup;
     };
 
     # A minimal, opinionated starter set. Edit freely in your host file —

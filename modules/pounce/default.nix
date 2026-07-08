@@ -39,6 +39,33 @@ let
   # so it needs the same values the pounce-palette wrapper bakes in.
   builtinCommandsDir = "${pkgs.pounce-commands}/share/pounce/commands";
 
+  # Launch-mode cheatsheet rows — generated from the app roster so the "Caps
+  # Lock" page always matches AeroSpace's launcher, then the fixed leader
+  # actions (resize / clipboard / emoji / exit) appended.
+  launchModeItems =
+    (map (a: {
+      key = a.key;
+      action = if a.label != null then a.label else a.name;
+    }) config.nebelhaus.prowl.apps)
+    ++ [
+      {
+        key = "- / =";
+        action = "Resize active tile (repeats)";
+      }
+      {
+        key = "v / e";
+        action = "Clipboard / Emoji";
+      }
+      {
+        key = "/";
+        action = "This cheatsheet";
+      }
+      {
+        key = "⎋";
+        action = "Exit launch mode";
+      }
+    ];
+
   # Wait for the GUI session (→ the /nix volume + an unlocked login keychain)
   # before touching the store path or codesign. Exec'ing via /bin/bash (boot
   # volume) also sidesteps the cold-boot exit-78 race for store-path executables.
@@ -139,22 +166,7 @@ in
     home.file.".config/pounce/cheatsheet.json".text = builtins.toJSON [
       {
         title = "Launch Mode [Caps Lock]";
-        items = [
-          { key = "t"; action = "Ghostty (Terminal)"; }
-          { key = "s"; action = "Slack"; }
-          { key = "b"; action = "Zen (Browser)"; }
-          { key = "m"; action = "Music"; }
-          { key = "h"; action = "Swather"; }
-          { key = "c"; action = "Claude"; }
-          { key = "d"; action = "Notion Calendar"; }
-          { key = "n"; action = "Obsidian"; }
-          { key = "r"; action = "Things3"; }
-          { key = "p"; action = "Passwords"; }
-          { key = "- / ="; action = "Resize active tile (repeats)"; }
-          { key = "v / e"; action = "Clipboard / Emoji"; }
-          { key = "/"; action = "This cheatsheet"; }
-          { key = "⎋"; action = "Exit launch mode"; }
-        ];
+        items = launchModeItems;
       }
       {
         title = "Window Management";
