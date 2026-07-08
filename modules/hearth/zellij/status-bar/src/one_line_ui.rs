@@ -574,16 +574,16 @@ fn full_inline_keys_modes_shortcut_list(
 ) -> LinePart {
     let mut full_shortcut_list = LinePart::default();
     for key in keys_without_common_modifiers {
-        let is_selected = key.is_selected();
-        let shortcut = add_shortcut_with_inline_key(
-            help,
-            &key.full_text(),
-            key.key
-                .as_ref()
-                .map(|k| vec![k.clone()])
-                .unwrap_or_else(|| vec![]),
-            is_selected,
-        );
+        let keys = key
+            .key
+            .as_ref()
+            .map(|k| vec![k.clone()])
+            .unwrap_or_else(|| vec![]);
+        let shortcut = if is_selected_lock(key) {
+            add_locked_shortcut_with_inline_key(help, &key.full_text(), keys)
+        } else {
+            add_shortcut_with_inline_key(help, &key.full_text(), keys, key.is_selected())
+        };
         full_shortcut_list.append(&shortcut);
     }
     full_shortcut_list
@@ -595,15 +595,16 @@ fn shortened_inline_keys_modes_shortcut_list(
 ) -> LinePart {
     let mut shortened_shortcut_list = LinePart::default();
     for key in keys_without_common_modifiers {
-        let is_selected = key.is_selected();
-        let shortcut = add_shortcut_with_key_only(
-            help,
-            key.key
-                .as_ref()
-                .map(|k| vec![k.clone()])
-                .unwrap_or_else(|| vec![]),
-            is_selected,
-        );
+        let keys = key
+            .key
+            .as_ref()
+            .map(|k| vec![k.clone()])
+            .unwrap_or_else(|| vec![]);
+        let shortcut = if is_selected_lock(key) {
+            add_locked_shortcut_with_key_only(help, keys)
+        } else {
+            add_shortcut_with_key_only(help, keys, key.is_selected())
+        };
         shortened_shortcut_list.append(&shortcut);
     }
     shortened_shortcut_list
@@ -612,17 +613,24 @@ fn shortened_inline_keys_modes_shortcut_list(
 fn full_modes_shortcut_list(default_keys: &Vec<KeyShortcut>, help: &ModeInfo) -> LinePart {
     let mut full_shortcut_list = LinePart::default();
     for key in default_keys {
-        let is_selected = key.is_selected();
-        full_shortcut_list.append(&add_shortcut(
-            help,
-            &key.full_text(),
-            &key.key
-                .as_ref()
-                .map(|k| vec![k.clone()])
-                .unwrap_or_else(|| vec![]),
-            is_selected,
-            Some(3),
-        ));
+        let keys = key
+            .key
+            .as_ref()
+            .map(|k| vec![k.clone()])
+            .unwrap_or_else(|| vec![]);
+        if is_selected_lock(key) {
+            // key styled separately (as in add_shortcut), then a red label pill
+            full_shortcut_list.append(&style_key_with_modifier(&keys, Some(3)));
+            full_shortcut_list.append(&add_locked_label_ribbon(help, &key.full_text()));
+        } else {
+            full_shortcut_list.append(&add_shortcut(
+                help,
+                &key.full_text(),
+                &keys,
+                key.is_selected(),
+                Some(3),
+            ));
+        }
     }
     full_shortcut_list
 }
@@ -630,17 +638,23 @@ fn full_modes_shortcut_list(default_keys: &Vec<KeyShortcut>, help: &ModeInfo) ->
 fn shortened_modes_shortcut_list(default_keys: &Vec<KeyShortcut>, help: &ModeInfo) -> LinePart {
     let mut shortened_shortcut_list = LinePart::default();
     for key in default_keys {
-        let is_selected = key.is_selected();
-        shortened_shortcut_list.append(&add_shortcut(
-            help,
-            &key.short_text(),
-            &key.key
-                .as_ref()
-                .map(|k| vec![k.clone()])
-                .unwrap_or_else(|| vec![]),
-            is_selected,
-            Some(3),
-        ));
+        let keys = key
+            .key
+            .as_ref()
+            .map(|k| vec![k.clone()])
+            .unwrap_or_else(|| vec![]);
+        if is_selected_lock(key) {
+            shortened_shortcut_list.append(&style_key_with_modifier(&keys, Some(3)));
+            shortened_shortcut_list.append(&add_locked_label_ribbon(help, &key.short_text()));
+        } else {
+            shortened_shortcut_list.append(&add_shortcut(
+                help,
+                &key.short_text(),
+                &keys,
+                key.is_selected(),
+                Some(3),
+            ));
+        }
     }
     shortened_shortcut_list
 }
@@ -1373,6 +1387,143 @@ fn add_shortcut_with_key_only(
         key_string.width() + 2 // 2 => padding
     };
     ret
+}
+
+// Fork: the "locked" mode indicator (`<g> LOCK` / `<g> UNLOCK`) reads as a
+// mellow red instead of the shared green when selected — locking is a distinct,
+// slightly-alarming state, so it gets its own accent while every other selected
+// mode (PANE, TAB, …) keeps the green `ribbon_selected` look. zellij's ribbon
+// DCS escape only ever paints the theme's `ribbon_selected`/`ribbon_unselected`
+// background, so a red pill can't go through `serialize_ribbon` — we hand-roll it
+// with ansi_term (same technique as `add_keygroup_separator`). The red is the
+// nebelung theme's own `exit_code_error.base` (#ed8fa9), with its `emphasis_0`
+// (#f7e2b5, yellow) accenting the key letter — no new palette slots needed.
+fn locked_ribbon_colors(palette: Styling) -> (ansi_term::Color, ansi_term::Color, ansi_term::Color, ansi_term::Color) {
+    let red_bg = palette_match!(palette.exit_code_error.base);
+    let dark_fg = palette_match!(palette.ribbon_selected.base);
+    let key_fg = palette_match!(palette.exit_code_error.emphasis_0);
+    let line_bg = palette_match!(palette.text_unselected.background);
+    (red_bg, dark_fg, key_fg, line_bg)
+}
+
+// Red counterpart of `add_shortcut_with_inline_key` — ` <g> LOCK ` in one pill.
+fn add_locked_shortcut_with_inline_key(
+    help: &ModeInfo,
+    text: &str,
+    key: Vec<KeyWithModifier>,
+) -> LinePart {
+    if key.is_empty() {
+        return add_locked_label_ribbon(help, text);
+    }
+    let (red_bg, dark_fg, key_fg, line_bg) = locked_ribbon_colors(help.style.colors);
+    let supports_arrow_fonts = !help.capabilities.arrow_fonts;
+    let separator = if supports_arrow_fonts {
+        crate::ARROW_SEPARATOR
+    } else {
+        ""
+    };
+    let key_string = key
+        .iter()
+        .map(|k| k.to_string())
+        .collect::<Vec<_>>()
+        .join("|");
+    let bits: Vec<ANSIString> = vec![
+        Style::new().fg(line_bg).on(red_bg).paint(separator),
+        Style::new().fg(dark_fg).on(red_bg).bold().paint(" <"),
+        Style::new()
+            .fg(key_fg)
+            .on(red_bg)
+            .bold()
+            .paint(key_string.clone()),
+        Style::new()
+            .fg(dark_fg)
+            .on(red_bg)
+            .bold()
+            .paint(format!("> {} ", text)),
+        Style::new().fg(red_bg).on(line_bg).paint(separator),
+    ];
+    let len = if supports_arrow_fonts {
+        text.width() + key_string.width() + 7
+    } else {
+        text.width() + key_string.width() + 5
+    };
+    LinePart {
+        part: ANSIStrings(&bits).to_string(),
+        len,
+    }
+}
+
+// Red counterpart of `add_shortcut_with_key_only` — just ` g ` in a red pill.
+fn add_locked_shortcut_with_key_only(help: &ModeInfo, key: Vec<KeyWithModifier>) -> LinePart {
+    if key.is_empty() {
+        return LinePart::default();
+    }
+    let (red_bg, _dark_fg, key_fg, line_bg) = locked_ribbon_colors(help.style.colors);
+    let supports_arrow_fonts = !help.capabilities.arrow_fonts;
+    let separator = if supports_arrow_fonts {
+        crate::ARROW_SEPARATOR
+    } else {
+        ""
+    };
+    let key_string = key
+        .iter()
+        .map(|k| k.to_string())
+        .collect::<Vec<_>>()
+        .join("-");
+    let bits: Vec<ANSIString> = vec![
+        Style::new().fg(line_bg).on(red_bg).paint(separator),
+        Style::new()
+            .fg(key_fg)
+            .on(red_bg)
+            .bold()
+            .paint(format!(" {} ", key_string)),
+        Style::new().fg(red_bg).on(line_bg).paint(separator),
+    ];
+    let len = if supports_arrow_fonts {
+        key_string.width() + 4
+    } else {
+        key_string.width() + 2
+    };
+    LinePart {
+        part: ANSIStrings(&bits).to_string(),
+        len,
+    }
+}
+
+// Red LOCK label pill, no inline key (the key is styled separately alongside it,
+// as in `add_shortcut`). Used on the no-common-modifier rendering path.
+fn add_locked_label_ribbon(help: &ModeInfo, text: &str) -> LinePart {
+    let (red_bg, dark_fg, _key_fg, line_bg) = locked_ribbon_colors(help.style.colors);
+    let supports_arrow_fonts = !help.capabilities.arrow_fonts;
+    let separator = if supports_arrow_fonts {
+        crate::ARROW_SEPARATOR
+    } else {
+        ""
+    };
+    let bits: Vec<ANSIString> = vec![
+        Style::new().fg(line_bg).on(red_bg).paint(separator),
+        Style::new()
+            .fg(dark_fg)
+            .on(red_bg)
+            .bold()
+            .paint(format!(" {} ", text)),
+        Style::new().fg(red_bg).on(line_bg).paint(separator),
+    ];
+    let len = if supports_arrow_fonts {
+        text.width() + 4
+    } else {
+        text.width() + 2
+    };
+    LinePart {
+        part: ANSIStrings(&bits).to_string(),
+        len,
+    }
+}
+
+// Fork: is this mode indicator the (un)lock pill in its selected state? Those get
+// the red treatment above; everything else stays on the shared green ribbon.
+fn is_selected_lock(key: &KeyShortcut) -> bool {
+    key.is_selected() && matches!(key.get_action(), KeyAction::Lock | KeyAction::Unlock)
 }
 
 fn add_keygroup_separator(help: &ModeInfo, max_len: usize) -> Option<LinePart> {
