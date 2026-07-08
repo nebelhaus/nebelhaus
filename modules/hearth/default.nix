@@ -722,6 +722,12 @@ in
           source = ./zellij/peek-run.sh;
           executable = true;
         };
+        # The one floating-Ghostty helper (geom + spawn); peek.sh, the Rebuild
+        # System pounce command, and the agent-peek popup all route through it.
+        ".config/zellij/float-term.sh" = {
+          source = ./zellij/float-term.sh;
+          executable = true;
+        };
         ".config/zellij/helix-open-pane.sh" = {
           source = ./zellij/helix-open-pane.sh;
           executable = true;

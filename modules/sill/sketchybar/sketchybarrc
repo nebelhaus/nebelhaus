@@ -118,18 +118,9 @@ sketchybar --add item apple.nix_config popup.apple.logo \
         background.drawing=off \
         click_script="$HOME/.config/sketchybar/plugins/nix_open.sh; sketchybar --set apple.logo popup.drawing=off"
 
-sketchybar --add item apple.rebuild popup.apple.logo \
-    --set apple.rebuild \
-        icon=󰑓 \
-        label="Rebuild System" \
-        icon.padding_left=10 \
-        label.padding_right=10 \
-        background.height=30 \
-        background.padding_left=0 \
-        background.padding_right=0 \
-        background.color=0x00000000 \
-        background.drawing=off \
-        click_script="$HOME/.config/sketchybar/plugins/launch_rebuild.sh"
+# "Rebuild System" lives in the pounce palette (⌘Space) now — one host-baked
+# implementation via the shared float-term helper, instead of the stale
+# hardcoded-hostname duplicate that used to hang off this menu.
 
 sketchybar --add item apple.reload popup.apple.logo \
     --set apple.reload \
