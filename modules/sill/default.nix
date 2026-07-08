@@ -62,15 +62,17 @@ let
   # them. They reference $SURFACE0 (from colors.sh) and $HOME, both live when
   # sketchybarrc sources this file.
   optionalPluginBlocks = {
-    # Agent-pane status. Event-driven off the custom `agent_update` trigger that
-    # agents-hook.sh fires from Claude's hooks; update_freq is only a backstop to
-    # reap stale files. Starts hidden (drawing=off) — agents.sh flips it on only
+    # Agent-pane status. A 2s update_freq poll of the tiny state files is the
+    # reliable refresh (reading a handful of files is nearly free); the custom
+    # `agent_update` trigger that agents-hook.sh fires is a best-effort instant
+    # bonus on top — sketchybar delivers it inconsistently across --reload, so we
+    # don't depend on it. Starts hidden (drawing=off) — agents.sh flips it on only
     # when a pane is live. Popup styling mirrors the apple-logo menu.
     agents = ''
       sketchybar --add event agent_update
       sketchybar --add item agents right \
           --set agents \
-              update_freq=20 \
+              update_freq=2 \
               drawing=off \
               icon.padding_left=10 \
               icon.padding_right=4 \
