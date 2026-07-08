@@ -45,6 +45,42 @@
       '';
     };
 
+    hearth.editor = lib.mkOption {
+      type = lib.types.str;
+      default = "hx";
+      example = "nvim";
+      description = ''
+        The shell command for $EDITOR / $VISUAL (git, etc.). A terminal editor
+        (hx, nvim, vim, nano) is the natural fit for the rice; a GUI editor works
+        too if its CLI blocks (e.g. "code -w", "cursor -w"). To open the Nix
+        config folder in a GUI app from the palette/bar, set hearth.guiEditor.
+      '';
+    };
+
+    hearth.guiEditor = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      example = "com.microsoft.VSCode";
+      description = ''
+        Bundle id (or .app name) of a GUI editor used by the "Nix Config"
+        palette command and menu item to open ~/.config/nix. Empty falls back to
+        the `cursor`/`code` CLI if present, then Finder. Set this to keep opening
+        your nix config in a specific GUI editor without hardcoding it in the rice.
+      '';
+    };
+
+    hearth.hijackFileAssociations = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        When true, build a small HelixOpen.app and make it the default handler
+        for common text/code extensions (json, md, ts, nix, …) via `duti`, so
+        double-clicking those files opens them in Helix in a terminal. Off by
+        default: silently rewriting your file associations is a jarring,
+        hard-to-undo change, so it's strictly opt-in.
+      '';
+    };
+
     claude.globalMd = lib.mkOption {
       type = lib.types.lines;
       default = "";
@@ -57,6 +93,39 @@
         ~/.claude/CLAUDE.md (hearth wires it into home-manager). This is your
         personal, cross-project operating context — the rice ships no opinion of
         its own here, so leave it empty to manage ~/.claude/CLAUDE.md by hand.
+      '';
+    };
+
+    theme.accent = lib.mkOption {
+      type = lib.types.enum [
+        "rosewater"
+        "flamingo"
+        "pink"
+        "mauve"
+        "red"
+        "maroon"
+        "peach"
+        "yellow"
+        "green"
+        "teal"
+        "sky"
+        "sapphire"
+        "blue"
+        "lavender"
+      ];
+      default = "mauve";
+      example = "sapphire";
+      description = ''
+        The accent colour, a Catppuccin Mocha name (the Nebelung palette is a
+        grey-tinted Mocha). It recolours the tools nebelhaus injects colours
+        into — lazygit, fzf, yazi, and the Zen browser — via the matching
+        Nebelung per-accent ports.
+
+        Honest scope: this moves the accent on those tools, NOT literally
+        everything. Single-file dotfiles that bake the palette at their own
+        theme slot (ghostty, starship, tmux, bat, zellij, …) keep their built-in
+        colour and don't follow this option. The base palette stays the same
+        Nebelung grey either way — only the accent hue changes.
       '';
     };
 
@@ -158,6 +227,29 @@
         file; the default is a neutral terminal + browser so a fresh install
         boots to something that works. See modules/prowl for the generation.
       '';
+    };
+
+    # ---- optional rooms ----
+    # den + hearth + collar are always on (system, shell, Touch ID). These three
+    # are the choosable rooms — turning one off drops its packages, agents, and
+    # config entirely (the "minimal vs developer" difference is just these flags).
+    prowl.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "AeroSpace tiling window management + the Caps-Lock leader launcher.";
+    };
+    sill.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        The SketchyBar menu bar. When off, the native macOS menu bar is kept
+        (nebelhaus stops hiding it) and no bar is drawn.
+      '';
+    };
+    pounce.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "The pounce command palette daemon (⌘Space) + its rice commands.";
     };
 
     sill.plugins = lib.mkOption {

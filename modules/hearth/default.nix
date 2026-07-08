@@ -15,6 +15,7 @@ let
   gitCfg = config.nebelhaus.git;
   hearthCfg = config.nebelhaus.hearth;
   claudeCfg = config.nebelhaus.claude;
+  accent = config.nebelhaus.theme.accent; # a Catppuccin accent name, e.g. "mauve"
 in
 {
   home-manager.users.${username} =
@@ -41,9 +42,12 @@ in
         substituteInPlace $out/main.lua --subst-var-by glowStyle ${glowStyle}
       '';
 
-      # Zen browser accent. Mauve is the family default (matches lazygit/yazi);
-      # the nebelung zen port renders every accent under themes/Mocha/<Accent>/.
-      zenAccent = "Mauve";
+      # The accent colour (nebelhaus.theme.accent, default mauve) as the hex the
+      # tools nebelhaus injects colours into use for their accent.
+      accentColor = nebelung.palette.${accent};
+      # Zen browser accent. The nebelung zen port renders every accent under
+      # themes/Mocha/<Accent>/ (capitalised); yazi uses the lowercase name.
+      zenAccent = lib.toUpper (lib.substring 0 1 accent) + lib.substring 1 (lib.stringLength accent) accent;
       zenTheme = "${nebelung.themes}/zen/themes/Mocha/${zenAccent}";
 
       # The zellij custom layout, rendered from the in-repo template with
@@ -96,8 +100,8 @@ in
       home.sessionVariables = {
         CLICOLOR = "1";
         HOMEBREW_NO_ENV_HINTS = "1";
-        EDITOR = "hx";
-        VISUAL = "hx";
+        EDITOR = hearthCfg.editor;
+        VISUAL = hearthCfg.editor;
       };
 
       # A lean terminal/dev toolbelt. Personal choices (AI CLIs, orbstack, your
@@ -283,7 +287,7 @@ in
         settings.gui = {
           theme = {
             activeBorderColor = [
-              nebelung.palette.mauve
+              accentColor
               "bold"
             ];
             inactiveBorderColor = [ nebelung.palette.subtext0 ];
@@ -291,7 +295,7 @@ in
             optionsTextColor = [ nebelung.palette.blue ];
             selectedLineBgColor = [ nebelung.palette.surface0 ];
             inactiveViewSelectedLineBgColor = [ nebelung.palette.overlay0 ];
-            cherryPickedCommitFgColor = [ nebelung.palette.mauve ];
+            cherryPickedCommitFgColor = [ accentColor ];
             cherryPickedCommitBgColor = [ nebelung.palette.surface1 ];
             markedBaseCommitFgColor = [ nebelung.palette.blue ];
             markedBaseCommitBgColor = [ nebelung.palette.yellow ];
@@ -475,11 +479,11 @@ in
           "hl" = nebelung.palette.red;
           "fg" = nebelung.palette.text;
           "header" = nebelung.palette.red;
-          "info" = nebelung.palette.mauve;
+          "info" = accentColor;
           "pointer" = nebelung.palette.rosewater;
           "marker" = nebelung.palette.lavender;
           "fg+" = nebelung.palette.text;
-          "prompt" = nebelung.palette.mauve;
+          "prompt" = accentColor;
           "hl+" = nebelung.palette.red;
           "selected-bg" = nebelung.palette.surface1;
           "border" = nebelung.palette.overlay0;
@@ -662,7 +666,7 @@ in
         # reusing the Nebelung bat tmTheme so previews match bat. The yazi-picker
         # theme.toml symlinks to this one, so it inherits Nebelung too.
         ".config/yazi/theme.toml".source =
-          "${nebelung.themes}/yazi/themes/mocha/catppuccin-mocha-mauve.toml";
+          "${nebelung.themes}/yazi/themes/mocha/catppuccin-mocha-${accent}.toml";
         ".config/yazi/Catppuccin-mocha.tmTheme".source =
           "${nebelung.themes}/bat/themes/Catppuccin Mocha.tmTheme";
 
@@ -772,19 +776,24 @@ in
         "ReadApplicationState"
       ];
 
-      home.activation.helixOpenApp = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        appDir="$HOME/Applications"
-        $DRY_RUN_CMD mkdir -p "$appDir"
-        $DRY_RUN_CMD /usr/bin/osacompile -o "$appDir/HelixOpen.app" -e 'on open theFiles' -e 'repeat with theFile in theFiles' -e 'set file_path to POSIX path of theFile' -e 'do shell script "$HOME/.config/zellij/helix-open-pane.sh " & quoted form of file_path' -e 'end repeat' -e 'end open'
-        $DRY_RUN_CMD /usr/bin/plutil -replace CFBundleIdentifier -string "org.nebelhaus.helixopen" "$appDir/HelixOpen.app/Contents/Info.plist"
+      # File-association hijack — opt-in (nebelhaus.hearth.hijackFileAssociations).
+      # Off by default: silently making HelixOpen.app the handler for a dozen
+      # extensions is a jarring, hard-to-undo surprise on someone else's machine.
+      home.activation.helixOpenApp = lib.mkIf hearthCfg.hijackFileAssociations (
+        lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          appDir="$HOME/Applications"
+          $DRY_RUN_CMD mkdir -p "$appDir"
+          $DRY_RUN_CMD /usr/bin/osacompile -o "$appDir/HelixOpen.app" -e 'on open theFiles' -e 'repeat with theFile in theFiles' -e 'set file_path to POSIX path of theFile' -e 'do shell script "$HOME/.config/zellij/helix-open-pane.sh " & quoted form of file_path' -e 'end repeat' -e 'end open'
+          $DRY_RUN_CMD /usr/bin/plutil -replace CFBundleIdentifier -string "org.nebelhaus.helixopen" "$appDir/HelixOpen.app/Contents/Info.plist"
 
-        # Now set default handlers using duti
-        if [ -x "${pkgs.duti}/bin/duti" ]; then
-          for ext in json txt md ts tsx js jsx yaml yml toml nix css sh; do
-            $DRY_RUN_CMD "${pkgs.duti}/bin/duti" -s org.nebelhaus.helixopen "$ext" all
-          done
-        fi
-      '';
+          # Now set default handlers using duti
+          if [ -x "${pkgs.duti}/bin/duti" ]; then
+            for ext in json txt md ts tsx js jsx yaml yml toml nix css sh; do
+              $DRY_RUN_CMD "${pkgs.duti}/bin/duti" -s org.nebelhaus.helixopen "$ext" all
+            done
+          fi
+        ''
+      );
 
       # Claude Code — pin the permission mode in settings.json instead of
       # passing --dangerously-skip-permissions on the command line (the zellij

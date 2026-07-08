@@ -1,16 +1,18 @@
 #!/bin/bash
+# Open the nix config in a GUI editor. @guiEditor@ is substituted from
+# nebelhaus.hearth.guiEditor at build time (empty = none configured).
 
 TARGET="$HOME/.config/nix"
+GUI_EDITOR="@guiEditor@"
 
-# Try to open with Cursor (Bundle ID from AeroSpace config)
-if open -b com.todesktop.230313mzl4w4u92 "$TARGET"; then
+# Configured GUI editor first (bundle id or app name), then the cursor/code
+# CLIs if present, then Finder.
+if [ -n "$GUI_EDITOR" ] && { open -b "$GUI_EDITOR" "$TARGET" 2>/dev/null || open -a "$GUI_EDITOR" "$TARGET" 2>/dev/null; }; then
     exit 0
+elif command -v cursor &>/dev/null; then
+    cursor "$TARGET"
+elif command -v code &>/dev/null; then
+    code "$TARGET"
+else
+    open "$TARGET"
 fi
-
-# Try VS Code
-if open -a "Visual Studio Code" "$TARGET"; then
-    exit 0
-fi
-
-# Fallback to default open (Finder)
-open "$TARGET"

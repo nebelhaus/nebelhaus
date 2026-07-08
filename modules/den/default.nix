@@ -78,7 +78,8 @@
       KeyRepeat = 2;
       InitialKeyRepeat = 15;
       AppleShowAllExtensions = true;
-      _HIHideMenuBar = true; # hide the stock menu bar — Sill draws its own
+      # Hide the stock menu bar only when Sill draws its own; otherwise keep it.
+      _HIHideMenuBar = config.nebelhaus.sill.enable;
     };
     trackpad = {
       Clicking = true;

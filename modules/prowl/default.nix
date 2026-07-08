@@ -70,7 +70,7 @@ let
   # Any roster app with a cask installs itself — declaring the app also brings it.
   rosterCasks = lib.filter (c: c != null) (map (a: a.cask) apps);
 in
-{
+lib.mkIf config.nebelhaus.prowl.enable {
   # AeroSpace itself (cask) + its tap. Roster apps that name a cask ride along.
   # Merged into den's homebrew config.
   homebrew.taps = [ "nikitabobko/tap" ];

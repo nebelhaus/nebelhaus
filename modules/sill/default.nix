@@ -19,6 +19,16 @@ let
   userPath = "/run/current-system/sw/bin:/etc/profiles/per-user/${username}/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin:/usr/sbin:/sbin";
 
   apps = config.nebelhaus.prowl.apps;
+
+  # SketchyBar plugins, with @guiEditor@ in nix_open.sh baked from
+  # nebelhaus.hearth.guiEditor (so it doesn't hardcode one person's editor).
+  sketchybarPlugins = pkgs.runCommand "nebelhaus-sketchybar-plugins" { } ''
+    cp -r ${./sketchybar/plugins} $out
+    chmod -R u+w $out
+    substituteInPlace $out/nix_open.sh \
+      --subst-var-by guiEditor ${lib.escapeShellArg config.nebelhaus.hearth.guiEditor}
+  '';
+
   bashArray = xs: lib.concatMapStringsSep " " (x: ''"${x}"'') xs;
   appWorkspaces = lib.filter (w: w != null) (map (a: a.workspace) apps);
   iconFont =
@@ -78,7 +88,7 @@ let
     ''
     + lib.concatMapStrings (name: optionalPluginBlocks.${name}) config.nebelhaus.sill.plugins;
 in
-{
+lib.mkIf config.nebelhaus.sill.enable {
   # SketchyBar (brew) + its tap. sketchybar-app-font renders the workspace pill
   # glyphs (an icon ligature font: `:ghostty:` → that app's logo).
   homebrew.taps = [ "FelixKratz/formulae" ];
@@ -145,10 +155,7 @@ in
         ".config/sketchybar/optional_items.sh".text = optionalItemsSh;
         ".config/sketchybar/sketchybarrc".source = ./sketchybar/sketchybarrc;
         ".config/sketchybar/aerospace-notify.sh".source = ./sketchybar/aerospace-notify.sh;
-        ".config/sketchybar/plugins" = {
-          source = ./sketchybar/plugins;
-          recursive = true;
-        };
+        ".config/sketchybar/plugins".source = sketchybarPlugins;
       };
     };
 }
