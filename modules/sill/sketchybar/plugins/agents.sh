@@ -13,6 +13,11 @@
 #   • mouse.clicked                          → (re)build + toggle the popup list
 #   • `agents.sh peek <sess> <pane>`         → open a Ghostty live-peek (popup row)
 set -u
+# Work whether we're run by the bar (rich env) or invoked by a Claude hook
+# (bare env) — agents-hook.sh calls us directly to repaint now. sketchybar-msg
+# resolves its socket via $USER and lives in Homebrew's bin, so guarantee both.
+export PATH="/opt/homebrew/bin:$PATH"
+export USER="${USER:-$(id -un)}"
 source "$HOME/.config/sketchybar/colors.sh"
 
 DIR=/tmp/nebelhaus-agents

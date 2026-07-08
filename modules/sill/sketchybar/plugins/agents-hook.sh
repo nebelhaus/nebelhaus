@@ -10,7 +10,6 @@
 #   usage: agents-hook.sh <working|waiting|idle|remove>
 set -u
 DIR=/tmp/nebelhaus-agents
-SB=/opt/homebrew/bin/sketchybar
 
 # Only track claude panes that live in zellij — a bare-terminal claude has no
 # pane to peek and no place on the bar, so stay invisible there.
@@ -31,7 +30,9 @@ else
   printf '%s\t%s\t%s\t%s\t%s\n' "$st" "$sess" "$pane" "$label" "$(date +%s)" > "$f"
 fi
 
-# Nudge the bar item to re-render now (event-driven; no polling needed). Guarded
-# because the hook's PATH is minimal and sketchybar may be mid-restart.
-"$SB" --trigger agent_update 2>/dev/null || true
+# Repaint the bar now by running the reader directly — the only reliable path.
+# A hidden item's own update_freq never ticks (so it could never re-show itself),
+# and sketchybar delivers custom --trigger events inconsistently across reloads;
+# a plain invocation of agents.sh (which fixes up its own PATH) always works.
+SENDER=refresh NAME=agents "$(dirname "$0")/agents.sh" >/dev/null 2>&1 || true
 exit 0
