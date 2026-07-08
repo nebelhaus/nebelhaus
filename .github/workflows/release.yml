@@ -1,0 +1,40 @@
+name: release
+
+# Tag vX.Y.Z -> a GitHub release of the rice. The tag is what
+# nebelhaus.com/init.sh (and ?ref=) resolve to for a pinned installer; the rice
+# itself is consumed as a flake input, so there's no build artifact to attach —
+# the release is just a named, reviewed point in the history.
+#
+# Cut tags with `haus release nebelhaus` from the workshop; it enforces that the
+# tag matches VERSION and that everything is pushed first.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: publish release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag matches VERSION
+        run: |
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          if [ "v$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "tag $GITHUB_REF_NAME != VERSION $VERSION — bump VERSION or retag" >&2
+            exit 1
+          fi
+
+      - uses: DeterminateSystems/nix-installer-action@main
+      # Same pure eval as check.yml — never cut a release that doesn't evaluate.
+      - run: nix eval .#darwinConfigurations.example.system.drvPath
+
+      - name: Create GitHub release
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes --verify-tag
+        env:
+          GH_TOKEN: ${{ github.token }}
