@@ -115,9 +115,14 @@ cmd-alt-ctrl-shift-p = 'exec-and-forget /Users/julienmartel/.config/aerospace/la
 # stay as a fallback for when useNativeHyper is flipped off.
 f18 = ['mode launch', 'exec-and-forget /Users/julienmartel/.config/sketchybar/plugins/launch_mode.sh on']
 
-# cmd+space opens the command palette directly (macOS Spotlight's cmd+space is
-# disabled in Keyboard settings). A direct alternative to the caps -> space leader.
-cmd-space = 'exec-and-forget /etc/profiles/per-user/julienmartel/bin/pounce-palette'
+# cmd+space opens the command palette. The pounce DAEMON now registers ⌘Space
+# itself, in-process (Carbon RegisterEventHotKey via config.json `hotkey`), so the
+# palette opens with no shell/client spawn — the low-latency path. AeroSpace must
+# NOT also bind it: two Carbon registrations for the same combo race, and an
+# exec-and-forget on top would double-fire. (Spotlight's ⌘Space stays disabled in
+# Keyboard settings — see modules/pounce.) The caps→letter leader below is
+# unaffected. To hand ⌘Space back to AeroSpace, set `hotkey.enabled = false` in
+# modules/pounce config.json and restore the exec-and-forget here.
 
 alt-f = 'fullscreen'
 
