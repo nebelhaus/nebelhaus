@@ -1335,18 +1335,30 @@ fn add_shortcut_with_inline_key(
 // "--worktree" …), so the bottom-right hints can surface it next to New
 // Pane / New Tab. Matches the command basename + the --worktree flag so a
 // rebind (e.g. Super c) still resolves.
+//
+// Gotcha: a `bind { Run "…"; }` does NOT reach a plugin as `Action::Run`.
+// zellij rewrites a Run keybind into the pane it opens before handing the
+// keybinds to plugins — a tiled `Run` arrives as `NewTiledPane { command:
+// Some(RunCommandAction) }`, a floating one as `NewFloatingPane { … }`. The
+// RunCommandAction (command + args) rides along inside, so we match those two
+// variants (plus a bare `Run`, for safety) on the carried command.
 fn claude_worktree_key(binds: &[(KeyWithModifier, Vec<Action>)]) -> Vec<KeyWithModifier> {
     binds
         .iter()
         .find_map(|(key, actions)| {
-            actions.iter().find_map(|a| match a {
-                Action::Run { command, .. }
-                    if command.command.file_name().and_then(|n| n.to_str()) == Some("claude")
-                        && command.args.iter().any(|arg| arg == "--worktree") =>
-                {
-                    Some(vec![key.clone()])
-                },
-                _ => None,
+            actions.iter().find_map(|a| {
+                let cmd = match a {
+                    Action::Run { command, .. } => Some(command),
+                    Action::NewTiledPane { command, .. }
+                    | Action::NewFloatingPane { command, .. }
+                    | Action::NewInPlacePane { command, .. } => command.as_ref(),
+                    _ => None,
+                };
+                cmd.filter(|c| {
+                    c.command.file_name().and_then(|n| n.to_str()) == Some("claude")
+                        && c.args.iter().any(|arg| arg == "--worktree")
+                })
+                .map(|_| vec![key.clone()])
             })
         })
         .unwrap_or_default()
