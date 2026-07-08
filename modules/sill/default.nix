@@ -62,6 +62,28 @@ let
   # them. They reference $SURFACE0 (from colors.sh) and $HOME, both live when
   # sketchybarrc sources this file.
   optionalPluginBlocks = {
+    # Agent-pane status. Event-driven off the custom `agent_update` trigger that
+    # agents-hook.sh fires from Claude's hooks; update_freq is only a backstop to
+    # reap stale files. Starts hidden (drawing=off) — agents.sh flips it on only
+    # when a pane is live. Popup styling mirrors the apple-logo menu.
+    agents = ''
+      sketchybar --add item agents right \
+          --set agents \
+              update_freq=20 \
+              drawing=off \
+              icon.padding_left=10 \
+              icon.padding_right=4 \
+              label.padding_right=10 \
+              label.font="Hack Nerd Font:Bold:14.0" \
+              popup.background.border_width=2 \
+              popup.background.corner_radius=10 \
+              popup.background.border_color=$SURFACE0 \
+              popup.background.color=$MANTLE \
+              popup.horizontal=off \
+              script="$HOME/.config/sketchybar/plugins/agents.sh" \
+              click_script="$HOME/.config/sketchybar/plugins/agents.sh" \
+          --subscribe agents agent_update mouse.clicked system_woke
+    '';
     elgato = ''
       sketchybar --add item elgato right \
           --set elgato \

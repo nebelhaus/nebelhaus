@@ -255,6 +255,7 @@
     sill.plugins = lib.mkOption {
       type = lib.types.listOf (
         lib.types.enum [
+          "agents"
           "elgato"
           "harvest"
         ]
@@ -262,14 +263,20 @@
       default = [ ];
       example = [ "elgato" ];
       description = ''
-        Opt-in personal SketchyBar items, off by default because each targets
-        one person's hardware/service and errors (or shows a dead pill) anywhere
-        else:
+        Opt-in personal SketchyBar items, off by default because each targets one
+        person's workflow/hardware/service and errors (or shows a dead pill)
+        anywhere else:
+          - "agents":  a paw pill tracking your `claude --worktree` agent panes —
+                       amber when one is blocked on you, click for the per-agent
+                       list + a live `zellij subscribe` peek. Fed by Claude Code
+                       hooks (wire them in your host's settings.json to point at
+                       ~/.config/sketchybar/plugins/agents-hook.sh); dormant until
+                       they fire, so it's harmless if you don't use agents.
           - "elgato":  toggles an Elgato Key Light on the local network.
           - "harvest": a Harvest time-tracking pill; needs a
                        ~/.config/sketchybar/harvest_secrets.sh you provide.
         The generic items (clock, battery, wifi, weather, media, cpu/mem, …) are
-        always shown; only these two are gated.
+        always shown; only these are gated.
       '';
     };
 
