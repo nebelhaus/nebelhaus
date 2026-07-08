@@ -784,7 +784,9 @@ fn secondary_keybinds(help: &ModeInfo, tab_info: Option<&TabInfo>, max_len: usiz
     let should_show_focus_and_resize_shortcuts = should_show_focus_and_resize_shortcuts(tab_info);
     // claude --worktree agent (fork): surface its bind (e.g. Super c) alongside
     // New Pane / New Tab in the bottom-right quick hints.
-    let claude_key_to_display = claude_worktree_key(binds);
+    let claude_key_to_display = run_bind_key(binds, "claude", Some("--worktree"));
+    // yazi peek overlay (fork): its bind (e.g. Super y) is rendered LAST.
+    let peek_key_to_display = run_bind_key(binds, "peek.sh", None);
     // New Pane
     let new_pane_action_key = action_key(
         binds,
@@ -947,6 +949,7 @@ fn secondary_keybinds(help: &ModeInfo, tab_info: Option<&TabInfo>, max_len: usiz
             move_focus_shortcuts.clone(),
             resize_shortcuts.clone(),
             toggle_floating_key_to_display.clone(),
+            peek_key_to_display.clone(),
         ]
         .iter()
         .flatten()
@@ -999,6 +1002,13 @@ fn secondary_keybinds(help: &ModeInfo, tab_info: Option<&TabInfo>, max_len: usiz
             are_floating_panes_visible,
             Some(0),
         ));
+        secondary_info.append(&add_shortcut(
+            help,
+            "peek",
+            &peek_key_to_display,
+            false,
+            Some(0),
+        ));
     } else {
         let modifier_str = text_as_line_part_with_emphasis(
             format!(
@@ -1033,6 +1043,10 @@ fn secondary_keybinds(help: &ModeInfo, tab_info: Option<&TabInfo>, max_len: usiz
             .map(|k| k.strip_common_modifiers(&common_modifiers))
             .collect();
         let claude_key_to_display: Vec<KeyWithModifier> = claude_key_to_display
+            .iter()
+            .map(|k| k.strip_common_modifiers(&common_modifiers))
+            .collect();
+        let peek_key_to_display: Vec<KeyWithModifier> = peek_key_to_display
             .iter()
             .map(|k| k.strip_common_modifiers(&common_modifiers))
             .collect();
@@ -1073,6 +1087,12 @@ fn secondary_keybinds(help: &ModeInfo, tab_info: Option<&TabInfo>, max_len: usiz
             "Floating",
             toggle_floating_key_to_display,
             are_floating_panes_visible,
+        ));
+        secondary_info.append(&add_shortcut_with_inline_key(
+            help,
+            "peek",
+            peek_key_to_display,
+            false,
         ));
     }
 
@@ -1125,6 +1145,13 @@ fn secondary_keybinds(help: &ModeInfo, tab_info: Option<&TabInfo>, max_len: usiz
                 are_floating_panes_visible,
                 Some(0),
             ));
+            short_line.append(&add_shortcut(
+                help,
+                "peek",
+                &peek_key_to_display,
+                false,
+                Some(0),
+            ));
         } else {
             let modifier_str = text_as_line_part_with_emphasis(
                 format!(
@@ -1160,6 +1187,10 @@ fn secondary_keybinds(help: &ModeInfo, tab_info: Option<&TabInfo>, max_len: usiz
                 .map(|k| k.strip_common_modifiers(&common_modifiers))
                 .collect();
             let claude_key_to_display: Vec<KeyWithModifier> = claude_key_to_display
+                .iter()
+                .map(|k| k.strip_common_modifiers(&common_modifiers))
+                .collect();
+            let peek_key_to_display: Vec<KeyWithModifier> = peek_key_to_display
                 .iter()
                 .map(|k| k.strip_common_modifiers(&common_modifiers))
                 .collect();
@@ -1200,6 +1231,12 @@ fn secondary_keybinds(help: &ModeInfo, tab_info: Option<&TabInfo>, max_len: usiz
                 "Floating",
                 toggle_floating_key_to_display,
                 are_floating_panes_visible,
+            ));
+            short_line.append(&add_shortcut_with_inline_key(
+                help,
+                "peek",
+                peek_key_to_display,
+                false,
             ));
         }
         if short_line.len <= max_len {
@@ -1331,18 +1368,22 @@ fn add_shortcut_with_inline_key(
     ret
 }
 
-// Fork: find the key bound to the claude --worktree agent (Run "claude"
-// "--worktree" …), so the bottom-right hints can surface it next to New
-// Pane / New Tab. Matches the command basename + the --worktree flag so a
-// rebind (e.g. Super c) still resolves.
+// Fork: find the key bound to a `Run` command, so the bottom-right hints can
+// surface our custom launchers (claude --worktree, yazi peek) next to New Pane
+// / New Tab. Matches on the command basename (+ an optional required arg) so a
+// rebind (e.g. Super c / Super y) still resolves.
 //
 // Gotcha: a `bind { Run "…"; }` does NOT reach a plugin as `Action::Run`.
 // zellij rewrites a Run keybind into the pane it opens before handing the
 // keybinds to plugins — a tiled `Run` arrives as `NewTiledPane { command:
 // Some(RunCommandAction) }`, a floating one as `NewFloatingPane { … }`. The
-// RunCommandAction (command + args) rides along inside, so we match those two
+// RunCommandAction (command + args) rides along inside, so we match those
 // variants (plus a bare `Run`, for safety) on the carried command.
-fn claude_worktree_key(binds: &[(KeyWithModifier, Vec<Action>)]) -> Vec<KeyWithModifier> {
+fn run_bind_key(
+    binds: &[(KeyWithModifier, Vec<Action>)],
+    file_name: &str,
+    required_arg: Option<&str>,
+) -> Vec<KeyWithModifier> {
     binds
         .iter()
         .find_map(|(key, actions)| {
@@ -1355,8 +1396,8 @@ fn claude_worktree_key(binds: &[(KeyWithModifier, Vec<Action>)]) -> Vec<KeyWithM
                     _ => None,
                 };
                 cmd.filter(|c| {
-                    c.command.file_name().and_then(|n| n.to_str()) == Some("claude")
-                        && c.args.iter().any(|arg| arg == "--worktree")
+                    c.command.file_name().and_then(|n| n.to_str()) == Some(file_name)
+                        && required_arg.map_or(true, |ra| c.args.iter().any(|arg| arg == ra))
                 })
                 .map(|_| vec![key.clone()])
             })
