@@ -42,9 +42,12 @@ if [ "${1:-}" = "row" ]; then
   # A plain click sends MODIFIER=none (not empty), so test against "none" — any
   # real modifier (alt/cmd/shift/ctrl) or a right-click means "peek instead".
   if [ "${BUTTON:-left}" = "right" ] || [ "${MODIFIER:-none}" != "none" ]; then
-    # peek: live-tail the pane in a throwaway Ghostty, without stealing focus
-    open -na Ghostty.app --args --title="peek" \
-      --command="/bin/bash $PLUGINS/agents-peek.sh $sess $pane"
+    # peek: live-tail the pane in a throwaway Ghostty, without stealing focus.
+    # float-term centers it on the current screen (this window used to spawn
+    # wherever AppKit last left one) and floats it via the shared helper.
+    "$HOME/.config/zellij/float-term.sh" spawn --title "peek" \
+      --w 900 --h 560 --pin \
+      --command "/bin/bash $PLUGINS/agents-peek.sh $sess $pane" >/dev/null
   else
     # go-to: focus the pane (zellij jumps to its tab), then raise the terminal
     # window showing that session. Match the Ghostty window whose title carries

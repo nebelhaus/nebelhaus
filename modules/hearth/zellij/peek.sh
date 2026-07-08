@@ -33,39 +33,10 @@ WINDOW_TITLE="quick-terminal-peek"
 osascript -l JavaScript -e 'ObjC.import("AppKit"); String($.NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier)' 2>/dev/null > "$RETURNFILE"
 
 # The target frame: 85% of the visible frame of the screen the cursor is on,
-# centered. Recomputed on every summon so the panel follows the user across
-# displays and survives monitor changes.
-FRAME=$(osascript -l JavaScript -e '
-  ObjC.import("AppKit");
-  ObjC.import("CoreGraphics");
-  var loc = $.CGEventGetLocation($.CGEventCreate($()));
-  var screens = $.NSScreen.screens;
-  if (screens.count === 0) {
-    "0 0 1920 1080";
-  } else {
-    var primaryH = screens.objectAtIndex(0).frame.size.height;
-    var pick = screens.objectAtIndex(0);
-    for (var i = 0; i < screens.count; i++) {
-      var s = screens.objectAtIndex(i);
-      var fr = s.frame;
-      var topY = primaryH - (fr.origin.y + fr.size.height);
-      if (loc.x >= fr.origin.x && loc.x < fr.origin.x + fr.size.width &&
-          loc.y >= topY      && loc.y < topY      + fr.size.height) {
-        pick = s; break;
-      }
-    }
-    var vf = pick.visibleFrame;
-    var vTopY = primaryH - (vf.origin.y + vf.size.height);
-    Math.round(vf.origin.x) + " " + Math.round(vTopY) + " " +
-    Math.round(vf.size.width) + " " + Math.round(vf.size.height);
-  }
-' 2>/dev/null)
-[ -z "$FRAME" ] && FRAME="0 0 1920 1080"
-read -r SCREEN_X SCREEN_Y SCREEN_W SCREEN_H <<< "$FRAME"
-WIN_W=$(( SCREEN_W * 85 / 100 ))
-WIN_H=$(( SCREEN_H * 85 / 100 ))
-POS_X=$(( SCREEN_X + (SCREEN_W - WIN_W) / 2 ))
-POS_Y=$(( SCREEN_Y + (SCREEN_H - WIN_H) / 2 ))
+# centered. Recomputed on every summon (via the shared float-term helper, which
+# owns the cursor-screen / visibleFrame centering math) so the panel follows
+# the user across displays and survives monitor changes.
+read -r POS_X POS_Y WIN_W WIN_H <<< "$("$HOME/.config/zellij/float-term.sh" geom --pct 85)"
 
 # ---- warm path: the peek instance is alive — teleport it in ----------------
 if [ -s "$PIDFILE" ]; then
