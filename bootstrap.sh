@@ -1,56 +1,154 @@
 #!/usr/bin/env bash
 # nebelhaus bootstrap — raise the house on a fresh Mac.
 #
-#   nix run github:nebelhaus/nebelhaus#bootstrap
-#   # or, before nix exists:
-#   curl -fsSL https://raw.githubusercontent.com/nebelhaus/nebelhaus/main/bootstrap.sh | bash
+#   curl -fsSL https://nebelhaus.com/init.sh | bash        (or the github raw URL)
+#   nix run github:nebelhaus/nebelhaus#bootstrap           (once nix exists)
 #
-# It installs the prerequisites (Xcode CLT, Determinate Nix), then scaffolds a
-# THIN PERSONAL CONFIG at ~/.config/nix — a tiny flake of your own that consumes
-# the nebelhaus rice as an input. You never edit (or even clone) the rice repo
-# itself: your machine's identity, apps, and secrets live in your config; the
-# rice stays upstream where `nix flake update nebelhaus` can always pull it.
+# It installs the prerequisites (Xcode CLT, Determinate Nix), runs a short
+# interview, and scaffolds a THIN PERSONAL CONFIG at ~/.config/nix — a tiny flake
+# of your own that consumes the nebelhaus rice as an input. You never edit (or
+# even clone) the rice itself: your machine's identity, apps, and secrets live in
+# your config; the rice stays upstream where `nix flake update nebelhaus` pulls it.
 #
-# Idempotent: safe to re-run. It never switches a config that isn't yours —
-# you personalize the generated host file first.
+# Flags / env:
+#   --defaults, NEBELHAUS_NONINTERACTIVE=1   skip the interview, take smart defaults
+#   NEBELHAUS_DRY_RUN=1                       touch nothing: write the generated
+#                                            config to a scratch dir and echo every
+#                                            mutating step (for developing this script)
+#   NEBELHAUS_DIR=<path>                      where the config lands (default ~/.config/nix)
+#
+# Idempotent: safe to re-run; it leaves an existing config alone.
 set -euo pipefail
 
-RAW="${NEBELHAUS_RAW:-https://raw.githubusercontent.com/nebelhaus/nebelhaus/main}"
-DEST="${NEBELHAUS_DIR:-$HOME/.config/nix}"
+# ---- config + flags -------------------------------------------------------
 USERNAME="$(id -un)"
 HOSTNAME="$(scutil --get LocalHostName 2>/dev/null || hostname -s)"
 
-say() { printf '\033[38;5;103m🌫  %s\033[0m\n' "$*"; }
+NONINTERACTIVE="${NEBELHAUS_NONINTERACTIVE:-}"
+DRY_RUN="${NEBELHAUS_DRY_RUN:-}"
+[ "${1:-}" = "--defaults" ] && NONINTERACTIVE=1
+
+# Dry-run can't prompt and mustn't touch the real config, so it's non-interactive
+# and writes to a scratch dir.
+if [ -n "$DRY_RUN" ]; then
+  NONINTERACTIVE=1
+  DEST="${NEBELHAUS_DIR:-$(mktemp -d)/nix}"
+else
+  DEST="${NEBELHAUS_DIR:-$HOME/.config/nix}"
+fi
+
+# Interactive only with a real TTY and no "stay quiet" flag — otherwise a piped
+# `curl | bash` would hang waiting on stdin.
+INTERACTIVE=1
+{ [ -n "$NONINTERACTIVE" ] || [ ! -t 0 ]; } && INTERACTIVE=
+
+say()  { printf '\033[38;5;103m🌫  %s\033[0m\n' "$*"; }
 warn() { printf '\033[38;5;179m⚠  %s\033[0m\n' "$*"; }
+die()  { printf '\033[38;5;167m✗  %s\033[0m\n' "$*" >&2; exit 1; }
 
-[ "$(uname)" = "Darwin" ] || { warn "nebelhaus is macOS-only."; exit 1; }
+# run — do a MUTATING thing, or just show it under dry-run.
+run() { if [ -n "$DRY_RUN" ]; then printf '\033[2m   [dry-run] %s\033[0m\n' "$*"; else "$@"; fi; }
 
-# 1. Xcode Command Line Tools (pounce compiles against system Swift via xcrun).
+[ "$(uname)" = "Darwin" ] || die "nebelhaus is macOS-only."
+
+# ---- Phase 0: prerequisites ----------------------------------------------
+
+# A local APFS snapshot BEFORE anything mutates — the only coarse rewind point
+# for the imperative layer (macOS defaults, ~/Library) that Nix generations
+# cannot restore. Best-effort: warn, don't fail, if Time Machine isn't set up.
+if [ -n "$DRY_RUN" ]; then
+  run "tmutil localsnapshot"
+elif tmutil localsnapshot >/dev/null 2>&1; then
+  say "Took a local snapshot — a coarse pre-install rewind point."
+else
+  warn "Couldn't take a local snapshot (Time Machine not configured?). Continuing."
+fi
+
+# Xcode Command Line Tools (pounce compiles against system Swift; git lives here).
+# Its installer is a GUI dialog — the one unavoidable two-step.
 if ! /usr/bin/xcode-select -p >/dev/null 2>&1; then
   say "Installing Xcode Command Line Tools — approve the dialog, then re-run this."
-  /usr/bin/xcode-select --install || true
+  run /usr/bin/xcode-select --install
+  [ -n "$DRY_RUN" ] || exit 0
+fi
+
+# Nix. den sets nix.enable=false and assumes Determinate owns /nix, so refuse a
+# stock/Lix daemon rather than silently conflict with it.
+if command -v nix >/dev/null 2>&1 || [ -x /nix/var/nix/profiles/default/bin/nix ]; then
+  { [ -e /nix ] && [ ! -e /nix/receipt.json ] && [ -z "$DRY_RUN" ]; } \
+    && die "Found a Nix at /nix that isn't Determinate (no /nix/receipt.json). nebelhaus expects the Determinate installer to own the daemon — uninstall the existing Nix first, then re-run."
+  say "Nix already installed."
+elif [ -e /nix ] && [ ! -e /nix/receipt.json ] && [ -z "$DRY_RUN" ]; then
+  die "Found /nix without a Determinate receipt — uninstall the existing Nix first, then re-run."
+else
+  say "Installing Determinate Nix…"
+  run sh -c 'curl -fsSL https://install.determinate.systems/nix | sh -s -- install --determinate'
+  # shellcheck disable=SC1091
+  [ -n "$DRY_RUN" ] || . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+fi
+
+# ---- already have a config? leave it alone -------------------------------
+if [ -e "$DEST/flake.nix" ]; then
+  say "You already have a config at $DEST — leaving it alone."
   exit 0
 fi
 
-# 2. Determinate Nix.
-if ! command -v nix >/dev/null 2>&1 && [ ! -x /nix/var/nix/profiles/default/bin/nix ]; then
-  say "Installing Determinate Nix…"
-  curl -fsSL https://install.determinate.systems/nix | sh -s -- install --determinate
-  # shellcheck disable=SC1091
-  . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+# ---- Phase 1: interview ---------------------------------------------------
+# Defaults double as the non-interactive answers, and each is env-overridable so
+# an unattended install can be scripted (and so --dry-run can exercise every
+# branch): NEBELHAUS_GIT_NAME / _GIT_EMAIL / _ACCENT / _EDITOR / _ROOMS.
+GIT_NAME="${NEBELHAUS_GIT_NAME:-$(git config --global user.name  2>/dev/null || true)}"
+GIT_EMAIL="${NEBELHAUS_GIT_EMAIL:-$(git config --global user.email 2>/dev/null || true)}"
+GIT_SIGNING=""
+ACCENT="${NEBELHAUS_ACCENT:-mauve}"
+EDITOR_CHOICE="${NEBELHAUS_EDITOR:-hx}"
+ADOPT_CASKS=""
+# Rooms: a comma list of the ones ON (default all three); omit one to disable it.
+ROOMS="${NEBELHAUS_ROOMS:-sill,prowl,pounce}"
+case ",$ROOMS," in *,sill,*)   ROOM_SILL=1   ;; *) ROOM_SILL=   ;; esac
+case ",$ROOMS," in *,prowl,*)  ROOM_PROWL=1  ;; *) ROOM_PROWL=  ;; esac
+case ",$ROOMS," in *,pounce,*) ROOM_POUNCE=1 ;; *) ROOM_POUNCE= ;; esac
+
+if [ -n "$INTERACTIVE" ]; then
+  say "Fetching the interview UI (gum)…"
+  GUM="$(nix build --no-link --print-out-paths nixpkgs#gum 2>/dev/null)/bin/gum" || GUM=""
+  [ -x "$GUM" ] || { warn "couldn't fetch gum — falling back to defaults."; GUM=""; }
+  if [ -n "$GUM" ]; then
+    printf '\n'; say "A few questions to make it yours (Enter takes the default):"
+
+    GIT_NAME="$("$GUM"  input --prompt "Git name › "  --value "$GIT_NAME"  --placeholder "Ada Lovelace")"
+    GIT_EMAIL="$("$GUM" input --prompt "Git email › " --value "$GIT_EMAIL" --placeholder "ada@example.com")"
+
+    SELECTED="$(printf 'sill\nprowl\npounce' | "$GUM" choose --no-limit \
+      --selected sill,prowl,pounce \
+      --header 'Optional rooms (space toggles) — sill=menu bar · prowl=tiling · pounce=⌘Space palette:')"
+    echo "$SELECTED" | grep -qx sill   || ROOM_SILL=
+    echo "$SELECTED" | grep -qx prowl  || ROOM_PROWL=
+    echo "$SELECTED" | grep -qx pounce || ROOM_POUNCE=
+
+    ACCENT="$(printf 'mauve\nblue\nsapphire\nsky\nteal\ngreen\nyellow\npeach\nmaroon\nred\npink\nflamingo\nrosewater\nlavender' \
+      | "$GUM" choose --header 'Accent colour:')"; ACCENT="${ACCENT:-mauve}"
+
+    EDITOR_CHOICE="$(printf 'hx\nnvim\nvim\nnano' | "$GUM" choose --header 'Default $EDITOR:')"
+    EDITOR_CHOICE="${EDITOR_CHOICE:-hx}"
+
+    # Adopt existing casks so a future declarative rebuild never deletes them.
+    if command -v brew >/dev/null 2>&1; then
+      CASKS="$(brew list --cask 2>/dev/null | tr '\n' ' ')"
+      if [ -n "${CASKS// /}" ] \
+        && "$GUM" confirm "Adopt your $(echo "$CASKS" | wc -w | tr -d ' ') existing Homebrew casks into the config?"; then
+        ADOPT_CASKS="$CASKS"
+      fi
+    fi
+  fi
 fi
 
-# 3. Scaffold your config — unless you already have one.
-if [ -e "$DEST/flake.nix" ]; then
-  say "You already have a config at $DEST — leaving it alone."
-else
-  say "Scaffolding your personal config at $DEST"
-  mkdir -p "$DEST/hosts/$HOSTNAME"
+# ---- Phase 2: scaffold ----------------------------------------------------
+say "Scaffolding your config at $DEST"
+run mkdir -p "$DEST/hosts/$HOSTNAME"
+mkdir -p "$DEST/hosts/$HOSTNAME"   # for real even in dry-run, so we can write into it
 
-  # (This is where the interactive interview will live: a few questions —
-  # editor, accent, bar style — templated into the host file below.)
-
-  cat >"$DEST/flake.nix" <<EOF
+cat >"$DEST/flake.nix" <<EOF
 {
   description = "$USERNAME's machine — a nebelhaus";
 
@@ -71,32 +169,81 @@ else
 }
 EOF
 
-  # Your host file starts as the documented example from the rice.
-  curl -fsSL "$RAW/hosts/example/default.nix" -o "$DEST/hosts/$HOSTNAME/default.nix"
+# Assemble the optional host lines (omit anything left at the rice default).
+opt_lines=""
+[ -z "$ROOM_SILL" ]   && opt_lines+="  nebelhaus.sill.enable = false;"$'\n'
+[ -z "$ROOM_PROWL" ]  && opt_lines+="  nebelhaus.prowl.enable = false;"$'\n'
+[ -z "$ROOM_POUNCE" ] && opt_lines+="  nebelhaus.pounce.enable = false;"$'\n'
+[ "$ACCENT" != "mauve" ] && opt_lines+="  nebelhaus.theme.accent = \"$ACCENT\";"$'\n'
+[ "$EDITOR_CHOICE" != "hx" ] && opt_lines+="  nebelhaus.hearth.editor = \"$EDITOR_CHOICE\";"$'\n'
+[ -n "$opt_lines" ] && opt_lines=$'\n'"$opt_lines"
+cask_lines=""
+for c in $ADOPT_CASKS; do cask_lines+="    \"$c\""$'\n'; done
 
-  printf 'result\nresult-*\n' >"$DEST/.gitignore"
+cat >"$DEST/hosts/$HOSTNAME/default.nix" <<EOF
+# $HOSTNAME — your machine. The personal layer on top of the nebelhaus rice:
+# identity, apps, secrets. A plain nix-darwin module; everything else is the rice.
+{ ... }:
 
-  if [ ! -d "$DEST/.git" ]; then
-    git -C "$DEST" init -q -b main
-    git -C "$DEST" add -A
-    git -C "$DEST" commit -qm "Scaffold a nebelhaus consumer for $HOSTNAME" || true
-  fi
+{
+  # ---- identity ----
+  nebelhaus.git.name = "$GIT_NAME";
+  nebelhaus.git.email = "$GIT_EMAIL";
+  nebelhaus.git.signingKey = "$GIT_SIGNING"; # GPG key id; "" disables signing.
+
+  # pounce code-signing identity (SHA-1 from: security find-identity -v -p codesigning).
+  # "" runs pounce unsigned — the palette works, Accessibility features stay off.
+  nebelhaus.pounce.signingIdentity = "";
+$opt_lines
+  # Homebrew never deletes an undeclared cask by default (cleanup = "none"); set
+  # nebelhaus.homebrew.cleanup = "zap" only once every app you keep is listed.
+  # Your apps — merged with what the rooms install (ghostty, aerospace):
+  homebrew.casks = [
+$cask_lines  ];
+}
+EOF
+
+printf 'result\nresult-*\n' >"$DEST/.gitignore"
+
+if [ ! -d "$DEST/.git" ]; then
+  run git -C "$DEST" init -q -b main
+  run git -C "$DEST" add -A
+  run git -C "$DEST" commit -qm "Scaffold a nebelhaus consumer for $HOSTNAME"
 fi
+
+# ---- closing: how to raise it, and the honest undo card -------------------
+cat <<EOF
+
+$(say "Your config is written. Review it, then raise the house:")
+
+    cd $DEST
+    nix build .#darwinConfigurations.$HOSTNAME.system \\
+      && sudo ./result/sw/bin/darwin-rebuild switch --flake .#$HOSTNAME
+
+  Build first, switch second — a failed build never touches a running system.
+  That first switch puts \`haus\` on your PATH; after it, a rebuild is: haus rebuild
+EOF
 
 cat <<EOF
 
-$(say "Almost there. Two steps to make it yours:")
+$(say "Before you switch — what nebelhaus can and can't undo:")
 
-  1. Edit $DEST/hosts/$HOSTNAME/default.nix — your git identity, your
-     apps, the pounce signing identity (all documented inline).
+  CAN undo     everything Nix manages (packages, agents, shell config, PATH):
+                 sudo darwin-rebuild --rollback        instant, atomic
+               Nix itself, entirely (daemon, /nix volume):
+                 sudo /nix/nix-installer uninstall      Determinate, clean
+               a dotfile it replaced:  restore the .bak it saved (once)
 
-  2. Raise the house:
+  CANNOT undo  macOS system settings it changed (Dock, keyboard) — these persist
+               after a rollback; use the local snapshot taken above, or revert by
+               hand in System Settings.
+               Homebrew casks/brews — left in place; remove with brew uninstall --zap.
 
-       cd $DEST
-       nix build .#darwinConfigurations.$HOSTNAME.system \\
-         && sudo ./result/sw/bin/darwin-rebuild switch --flake .#$HOSTNAME
-
-  Build first, switch second — a failed build never touches a running system.
-
-$(say "Later: push $DEST to a private repo of your own; it's your machine in text form.")
+$(say "Later: push $DEST to a private repo of your own — it's your machine in text.")
 EOF
+
+# Dry-run: show what got generated so the run is inspectable end to end.
+if [ -n "$DRY_RUN" ]; then
+  echo; say "[dry-run] generated $DEST/hosts/$HOSTNAME/default.nix:"
+  sed 's/^/    /' "$DEST/hosts/$HOSTNAME/default.nix"
+fi
