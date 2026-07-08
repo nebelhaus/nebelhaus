@@ -268,7 +268,9 @@
         anywhere else:
           - "agents":  a paw pill tracking your `claude --worktree` agent panes —
                        amber when one is blocked on you, click for the per-agent
-                       list + a live `zellij subscribe` peek. Fed by Claude Code
+                       list; left-click a row to jump to that pane (focus its
+                       zellij tab + raise the terminal window), ⌥/right-click for
+                       a live `zellij subscribe` peek instead. Fed by Claude Code
                        hooks (wire them in your host's settings.json to point at
                        ~/.config/sketchybar/plugins/agents-hook.sh); dormant until
                        they fire, so it's harmless if you don't use agents.

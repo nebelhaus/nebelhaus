@@ -8,16 +8,18 @@
 # screen-scraping), one file per pane under /tmp/nebelhaus-agents/*.state, each:
 #     <state>\t<session>\t<pane-id>\t<label>\t<epoch>
 #
-# Three entry paths:
+# Four entry paths:
 #   • agent_update / system_woke / periodic  → recount, repaint icon+label
 #   • mouse.clicked                          → (re)build + toggle the popup list
-#   • `agents.sh peek <sess> <pane>`         → open a Ghostty live-peek (popup row)
+#   • `agents.sh row <sess> <pane>`          → popup-row click: go-to (left) or
+#                                              peek (⌥/right), per $BUTTON/$MODIFIER
 set -u
-# Work whether we're run by the bar (rich env) or invoked by a Claude hook
-# (bare env) — agents-hook.sh calls us directly to repaint now. sketchybar-msg
-# resolves its socket via $USER and lives in Homebrew's bin, so guarantee both.
-export PATH="/opt/homebrew/bin:$PATH"
+# Work whether we're run by the bar (rich env) or invoked from a bare env (a
+# Claude hook, or a popup click needing zellij/aerospace): guarantee the nix
+# profile + Homebrew on PATH, and $USER (sketchybar-msg resolves its socket via
+# it). Set USER before PATH since PATH interpolates it.
 export USER="${USER:-$(id -un)}"
+export PATH="/opt/homebrew/bin:/run/current-system/sw/bin:/etc/profiles/per-user/$USER/bin:$PATH"
 source "$HOME/.config/sketchybar/colors.sh"
 
 DIR=/tmp/nebelhaus-agents
@@ -34,10 +36,24 @@ state_style() {
   esac
 }
 
-# ── popup-row click: live-peek one agent in a throwaway Ghostty ───────────────
-if [ "${1:-}" = "peek" ]; then
-  open -na Ghostty.app --args --title="peek" \
-    --command="/bin/bash $PLUGINS/agents-peek.sh $2 $3"
+# ── popup-row click: go to the agent (left) or peek it (⌥/right) ──────────────
+if [ "${1:-}" = "row" ]; then
+  sess="$2"; pane="$3"
+  if [ "${BUTTON:-left}" = "right" ] || [ -n "${MODIFIER:-}" ]; then
+    # peek: live-tail the pane in a throwaway Ghostty, without stealing focus
+    open -na Ghostty.app --args --title="peek" \
+      --command="/bin/bash $PLUGINS/agents-peek.sh $sess $pane"
+  else
+    # go-to: focus the pane (zellij jumps to its tab), then raise the terminal
+    # window showing that session. Match the Ghostty window whose title carries
+    # the session name (zellij titles the terminal with it); fall back to just
+    # activating Ghostty. Only works for an attached session — a detached one
+    # (0 clients) isn't in any window, so nothing to raise.
+    zellij --session "$sess" action focus-pane-id "$pane" 2>/dev/null
+    win=$(aerospace list-windows --all --format '%{window-id} %{app-name} %{window-title}' 2>/dev/null \
+          | grep -w Ghostty | grep -F "$sess" | head -1 | awk '{print $1}')
+    if [ -n "$win" ]; then aerospace focus --window-id "$win" 2>/dev/null; else open -a Ghostty; fi
+  fi
   sketchybar --set agents popup.drawing=off
   exit 0
 fi
@@ -64,7 +80,7 @@ if [ "${SENDER:-}" = "mouse.clicked" ]; then
         label="$label · $TAG" label.color="$TEXT" \
         label.font="Hack Nerd Font:Regular:13.0" \
         background.drawing=off \
-        click_script="$PLUGINS/agents.sh peek $sess $pane"
+        click_script="$PLUGINS/agents.sh row $sess $pane"
     i=$((i + 1))
   done
   if [ "$i" -eq 0 ]; then
