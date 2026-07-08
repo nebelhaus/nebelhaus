@@ -4,7 +4,6 @@ after-startup-command = []
 
 exec-on-workspace-change = [
     '/Users/julienmartel/.config/sketchybar/aerospace-notify.sh',
-    '/Users/julienmartel/.config/aerospace/cap-follow.sh',
 ]
 
 start-at-login = false
