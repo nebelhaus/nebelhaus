@@ -18,18 +18,6 @@
         "type": "github"
       }
     },
-    "catppuccin-userstyles-export": {
-      "flake": false,
-      "locked": {
-        "narHash": "sha256-l6UOMhd5hEenS7k7XYamC6KVLywd4dQdToYL69Shuyo=",
-        "type": "file",
-        "url": "https://github.com/catppuccin/userstyles/releases/download/all-userstyles-export/import.json"
-      },
-      "original": {
-        "type": "file",
-        "url": "https://github.com/catppuccin/userstyles/releases/download/all-userstyles-export/import.json"
-      }
-    },
     "home-manager": {
       "inputs": {
         "nixpkgs": [
@@ -55,17 +43,16 @@
         "catppuccin": [
           "catppuccin"
         ],
-        "catppuccin-userstyles-export": "catppuccin-userstyles-export",
         "nixpkgs": [
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1783507969,
-        "narHash": "sha256-fbAwhfjWhHpOJvUFFGUc6x+Jt7qo1FgTtLr/0WbGyHU=",
+        "lastModified": 1783531602,
+        "narHash": "sha256-6sTGn2cQOoehwSNbylGc69mNwRYLFL/BfYXDQmMILXY=",
         "owner": "nebelhaus",
         "repo": "nebelung",
-        "rev": "db8ad22ddc1db78aca4d00719f9d3809b4a51947",
+        "rev": "571fd85560801df6b6a3888b20445f142a55677c",
         "type": "github"
       },
       "original": {
@@ -154,11 +141,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1783531416,
-        "narHash": "sha256-bDbX6AjbAwjfB+bUAhACKr21Q1lNSpLrTMY7/ZuCKUU=",
+        "lastModified": 1783531621,
+        "narHash": "sha256-3HsX2TnbKgXm7JH/iEISox5AXxRab9OLPc7iGDei/5I=",
         "owner": "nebelhaus",
         "repo": "pounce",
-        "rev": "282ce2dc97dc296a58153bdf308cf8b6e8233fc6",
+        "rev": "06efa6cd3a71e23af47a7a2b848b5772f880a8a1",
         "type": "github"
       },
       "original": {
