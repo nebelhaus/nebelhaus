@@ -34,6 +34,11 @@ let
     chmod 555 $out/rebuild.sh
   '';
 
+  # The built-in command set exposed by the pounce-commands package. The daemon
+  # discovers commands from these dirs itself (in-process launcher, see below),
+  # so it needs the same values the pounce-palette wrapper bakes in.
+  builtinCommandsDir = "${pkgs.pounce-commands}/share/pounce/commands";
+
   # Wait for the GUI session (→ the /nix volume + an unlocked login keychain)
   # before touching the store path or codesign. Exec'ing via /bin/bash (boot
   # volume) also sidesteps the cold-boot exit-78 race for store-path executables.
@@ -90,6 +95,13 @@ in
       EnvironmentVariables = {
         LANG = "en_US.UTF-8";
         HOME = "/Users/${username}";
+        # The daemon owns ⌘Space in-process and builds the launcher itself, so it
+        # discovers commands from its OWN environment — the same dirs pounce-palette
+        # uses. Built-ins + this rice's commands; ~/.config/pounce/commands is
+        # always searched last by the daemon. (AeroSpace no longer spawns
+        # pounce-palette on ⌘Space — see modules/prowl/aerospace.toml.)
+        POUNCE_BUILTIN_DIR = builtinCommandsDir;
+        POUNCE_EXTRA_COMMAND_DIRS = "${riceCommands}";
       };
     };
   };
@@ -108,6 +120,14 @@ in
     # Palette settings — pounce re-reads this on each open. Edit + rebuild.
     home.file.".config/pounce/config.json".text = builtins.toJSON {
       windowMode = "compact"; # "default" | "compact"
+      # ⌘Space, registered in-process by the daemon for a near-instant open (no
+      # shell/client spawn). Set enabled = false to hand ⌘Space back to an
+      # external binder (see modules/prowl/aerospace.toml).
+      hotkey = {
+        enabled = true;
+        key = "space";
+        modifiers = [ "cmd" ];
+      };
       clipboard = {
         enabled = true;
         maxEntries = 200;
