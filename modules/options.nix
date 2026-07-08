@@ -52,20 +52,21 @@
       description = ''
         The shell command for $EDITOR / $VISUAL (git, etc.). A terminal editor
         (hx, nvim, vim, nano) is the natural fit for the rice; a GUI editor works
-        too if its CLI blocks (e.g. "code -w", "cursor -w"). To open the Nix
+        too if its CLI blocks (e.g. "code -w"). To open the Nix
         config folder in a GUI app from the palette/bar, set hearth.guiEditor.
       '';
     };
 
     hearth.guiEditor = lib.mkOption {
       type = lib.types.str;
-      default = "";
+      default = "hx";
       example = "com.microsoft.VSCode";
       description = ''
-        Bundle id (or .app name) of a GUI editor used by the "Nix Config"
-        palette command and menu item to open ~/.config/nix. Empty falls back to
-        the `cursor`/`code` CLI if present, then Finder. Set this to keep opening
-        your nix config in a specific GUI editor without hardcoding it in the rice.
+        What the "Nix Config" palette command and menu item open ~/.config/nix
+        with. The default "hx" (or "helix") opens it in a new Helix tab in the
+        terminal — the same launcher the file-association hijack uses — so no GUI
+        editor is assumed. Set a bundle id / .app name (e.g. "com.microsoft.VSCode")
+        to use a GUI editor instead, or "" to just reveal it in Finder.
       '';
     };
 
