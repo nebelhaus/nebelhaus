@@ -99,12 +99,15 @@ fi
 # ---- Phase 1: interview ---------------------------------------------------
 # Defaults double as the non-interactive answers, and each is env-overridable so
 # an unattended install can be scripted (and so --dry-run can exercise every
-# branch): NEBELHAUS_GIT_NAME / _GIT_EMAIL / _ACCENT / _EDITOR / _ROOMS.
+# branch): NEBELHAUS_GIT_NAME / _GIT_EMAIL / _ACCENT / _EDITOR / _ROOMS /
+# _WALLPAPER.
 GIT_NAME="${NEBELHAUS_GIT_NAME:-$(git config --global user.name  2>/dev/null || true)}"
 GIT_EMAIL="${NEBELHAUS_GIT_EMAIL:-$(git config --global user.email 2>/dev/null || true)}"
 GIT_SIGNING=""
 ACCENT="${NEBELHAUS_ACCENT:-mauve}"
 EDITOR_CHOICE="${NEBELHAUS_EDITOR:-hx}"
+# Wallpaper: none (default — leave it alone) or orbits/constellation/flow/bold.
+WALLPAPER="${NEBELHAUS_WALLPAPER:-none}"
 ADOPT_CASKS=""
 # Rooms: a comma list of the ones ON (default all three); omit one to disable it.
 ROOMS="${NEBELHAUS_ROOMS:-sill,prowl,pounce}"
@@ -122,15 +125,38 @@ if [ -n "$INTERACTIVE" ]; then
     GIT_NAME="$("$GUM"  input --prompt "Git name › "  --value "$GIT_NAME"  --placeholder "Ada Lovelace")"
     GIT_EMAIL="$("$GUM" input --prompt "Git email › " --value "$GIT_EMAIL" --placeholder "ada@example.com")"
 
-    SELECTED="$(printf 'sill\nprowl\npounce' | "$GUM" choose --no-limit \
-      --selected sill,prowl,pounce \
-      --header 'Optional rooms (space toggles) — sill=menu bar · prowl=tiling · pounce=⌘Space palette:')"
-    echo "$SELECTED" | grep -qx sill   || ROOM_SILL=
-    echo "$SELECTED" | grep -qx prowl  || ROOM_PROWL=
-    echo "$SELECTED" | grep -qx pounce || ROOM_POUNCE=
+    # A preset seeds the optional rooms; only "Custom" opens the per-room
+    # picker. It's pure sugar over the same ROOM_* toggles the NEBELHAUS_ROOMS
+    # env var drives, so a scripted install stays a one-liner.
+    PRESET="$(printf '%s\n%s\n%s' \
+      'Full rice — menu bar, tiling, and the ⌘Space palette' \
+      'Minimal — just the themed shell (add rooms later)' \
+      'Custom — choose each room yourself' \
+      | "$GUM" choose --header 'How much of the rice do you want?')"
+    case "${PRESET:-Full}" in
+      Minimal*)
+        ROOM_SILL=; ROOM_PROWL=; ROOM_POUNCE=
+        ;;
+      Custom*)
+        SELECTED="$(printf 'sill\nprowl\npounce' | "$GUM" choose --no-limit \
+          --selected sill,prowl,pounce \
+          --header 'Optional rooms (space toggles) — sill=menu bar · prowl=tiling · pounce=⌘Space palette:')"
+        echo "$SELECTED" | grep -qx sill   || ROOM_SILL=
+        echo "$SELECTED" | grep -qx prowl  || ROOM_PROWL=
+        echo "$SELECTED" | grep -qx pounce || ROOM_POUNCE=
+        ;;
+      *)  # Full rice — every optional room on.
+        ROOM_SILL=1; ROOM_PROWL=1; ROOM_POUNCE=1
+        ;;
+    esac
 
     ACCENT="$(printf 'mauve\nblue\nsapphire\nsky\nteal\ngreen\nyellow\npeach\nmaroon\nred\npink\nflamingo\nrosewater\nlavender' \
       | "$GUM" choose --header 'Accent colour:')"; ACCENT="${ACCENT:-mauve}"
+
+    # Enter takes the shown default (orbits); Esc/skip keeps your wallpaper.
+    WALLPAPER="$(printf 'orbits\nconstellation\nflow\nbold\nnone' \
+      | "$GUM" choose --header 'Desktop wallpaper — Nebelung looks · bold follows your accent · none keeps yours:')"
+    WALLPAPER="${WALLPAPER:-none}"
 
     EDITOR_CHOICE="$(printf 'hx\nnvim\nvim\nnano' | "$GUM" choose --header 'Default $EDITOR:')"
     EDITOR_CHOICE="${EDITOR_CHOICE:-hx}"
@@ -192,6 +218,7 @@ preflight_audit() {
   [ -n "$ROOM_SILL" ]   && printf '              Hide native menu bar: %s -> true (Sill draws its own)\n' "$(dflt -g _HIHideMenuBar)"
   [ -n "$ROOM_PROWL" ]  && printf '              Caps Lock -> a leader key for tiling + the app launcher\n'
   [ -n "$ROOM_POUNCE" ] && printf '              ⌘Space   -> the pounce palette (disabled for Spotlight)\n'
+  [ "$WALLPAPER" != "none" ] && printf '              Desktop wallpaper:    set to the Nebelung "%s" look (your current one is not deleted)\n' "$WALLPAPER"
 
   printf '  undo      nothing is switched until you run the build below; the snapshot\n'
   printf '            taken above + `darwin-rebuild --rollback` revert it.\n'
@@ -237,6 +264,7 @@ opt_lines=""
 [ -z "$ROOM_PROWL" ]  && opt_lines+="  nebelhaus.prowl.enable = false;"$'\n'
 [ -z "$ROOM_POUNCE" ] && opt_lines+="  nebelhaus.pounce.enable = false;"$'\n'
 [ "$ACCENT" != "mauve" ] && opt_lines+="  nebelhaus.theme.accent = \"$ACCENT\";"$'\n'
+[ "$WALLPAPER" != "none" ] && opt_lines+="  nebelhaus.theme.wallpaper = \"$WALLPAPER\";"$'\n'
 [ "$EDITOR_CHOICE" != "hx" ] && opt_lines+="  nebelhaus.hearth.editor = \"$EDITOR_CHOICE\";"$'\n'
 [ -n "$opt_lines" ] && opt_lines=$'\n'"$opt_lines"
 cask_lines=""

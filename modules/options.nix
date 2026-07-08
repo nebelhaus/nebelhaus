@@ -129,6 +129,31 @@
       '';
     };
 
+    theme.wallpaper = lib.mkOption {
+      type = lib.types.enum [
+        "none"
+        "orbits"
+        "constellation"
+        "flow"
+        "bold"
+      ];
+      default = "none";
+      example = "orbits";
+      description = ''
+        The desktop wallpaper, set at each home-manager activation (osascript,
+        every desktop on the current Space). Four Nebelung looks:
+
+          orbits · constellation · flow  hand-made, the palette baked in
+          bold                           generated from theme.accent, so it
+                                         follows the accent (a bold pink at
+                                         accent = "pink")
+
+        Default "none" leaves your current wallpaper alone — changing the
+        desktop is visible and personal, so nothing moves unless you ask (the
+        bootstrap interview offers the choice on a fresh install).
+      '';
+    };
+
     prowl.apps = lib.mkOption {
       type = lib.types.listOf (
         lib.types.submodule {
