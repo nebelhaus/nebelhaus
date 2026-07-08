@@ -49,6 +49,9 @@ die()  { printf '\033[38;5;167m✗  %s\033[0m\n' "$*" >&2; exit 1; }
 # run — do a MUTATING thing, or just show it under dry-run.
 run() { if [ -n "$DRY_RUN" ]; then printf '\033[2m   [dry-run] %s\033[0m\n' "$*"; else "$@"; fi; }
 
+# dflt — read a macOS default (read-only), or "unset" if it has no value yet.
+dflt() { /usr/bin/defaults read "$1" "$2" 2>/dev/null || echo "unset"; }
+
 [ "$(uname)" = "Darwin" ] || die "nebelhaus is macOS-only."
 
 # ---- Phase 0: prerequisites ----------------------------------------------
@@ -141,6 +144,65 @@ if [ -n "$INTERACTIVE" ]; then
       fi
     fi
   fi
+fi
+
+# ---- Phase 1.5: preflight audit ------------------------------------------
+# Read-only. Before writing anything, show what's already on this Mac and what
+# the pending config will (and won't) change — so nothing is a surprise. Never
+# deletes or modifies anything here; it only looks and reports.
+preflight_audit() {
+  printf '\n'; say "Preflight — what's already here, and what changes:"
+
+  # Apps — nothing is ever removed (homebrew cleanup defaults to "none").
+  if command -v brew >/dev/null 2>&1; then
+    printf '  apps      %s Homebrew cask(s) installed — NONE removed (cleanup = none).\n' \
+      "$(brew list --cask 2>/dev/null | wc -l | tr -d ' ')"
+    [ -n "$ADOPT_CASKS" ] && printf '            %s adopted into your config so a rebuild keeps them.\n' \
+      "$(echo "$ADOPT_CASKS" | wc -w | tr -d ' ')"
+  else
+    printf '  apps      no Homebrew yet — the rice installs it; nothing to remove.\n'
+  fi
+
+  # Dotfiles — the rice writes these as single files; an existing REAL one is
+  # renamed to <file>.backup on the first switch (kept, never deleted). Files
+  # already symlinked into the Nix store are managed, so they don't count. (The
+  # rice's directory-based configs — zellij, sketchybar, … — are managed
+  # per-file, so only a conflicting file *inside* them is ever backed up.)
+  local managed=(
+    "$HOME/.zshrc" "$HOME/.zshenv" "$HOME/.config/starship.toml" "$HOME/.config/git/config"
+  )
+  local hits=() p link
+  for p in "${managed[@]}"; do
+    [ -e "$p" ] || continue
+    link="$(readlink "$p" 2>/dev/null || true)"
+    case "$link" in */nix/store/*) : ;; *) hits+=("${p/#$HOME/~}") ;; esac
+  done
+  if [ "${#hits[@]}" -gt 0 ]; then
+    printf '  dotfiles  these already exist and will be saved as <file>.backup (kept, not deleted):\n'
+    printf '              %s\n' "${hits[@]}"
+  else
+    printf '  dotfiles  no conflicting single-file dotfiles — nothing to back up.\n'
+  fi
+
+  # macOS settings the chosen rooms will change (current -> new). Read-only.
+  printf '  settings  the rice will set these macOS defaults (reversible via the snapshot):\n'
+  printf '              Dock autohide:        %s -> true\n'          "$(dflt com.apple.dock autohide)"
+  printf '              Key repeat (fast):    KeyRepeat %s -> 2\n'   "$(dflt -g KeyRepeat)"
+  printf '              Show file extensions: %s -> true\n'          "$(dflt -g AppleShowAllExtensions)"
+  [ -n "$ROOM_SILL" ]   && printf '              Hide native menu bar: %s -> true (Sill draws its own)\n' "$(dflt -g _HIHideMenuBar)"
+  [ -n "$ROOM_PROWL" ]  && printf '              Caps Lock -> a leader key for tiling + the app launcher\n'
+  [ -n "$ROOM_POUNCE" ] && printf '              ⌘Space   -> the pounce palette (disabled for Spotlight)\n'
+
+  printf '  undo      nothing is switched until you run the build below; the snapshot\n'
+  printf '            taken above + `darwin-rebuild --rollback` revert it.\n'
+}
+preflight_audit
+
+# Nothing has been written yet — this is the last read-only moment. Require an
+# explicit yes before scaffolding (interactive only; --defaults just proceeds).
+if [ -n "$INTERACTIVE" ] && [ -n "${GUM:-}" ] && ! "$GUM" confirm "Write this config to $DEST and continue?"; then
+  printf '\n'; say "OK — nothing was written. Re-run any time."
+  exit 0
 fi
 
 # ---- Phase 2: scaffold ----------------------------------------------------
