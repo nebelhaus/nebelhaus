@@ -50,35 +50,13 @@ outer.right = [{ monitor."Built-in Retina Display" = 10 }, 20]
 
 # All possible commands: https://nikitabobko.github.io/AeroSpace/commands
 
-alt-slash = 'layout tiles horizontal vertical'
-alt-comma = 'layout accordion horizontal vertical'
-
-alt-h = 'focus left'
-alt-j = 'focus down'
-alt-k = 'focus up'
-alt-l = 'focus right'
-
-alt-shift-cmd-ctrl-left = 'move left'
-alt-shift-cmd-ctrl-down = 'move down'
-alt-shift-cmd-ctrl-up = 'move up'
-alt-shift-cmd-ctrl-right = 'move right'
-
-alt-shift-cmd-ctrl-minus = 'resize smart -50'
-alt-shift-cmd-ctrl-equal = 'resize smart +50'
-
-# 1
-alt-1 = 'workspace 1'
-alt-shift-1 = 'move-node-to-workspace 1'
-# 2
-alt-2 = 'workspace 2'
-alt-shift-2 = 'move-node-to-workspace 2'
-# 3
-alt-3 = 'workspace 3'
-alt-shift-3 = 'move-node-to-workspace 3'
-# 4
-alt-4 = 'workspace 4'
-alt-shift-4 = 'move-node-to-workspace 4'
-
+# Static tiling / workspace / layout / palette bindings — generated from
+# modules/prowl/wm-bindings.nix, the SAME table that renders the pounce
+# cheatsheet, so a binding and its caption can't drift. (focus ⌥hjkl, move
+# ⌥⌘⌃⇧arrows, resize ⌥⌘⌃⇧-/=, layouts ⌥/ ⌥,, workspaces ⌥1-4 / ⌥⇧1-4,
+# fullscreen ⌥f, back-and-forth ⌥⇥, move-workspace ⌥⇧⇥, resort ⌥⇧r, palette
+# ⌘space.)
+@MAIN_STATIC@
 # App-workspace throws (⌥⇧<key>) — generated from nebelhaus.prowl.apps.
 @MAIN_MOVES@
 # App launchers — hyper (caps lock, = cmd-alt-ctrl-shift) + letter. Generated
@@ -92,36 +70,15 @@ alt-shift-4 = 'move-node-to-workspace 4'
 # stay as a fallback for when useNativeHyper is flipped off.
 f18 = ['mode launch', 'exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh on']
 
-# cmd+space opens the command palette directly (macOS Spotlight's cmd+space is
-# disabled in Keyboard settings). A direct alternative to the caps -> space leader.
-cmd-space = 'exec-and-forget @BIN@/pounce-palette'
-
-alt-f = 'fullscreen'
-
-# Re-apply on-window-detected workspace assignments (manual recovery from
-# macOS wake-up window pile-up). Also runs automatically on wake via
-# sleepwatcher.
-alt-shift-r = 'exec-and-forget @HOME@/.config/aerospace/resort-windows.sh'
-
-alt-tab = 'workspace-back-and-forth'
-alt-shift-tab = 'move-workspace-to-monitor --wrap-around next'
-
+# ⌘space (palette), ⌥f, ⌥⇥, ⌥⇧⇥, ⌥⇧r are part of the generated static block
+# above (modules/prowl/wm-bindings.nix). Only the mode-entry chord stays here —
+# it's structural plumbing, not a tiling command, so it isn't on the cheatsheet.
 alt-shift-semicolon = 'mode service'
+
+# Service-mode bindings (flatten, float, close-others, join-with, volume) —
+# generated from modules/prowl/wm-bindings.nix, same table as the cheatsheet.
 [mode.service.binding]
-esc = ['reload-config', 'mode main']
-r = ['flatten-workspace-tree', 'mode main']
-f = ['layout floating tiling', 'mode main']
-backspace = ['close-all-windows-but-current', 'mode main']
-
-alt-shift-h = ['join-with left', 'mode main']
-alt-shift-j = ['join-with down', 'mode main']
-alt-shift-k = ['join-with up', 'mode main']
-alt-shift-l = ['join-with right', 'mode main']
-
-down = 'volume down'
-up = 'volume up'
-shift-down = ['volume set 0', 'mode main']
-
+@SERVICE_STATIC@
 # Launch leader mode (entered by tapping caps -> F18). Each letter mirrors the
 # hyper chords above, then drops back to main. esc / any unbound key + esc to
 # bail out without launching anything.

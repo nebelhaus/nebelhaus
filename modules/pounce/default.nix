@@ -72,6 +72,18 @@ let
       }
     ];
 
+  # The tiling / workspace / service / system pages, rendered from the SAME table
+  # that generates the aerospace.toml bindings (../prowl/wm-bindings.nix) — edit a
+  # binding there and its cheatsheet row moves with it, so they can't drift. Only
+  # items with a `keys` display appear (toml-only bindings are skipped).
+  wmPages = map (section: {
+    title = section.title;
+    items = map (it: {
+      key = it.keys;
+      action = it.action;
+    }) (lib.filter (it: it ? keys) section.items);
+  }) (import ../prowl/wm-bindings.nix);
+
   # Wait for the GUI session (→ the /nix volume + an unlocked login keychain)
   # before touching the store path or codesign. Exec'ing via /bin/bash (boot
   # volume) also sidesteps the cold-boot exit-78 race for store-path executables.
@@ -169,51 +181,14 @@ lib.mkIf config.nebelhaus.pounce.enable {
       };
     };
 
-    home.file.".config/pounce/cheatsheet.json".text = builtins.toJSON [
+    home.file.".config/pounce/cheatsheet.json".text = builtins.toJSON ([
       {
         title = "Launch Mode [Caps Lock]";
         items = launchModeItems;
       }
-      {
-        title = "Window Management";
-        items = [
-          { key = "⌥ hjkl"; action = "Focus direction"; }
-          { key = "⌥ ⌘ ⌃ ⇧ ←↓↑→"; action = "Move window"; }
-          { key = "⌥ ⌘ ⌃ ⇧ -/="; action = "Resize window"; }
-          { key = "⌥ /"; action = "Tiles layout"; }
-          { key = "⌥ ,"; action = "Accordion layout"; }
-          { key = "⌥ f"; action = "Fullscreen toggle"; }
-          { key = "⌥ ⇥"; action = "Back and forth"; }
-          { key = "⌥ ⇧ ⇥"; action = "Move workspace to next monitor"; }
-        ];
-      }
-      {
-        title = "Workspaces";
-        items = [
-          { key = "⌥ 1-4"; action = "Focus workspace 1-4"; }
-          { key = "⌥ ⇧ 1-4"; action = "Move to workspace 1-4"; }
-          { key = "⌥ ⇧ [Letter]"; action = "Move to app workspace"; }
-        ];
-      }
-      {
-        title = "Service Mode [⌥ ⇧ ;]";
-        items = [
-          { key = "r"; action = "Flatten tree"; }
-          { key = "f"; action = "Toggle floating"; }
-          { key = "⌫"; action = "Close others"; }
-          { key = "⌥ ⇧ hjkl"; action = "Join with"; }
-          { key = "↑ / ↓"; action = "Volume up / down"; }
-          { key = "⇧ ↓"; action = "Mute volume"; }
-          { key = "⎋"; action = "Reload config + exit"; }
-        ];
-      }
-      {
-        title = "System";
-        items = [
-          { key = "⌘ Space"; action = "Command Palette"; }
-          { key = "⌥ ⇧ r"; action = "Resort windows"; }
-        ];
-      }
+    ]
+    ++ wmPages
+    ++ [
       # ── Tips page (⇥ flips to it) — workflows and the stuff that's hard to
       # remember. Keep every entry TRUE to the configs it describes: keys from
       # hearth/zellij/config.kdl + prowl/aerospace.toml, palette queries from
@@ -261,7 +236,7 @@ lib.mkIf config.nebelhaus.pounce.enable {
           { key = "force"; action = "Force-quit an app"; }
         ];
       }
-    ];
+    ]);
 
     # Free ⌘Space for the palette by disabling Spotlight's "Show Spotlight
     # search" shortcut (symbolic hotkey 64). Integer-typed values are REQUIRED —

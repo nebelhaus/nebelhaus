@@ -27,6 +27,27 @@ let
 
   apps = config.nebelhaus.prowl.apps;
 
+  # The static tiling/workspace/service bindings, shared with the pounce
+  # cheatsheet (see ./wm-bindings.nix — one table, rendered both ways so they
+  # can't drift). Render each item's `binds` into aerospace.toml lines; a chord
+  # maps to a single command ('cmd') or a list of commands (['a', 'b']).
+  wmBindings = import ./wm-bindings.nix;
+  renderCmd = c: if lib.isList c then "[" + lib.concatMapStringsSep ", " (x: "'${x}'") c + "]" else "'${c}'";
+  renderBinds =
+    binds: lib.concatStrings (lib.mapAttrsToList (chord: cmd: "${chord} = ${renderCmd cmd}\n") binds);
+  sectionBinds = section: lib.concatMapStrings (
+    it: lib.optionalString (it ? binds) (renderBinds it.binds)
+  ) section.items;
+  bindingsForMode = mode: lib.concatMapStrings sectionBinds (
+    lib.filter (s: (s.mode or "main") == mode) wmBindings
+  );
+  # Resolve @HOME@/@BIN@ here: builtins.replaceStrings makes one non-rescanning
+  # pass, so tokens these rendered lines introduce wouldn't be caught by the
+  # outer substitution below.
+  subTokens = builtins.replaceStrings [ "@HOME@" "@BIN@" ] [ homeDir binDir ];
+  mainStatic = subTokens (bindingsForMode "main");
+  serviceStatic = subTokens (bindingsForMode "service");
+
   # ⌥⇧<key> throws a window to an app's workspace. Skip keys already bound in
   # main mode by a non-app action (r = resort-windows).
   reservedMoveKeys = [ "r" ];
@@ -59,8 +80,8 @@ let
   ) apps;
 
   aerospaceToml = builtins.replaceStrings
-    [ "@HOME@" "@BIN@" "@MAIN_MOVES@" "@HYPER_CHORDS@" "@LAUNCH_LETTERS@" "@WINDOW_RULES@" ]
-    [ homeDir binDir mainMoves hyperChords launchLetters windowRules ]
+    [ "@HOME@" "@BIN@" "@MAIN_STATIC@" "@SERVICE_STATIC@" "@MAIN_MOVES@" "@HYPER_CHORDS@" "@LAUNCH_LETTERS@" "@WINDOW_RULES@" ]
+    [ homeDir binDir mainStatic serviceStatic mainMoves hyperChords launchLetters windowRules ]
     (builtins.readFile ./aerospace.toml);
 
   resortScript = builtins.replaceStrings [ "@RESORT_CASES@" ] [ resortCases ] (
