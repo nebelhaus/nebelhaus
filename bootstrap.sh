@@ -52,6 +52,57 @@ run() { if [ -n "$DRY_RUN" ]; then printf '\033[2m   [dry-run] %s\033[0m\n' "$*"
 # dflt — read a macOS default (read-only), or "unset" if it has no value yet.
 dflt() { /usr/bin/defaults read "$1" "$2" 2>/dev/null || echo "unset"; }
 
+# nix_default DOMAIN KEY TYPE [FALLBACK] — read a macOS default and print it as a
+# nix literal for the host file. TYPE is bool|int|str. If the key is unset, print
+# FALLBACK (itself a nix literal, e.g. false or '"bottom"') when given, else print
+# nothing — so the rice's own default (a lib.mkDefault in modules/den) stays. This
+# is how "keep my settings" turns your live macOS state into declarative config.
+nix_default() {
+  local raw
+  if raw="$(/usr/bin/defaults read "$1" "$2" 2>/dev/null)"; then
+    case "$3" in
+      bool) case "$raw" in 1) echo true ;; 0) echo false ;; *) echo "${4:-}" ;; esac ;;
+      int)  case "$raw" in '' | *[!0-9-]*) echo "${4:-}" ;; *) echo "$raw" ;; esac ;;
+      str)  printf '"%s"' "$raw" ;;
+    esac
+  else
+    echo "${4:-}"
+  fi
+}
+
+# emit one host-file line, only when the value is non-empty (unset + no fallback).
+emit() { [ -n "$2" ] && printf '  system.defaults.%s = %s;\n' "$1" "$2"; }
+
+# settings_overrides — assemble the system.defaults block for the categories the
+# user chose to KEEP (KEEP_DOCK / KEEP_KBD / KEEP_FINDER). Bool/string keys carry
+# the macOS stock default as a fallback so an untouched knob is still captured
+# faithfully; integer repeat rates fall back to the rice's default when unset
+# (no reliable stock value to assume). AppleShowAllExtensions lives in both the
+# finder and NSGlobalDomain option sets in the rice, so pin both to one read.
+settings_overrides() {
+  if [ -n "$KEEP_DOCK" ]; then
+    emit dock.autohide     "$(nix_default com.apple.dock autohide bool false)"
+    emit dock.orientation  "$(nix_default com.apple.dock orientation str '"bottom"')"
+    emit dock.show-recents "$(nix_default com.apple.dock show-recents bool true)"
+    emit dock.mru-spaces   "$(nix_default com.apple.dock mru-spaces bool true)"
+  fi
+  if [ -n "$KEEP_KBD" ]; then
+    emit NSGlobalDomain.KeyRepeat                "$(nix_default -g KeyRepeat int)"
+    emit NSGlobalDomain.InitialKeyRepeat         "$(nix_default -g InitialKeyRepeat int)"
+    emit NSGlobalDomain.ApplePressAndHoldEnabled "$(nix_default -g ApplePressAndHoldEnabled bool true)"
+  fi
+  if [ -n "$KEEP_FINDER" ]; then
+    local ext
+    ext="$(nix_default -g AppleShowAllExtensions bool false)"
+    emit finder.AppleShowAllExtensions         "$ext"
+    emit NSGlobalDomain.AppleShowAllExtensions "$ext"
+    emit finder.AppleShowAllFiles    "$(nix_default com.apple.finder AppleShowAllFiles bool false)"
+    emit finder.FXPreferredViewStyle "$(nix_default com.apple.finder FXPreferredViewStyle str '"icnv"')"
+    emit finder.ShowPathbar          "$(nix_default com.apple.finder ShowPathbar bool false)"
+    emit finder.ShowStatusBar        "$(nix_default com.apple.finder ShowStatusBar bool false)"
+  fi
+}
+
 [ "$(uname)" = "Darwin" ] || die "nebelhaus is macOS-only."
 
 # ---- Phase 0: prerequisites ----------------------------------------------
@@ -115,6 +166,15 @@ case ",$ROOMS," in *,sill,*)   ROOM_SILL=1   ;; *) ROOM_SILL=   ;; esac
 case ",$ROOMS," in *,prowl,*)  ROOM_PROWL=1  ;; *) ROOM_PROWL=  ;; esac
 case ",$ROOMS," in *,pounce,*) ROOM_POUNCE=1 ;; *) ROOM_POUNCE= ;; esac
 
+# macOS settings to KEEP as your own instead of letting the rice restyle them —
+# a comma list of dock,keyboard,finder. Empty (the default) means the rice sets
+# all of them, exactly as before. Each kept category has its current values read
+# and pinned into your host config (see settings_overrides above).
+KEEP="${NEBELHAUS_KEEP:-}"
+case ",$KEEP," in *,dock,*)     KEEP_DOCK=1   ;; *) KEEP_DOCK=   ;; esac
+case ",$KEEP," in *,keyboard,*) KEEP_KBD=1    ;; *) KEEP_KBD=    ;; esac
+case ",$KEEP," in *,finder,*)   KEEP_FINDER=1 ;; *) KEEP_FINDER= ;; esac
+
 if [ -n "$INTERACTIVE" ]; then
   say "Fetching the interview UI (gum)…"
   GUM="$(nix build --no-link --print-out-paths nixpkgs#gum 2>/dev/null)/bin/gum" || GUM=""
@@ -160,6 +220,16 @@ if [ -n "$INTERACTIVE" ]; then
 
     EDITOR_CHOICE="$(printf 'hx\nnvim\nvim\nnano' | "$GUM" choose --header 'Default $EDITOR:')"
     EDITOR_CHOICE="${EDITOR_CHOICE:-hx}"
+
+    # macOS settings: keep your own, or let the rice restyle them. Nothing
+    # selected (the default) = the rice sets its tidy defaults, as before.
+    # Selected = your current values are read now and pinned into your config,
+    # overriding the rice — so your feel carries over to a fresh install.
+    KEPT="$(printf 'dock\nkeyboard\nfinder' | "$GUM" choose --no-limit \
+      --header 'Keep your CURRENT macOS settings for (space toggles; none = use the rice’s):')"
+    echo "$KEPT" | grep -qx dock     && KEEP_DOCK=1
+    echo "$KEPT" | grep -qx keyboard && KEEP_KBD=1
+    echo "$KEPT" | grep -qx finder   && KEEP_FINDER=1
 
     # Adopt existing casks so a future declarative rebuild never deletes them.
     if command -v brew >/dev/null 2>&1; then
@@ -210,11 +280,24 @@ preflight_audit() {
     printf '  dotfiles  no conflicting single-file dotfiles — nothing to back up.\n'
   fi
 
-  # macOS settings the chosen rooms will change (current -> new). Read-only.
+  # macOS settings the chosen rooms will change (current -> new), or that you
+  # chose to KEEP (your current value pinned into the config). Read-only.
   printf '  settings  the rice will set these macOS defaults (reversible via the snapshot):\n'
-  printf '              Dock autohide:        %s -> true\n'          "$(dflt com.apple.dock autohide)"
-  printf '              Key repeat (fast):    KeyRepeat %s -> 2\n'   "$(dflt -g KeyRepeat)"
-  printf '              Show file extensions: %s -> true\n'          "$(dflt -g AppleShowAllExtensions)"
+  if [ -n "$KEEP_DOCK" ]; then
+    printf '              Dock:                 kept as yours (autohide/orientation/recents pinned)\n'
+  else
+    printf '              Dock autohide:        %s -> true\n'          "$(dflt com.apple.dock autohide)"
+  fi
+  if [ -n "$KEEP_KBD" ]; then
+    printf '              Keyboard:             kept as yours (repeat rate + press-and-hold pinned)\n'
+  else
+    printf '              Key repeat (fast):    KeyRepeat %s -> 2\n'   "$(dflt -g KeyRepeat)"
+  fi
+  if [ -n "$KEEP_FINDER" ]; then
+    printf '              Finder:               kept as yours (extensions/view/bars pinned)\n'
+  else
+    printf '              Show file extensions: %s -> true\n'          "$(dflt -g AppleShowAllExtensions)"
+  fi
   [ -n "$ROOM_SILL" ]   && printf '              Hide native menu bar: %s -> true (Sill draws its own)\n' "$(dflt -g _HIHideMenuBar)"
   [ -n "$ROOM_PROWL" ]  && printf '              Caps Lock -> a leader key for tiling + the app launcher\n'
   [ -n "$ROOM_POUNCE" ] && printf '              ⌘Space   -> the pounce palette (disabled for Spotlight)\n'
@@ -270,6 +353,13 @@ opt_lines=""
 cask_lines=""
 for c in $ADOPT_CASKS; do cask_lines+="    \"$c\""$'\n'; done
 
+# Kept macOS settings — your current values, read now (read-only) and pinned so
+# they win over the rice's lib.mkDefault opinions. Empty unless you chose to keep
+# a category, so a default install writes no system.defaults and behaves as before.
+settings_lines="$(settings_overrides)"
+settings_block=""
+[ -n "$settings_lines" ] && settings_block=$'\n'"  # ---- macOS settings kept as yours (read at install) ----"$'\n'"$settings_lines"
+
 cat >"$DEST/hosts/$HOSTNAME/default.nix" <<EOF
 # $HOSTNAME — your machine. The personal layer on top of the nebelhaus rice:
 # identity, apps, secrets. A plain nix-darwin module; everything else is the rice.
@@ -284,7 +374,7 @@ cat >"$DEST/hosts/$HOSTNAME/default.nix" <<EOF
   # pounce code-signing identity (SHA-1 from: security find-identity -v -p codesigning).
   # "" runs pounce unsigned — the palette works, Accessibility features stay off.
   nebelhaus.pounce.signingIdentity = "";
-$opt_lines
+$opt_lines$settings_block
   # Homebrew never deletes an undeclared cask by default (cleanup = "none"); set
   # nebelhaus.homebrew.cleanup = "zap" only once every app you keep is listed.
   # Your apps — merged with what the rooms install (ghostty, aerospace):

@@ -2,6 +2,7 @@
 # the Homebrew framework, core CLI tools, fonts, and periodic GC.
 {
   config,
+  lib,
   pkgs,
   username,
   ...
@@ -64,34 +65,41 @@
   '';
 
   # ---- macOS defaults -------------------------------------------------------
+  # These are the rice's OPINIONS, so every value is lib.mkDefault: a host file
+  # can override any of them with a plain value and win, no conflict. That's how
+  # the bootstrap's "keep your current settings" capture works — it writes your
+  # existing values into the host's system.defaults, overriding these. The one
+  # exception is _HIHideMenuBar: it's not an opinion but a function of Sill (the
+  # bar has to be hidden for Sill to replace it), so it stays rice-controlled.
   system.defaults = {
     dock = {
-      autohide = true;
-      show-recents = false;
-      mru-spaces = false;
-      orientation = "bottom";
+      autohide = lib.mkDefault true;
+      show-recents = lib.mkDefault false;
+      mru-spaces = lib.mkDefault false;
+      orientation = lib.mkDefault "bottom";
     };
     finder = {
-      AppleShowAllExtensions = true;
-      AppleShowAllFiles = true;
-      FXPreferredViewStyle = "Nlsv"; # list view
-      ShowPathbar = true;
-      ShowStatusBar = true;
+      AppleShowAllExtensions = lib.mkDefault true;
+      AppleShowAllFiles = lib.mkDefault true;
+      FXPreferredViewStyle = lib.mkDefault "Nlsv"; # list view
+      ShowPathbar = lib.mkDefault true;
+      ShowStatusBar = lib.mkDefault true;
     };
     NSGlobalDomain = {
-      ApplePressAndHoldEnabled = false; # key repeat, not the accent picker
-      KeyRepeat = 2;
-      InitialKeyRepeat = 15;
-      AppleShowAllExtensions = true;
+      ApplePressAndHoldEnabled = lib.mkDefault false; # key repeat, not the accent picker
+      KeyRepeat = lib.mkDefault 2;
+      InitialKeyRepeat = lib.mkDefault 15;
+      AppleShowAllExtensions = lib.mkDefault true;
       # Hide the stock menu bar only when Sill draws its own; otherwise keep it.
+      # Rice-controlled (not mkDefault): it tracks sill.enable, not user taste.
       _HIHideMenuBar = config.nebelhaus.sill.enable;
     };
     trackpad = {
-      Clicking = true;
-      TrackpadRightClick = true;
-      TrackpadThreeFingerDrag = true;
+      Clicking = lib.mkDefault true;
+      TrackpadRightClick = lib.mkDefault true;
+      TrackpadThreeFingerDrag = lib.mkDefault true;
     };
-    CustomUserPreferences."com.apple.commerce".AutoUpdate = true;
+    CustomUserPreferences."com.apple.commerce".AutoUpdate = lib.mkDefault true;
   };
 
   # ---- Nix housekeeping -----------------------------------------------------
