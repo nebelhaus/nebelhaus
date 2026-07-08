@@ -155,6 +155,14 @@ in
           (lib.mkBefore ''
             export GPG_TTY=$(tty)
 
+            # zoxide's self-check wants its init to be the LAST thing in the
+            # zshrc, but home-manager injects `zoxide init` early — and we
+            # deliberately add chpwd hooks after it (fnm --use-on-cd, the zellij
+            # tab-namer). Those coexist fine with zoxide's `cd` override (see
+            # programs.zoxide below), so the doctor is a false positive here;
+            # silence it as the warning itself suggests.
+            export _ZO_DOCTOR=0
+
             # Homebrew (Apple Silicon)
             eval "$(/opt/homebrew/bin/brew shellenv)"
 
