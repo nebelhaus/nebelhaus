@@ -65,6 +65,18 @@ nix build .#darwinConfigurations.<hostname>.system \
   && sudo ./result/sw/bin/darwin-rebuild switch --flake .#<hostname>
 ```
 
+That first switch puts a small **`haus`** CLI on your PATH, so from then on you
+never type the incantation again:
+
+```sh
+haus rebuild        # build + switch this machine
+haus update         # pull the latest rice, then rebuild
+haus rollback       # go back a generation
+haus status         # current generation + how old your pinned rice is
+haus edit           # open your host config in $EDITOR
+haus doctor         # check Nix, the CLT, and the GUI agents
+```
+
 ## steal one room
 
 Every room is a `darwinModule`. Pull just what you want into your own flake:

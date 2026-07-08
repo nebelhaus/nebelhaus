@@ -28,6 +28,11 @@
     fastfetch
     tree
     ttyd
+    # The everyday end-user CLI: haus rebuild / update / rollback / status /
+    # edit / doctor — so a nebelhaus machine never needs raw nix incantations.
+    # System-wide (not home-manager) so sudo and non-login shells see it too. A
+    # workshop checkout can shadow this with the developer `haus` via PATH order.
+    (writeShellScriptBin "haus" (builtins.readFile ./haus.sh))
   ];
 
   # ---- Homebrew framework ---------------------------------------------------
