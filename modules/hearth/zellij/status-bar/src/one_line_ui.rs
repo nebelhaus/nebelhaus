@@ -768,6 +768,9 @@ fn secondary_keybinds(help: &ModeInfo, tab_info: Option<&TabInfo>, max_len: usiz
     let mut secondary_info = LinePart::default();
     let binds = &help.get_mode_keybinds();
     let should_show_focus_and_resize_shortcuts = should_show_focus_and_resize_shortcuts(tab_info);
+    // claude --worktree agent (fork): surface its bind (e.g. Super c) alongside
+    // New Pane / New Tab in the bottom-right quick hints.
+    let claude_key_to_display = claude_worktree_key(binds);
     // New Pane
     let new_pane_action_key = action_key(
         binds,
@@ -924,6 +927,7 @@ fn secondary_keybinds(help: &ModeInfo, tab_info: Option<&TabInfo>, max_len: usiz
 
     let common_modifiers = get_common_modifiers(
         [
+            claude_key_to_display.clone(),
             new_pane_key_to_display.clone(),
             new_tab_key_to_display.clone(),
             move_focus_shortcuts.clone(),
@@ -939,14 +943,21 @@ fn secondary_keybinds(help: &ModeInfo, tab_info: Option<&TabInfo>, max_len: usiz
     if no_common_modifier {
         secondary_info.append(&add_shortcut(
             help,
-            "New Pane",
+            "claude",
+            &claude_key_to_display,
+            false,
+            Some(0),
+        ));
+        secondary_info.append(&add_shortcut(
+            help,
+            "pane",
             &new_pane_key_to_display,
             false,
             Some(0),
         ));
         secondary_info.append(&add_shortcut(
             help,
-            "New Tab",
+            "tab",
             &new_tab_key_to_display,
             false,
             Some(0),
@@ -1007,15 +1018,25 @@ fn secondary_keybinds(help: &ModeInfo, tab_info: Option<&TabInfo>, max_len: usiz
             .iter()
             .map(|k| k.strip_common_modifiers(&common_modifiers))
             .collect();
+        let claude_key_to_display: Vec<KeyWithModifier> = claude_key_to_display
+            .iter()
+            .map(|k| k.strip_common_modifiers(&common_modifiers))
+            .collect();
         secondary_info.append(&add_shortcut_with_inline_key(
             help,
-            "New Pane",
+            "claude",
+            claude_key_to_display,
+            false,
+        ));
+        secondary_info.append(&add_shortcut_with_inline_key(
+            help,
+            "pane",
             new_pane_key_to_display,
             false,
         ));
         secondary_info.append(&add_shortcut_with_inline_key(
             help,
-            "New Tab",
+            "tab",
             new_tab_key_to_display,
             false,
         ));
@@ -1048,14 +1069,21 @@ fn secondary_keybinds(help: &ModeInfo, tab_info: Option<&TabInfo>, max_len: usiz
         if no_common_modifier {
             short_line.append(&add_shortcut(
                 help,
-                "New",
+                "claude",
+                &claude_key_to_display,
+                false,
+                Some(0),
+            ));
+            short_line.append(&add_shortcut(
+                help,
+                "pane",
                 &new_pane_key_to_display,
                 false,
                 Some(0),
             ));
             short_line.append(&add_shortcut(
                 help,
-                "Tab",
+                "tab",
                 &new_tab_key_to_display,
                 false,
                 Some(0),
@@ -1117,15 +1145,25 @@ fn secondary_keybinds(help: &ModeInfo, tab_info: Option<&TabInfo>, max_len: usiz
                 .iter()
                 .map(|k| k.strip_common_modifiers(&common_modifiers))
                 .collect();
+            let claude_key_to_display: Vec<KeyWithModifier> = claude_key_to_display
+                .iter()
+                .map(|k| k.strip_common_modifiers(&common_modifiers))
+                .collect();
             short_line.append(&add_shortcut_with_inline_key(
                 help,
-                "New",
+                "claude",
+                claude_key_to_display,
+                false,
+            ));
+            short_line.append(&add_shortcut_with_inline_key(
+                help,
+                "pane",
                 new_pane_key_to_display,
                 false,
             ));
             short_line.append(&add_shortcut_with_inline_key(
                 help,
-                "Tab",
+                "tab",
                 new_tab_key_to_display,
                 false,
             ));
@@ -1277,6 +1315,27 @@ fn add_shortcut_with_inline_key(
     };
 
     ret
+}
+
+// Fork: find the key bound to the claude --worktree agent (Run "claude"
+// "--worktree" …), so the bottom-right hints can surface it next to New
+// Pane / New Tab. Matches the command basename + the --worktree flag so a
+// rebind (e.g. Super c) still resolves.
+fn claude_worktree_key(binds: &[(KeyWithModifier, Vec<Action>)]) -> Vec<KeyWithModifier> {
+    binds
+        .iter()
+        .find_map(|(key, actions)| {
+            actions.iter().find_map(|a| match a {
+                Action::Run { command, .. }
+                    if command.command.file_name().and_then(|n| n.to_str()) == Some("claude")
+                        && command.args.iter().any(|arg| arg == "--worktree") =>
+                {
+                    Some(vec![key.clone()])
+                },
+                _ => None,
+            })
+        })
+        .unwrap_or_default()
 }
 
 fn add_shortcut_with_key_only(

@@ -761,5 +761,27 @@ in
           done
         fi
       '';
+
+      # Claude Code — pin the permission mode in settings.json instead of
+      # passing --dangerously-skip-permissions on the command line (the zellij
+      # binds above no longer do). "auto" runs agents unattended but keeps the
+      # background safety checks that block dangerous escalations, so it's safe
+      # on the host — unlike bypassPermissions, which is the flag's exact,
+      # check-free behaviour and wants a container. Claude owns settings.json
+      # (it rewrites the file as plugins/statusline/permission grants change),
+      # so we merge our one key in at activation and never own it — every other
+      # key it holds must survive. jq is pinned from the store because
+      # activation runs with a bare PATH.
+      home.activation.claudeCodePermissionMode = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        run sh -c '
+          settings="$0"
+          mkdir -p "''${settings%/*}"
+          tmp="$settings.hm-seed"
+          if [ -s "$settings" ]; then base="$settings"; else base="$tmp.base"; printf "{}" > "$base"; fi
+          ${pkgs.jq}/bin/jq ".permissions.defaultMode = \"auto\"" "$base" > "$tmp"
+          mv "$tmp" "$settings"
+          rm -f "$tmp.base"
+        ' "$HOME/.claude/settings.json"
+      '';
     };
 }
