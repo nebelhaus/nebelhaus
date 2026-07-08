@@ -45,8 +45,8 @@ both consumed as flake inputs.
 ## raise the whole house
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/nebelhaus/nebelhaus/main/bootstrap.sh | bash
-# or, once nix is installed:
+curl -fsSL https://nebelhaus.com/init.sh | bash
+# or straight from the flake, once nix is installed:
 nix run github:nebelhaus/nebelhaus#bootstrap
 ```
 
