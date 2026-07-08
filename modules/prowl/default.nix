@@ -60,10 +60,6 @@ in
 
   home-manager.users.${username}.home.file = {
     ".config/aerospace/aerospace.toml".source = ./aerospace.toml;
-    ".config/aerospace/cap-follow.sh" = {
-      source = ./scripts/cap-follow.sh;
-      executable = true;
-    };
     ".config/aerospace/resort-windows.sh" = {
       source = ./scripts/resort-windows.sh;
       executable = true;
