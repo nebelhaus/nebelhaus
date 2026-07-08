@@ -45,6 +45,21 @@
       '';
     };
 
+    claude.globalMd = lib.mkOption {
+      type = lib.types.lines;
+      default = "";
+      example = ''
+        # CLAUDE.md — global
+        How I like to work across every repo…
+      '';
+      description = ''
+        Contents of Claude Code's global memory file, written to
+        ~/.claude/CLAUDE.md (hearth wires it into home-manager). This is your
+        personal, cross-project operating context — the rice ships no opinion of
+        its own here, so leave it empty to manage ~/.claude/CLAUDE.md by hand.
+      '';
+    };
+
     pounce.signingIdentity = lib.mkOption {
       type = lib.types.str;
       default = "";

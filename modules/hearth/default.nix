@@ -14,6 +14,7 @@
 let
   gitCfg = config.nebelhaus.git;
   hearthCfg = config.nebelhaus.hearth;
+  claudeCfg = config.nebelhaus.claude;
 in
 {
   home-manager.users.${username} =
@@ -579,6 +580,13 @@ in
 
       # ---- dotfiles + Nebelung theme drops ----
       home.file = {
+        # Claude Code global memory — cross-project operating context, supplied
+        # by the host via nebelhaus.claude.globalMd. Unset (option empty) = no
+        # file written, so ~/.claude/CLAUDE.md stays hand-managed.
+        ".claude/CLAUDE.md" = lib.mkIf (claudeCfg.globalMd != "") {
+          text = claudeCfg.globalMd;
+        };
+
         # opencode
         ".config/opencode/themes/nebelung.json".source = "${nebelung.themes}/opencode/nebelung.json";
         ".config/opencode/tui.json".text = ''
