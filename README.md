@@ -14,6 +14,11 @@ silver-grey · keyboard-first · reproducible · nix-native
 <!-- assets/hero.png — the whole desktop: Sill bar, Prowl tiling, Pounce open, Nebelung everywhere -->
 ![the nebelhaus desktop](./assets/hero.png)
 
+<!-- assets/tap-to-launch.webp — V3: tap ⇪, press a letter, the app launches and tiles itself -->
+![tap Caps Lock, press a letter — the app launches and tiles itself](./assets/tap-to-launch.webp)
+
+<sub>tap ⇪ → the bar sprouts letter-hints → press one → the app launches and tiles itself.</sub>
+
 </div>
 
 ---
