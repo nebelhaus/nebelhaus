@@ -112,7 +112,6 @@ in
         nixfmt-rfc-style
         chafa # fast terminal image previewer / layout engine
         glow # markdown renderer; yazi's glow previewer shells out to it
-        mdcat
         fd # fast finder; used by yazi/zoxide navigation
         iina
         opencode
@@ -138,6 +137,10 @@ in
           cat = "bat --style=header,grid --tabs=2";
           ls = "lsd";
           lg = "lazygit";
+          # mdcat's replacement: the same themed glow yazi's previewer uses, so
+          # a terminal `mdcat file.md` renders markdown identically to the yazi
+          # right-pane preview (Nebelung glamour port, tables and all).
+          mdcat = ''glow -s "${glowStyle}"'';
         };
 
         history = {
