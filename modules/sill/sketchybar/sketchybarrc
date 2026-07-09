@@ -63,13 +63,13 @@ sketchybar --add item apple.logo left \
     --set apple.logo \
         icon="" \
         label.drawing=off \
-        icon.padding_left=14 \
-        icon.padding_right=14 \
+        icon.padding_left=16 \
+        icon.padding_right=16 \
         background.padding_left=4 \
         background.padding_right=4 \
         background.color=$SURFACE0 \
         background.image="$HOME/.config/sketchybar/nebelhaus-ears.png" \
-        background.image.scale=0.060 \
+        background.image.scale=0.0595 \
         background.image.drawing=on \
         popup.background.border_width=2 \
         popup.background.corner_radius=10 \
