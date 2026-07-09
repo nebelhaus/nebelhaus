@@ -22,7 +22,7 @@ macOS, arranged like a tiling Linux rig but native to the grain of the Mac —
 one Nix flake raises the whole house. Fog-grey, quiet, and reproducible: wipe
 the machine, run one command, and the house stands again exactly as it was.
 
-> [!NOTE]
+> [!TIP]
 > Think *omarchy*, but for macOS instead of Arch.
 
 ## the rooms
