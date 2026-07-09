@@ -140,7 +140,19 @@ lib.mkIf config.nebelhaus.prowl.enable {
   };
 
   home-manager.users.${username}.home.file = {
-    ".config/aerospace/aerospace.toml".text = aerospaceToml;
+    ".config/aerospace/aerospace.toml" = {
+      text = aerospaceToml;
+      # AeroSpace runs as a KeepAlive launchd agent, so a rebuild rewrites this
+      # file but the live daemon keeps its old in-memory bindings until it's
+      # told to reload. Without this, every binding edit silently fails to take
+      # until a manual `aerospace reload-config` or a reboot — which is exactly
+      # how the caps→1-4 workspace focus binds looked "broken" after landing.
+      # Guarded so first-boot activation (no daemon yet) doesn't fail; launchd
+      # RunAtLoad then starts AeroSpace with the fresh config anyway.
+      onChange = ''
+        /opt/homebrew/bin/aerospace reload-config 2>/dev/null || true
+      '';
+    };
     ".config/aerospace/resort-windows.sh" = {
       text = resortScript;
       executable = true;
