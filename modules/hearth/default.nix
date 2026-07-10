@@ -708,6 +708,11 @@ in
           assert pinned != zellijLayout;
           pinned;
         ".config/zellij/plugins/link-handler.wasm".source = ./zellij/plugins/zellij_link_handler.wasm;
+        # tab-history (see zellij/tab-history/): background plugin that makes
+        # Ctrl(+Shift)+Tab walk tabs in most-recently-used order (browser-style
+        # back/forward) instead of by position. Loaded via config.kdl's
+        # load_plugins; grants seeded below. Wasm vendored by its build.sh.
+        ".config/zellij/plugins/tab-history.wasm".source = ./zellij/plugins/zellij_tab_history.wasm;
         # Our status-bar fork (see zellij/status-bar/): identical to the
         # built-in except the bottom-right quick hints also surface NewTab,
         # so Super-t shows next to Super-p. Wasm vendored by its build.sh.
@@ -792,6 +797,13 @@ in
       # are gated on ReadApplicationState (zellij's check_event_permission).
       home.activation.zellijStatusBarPermissions = seedZellijPluginPermissions "status-bar.wasm" [
         "ReadApplicationState"
+      ];
+      # tab-history reads TabUpdate (ReadApplicationState) to track focus order
+      # and calls go_to_tab (ChangeApplicationState) to switch tabs; both are
+      # pre-seeded because it's a background plugin with no pane to prompt in.
+      home.activation.zellijTabHistoryPermissions = seedZellijPluginPermissions "tab-history.wasm" [
+        "ReadApplicationState"
+        "ChangeApplicationState"
       ];
 
       # File-association hijack — opt-in (nebelhaus.hearth.hijackFileAssociations).

@@ -28,7 +28,7 @@ keybind = cmd+c=unbind
 # even unbound, macOS AppKit swallows ctrl+tab for focus navigation before
 # the terminal core sees it. So bind it to SEND the kitty-keyboard-protocol
 # encoding explicitly (CSI 9;5u / 9;6u = ctrl+Tab / ctrl+shift+Tab); zellij's
-# config.kdl binds those to tab cycling.
+# config.kdl binds those to the tab-history plugin (MRU back/forward).
 keybind = ctrl+tab=text:\x1b[9;5u
 keybind = ctrl+shift+tab=text:\x1b[9;6u
 
