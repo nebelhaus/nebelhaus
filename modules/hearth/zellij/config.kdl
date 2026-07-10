@@ -24,6 +24,13 @@ theme "nebelung"
 // background plugin has no pane to show the grant prompt in.
 load_plugins {
     "file:~/.config/zellij/plugins/link-handler.wasm"
+    // tab-history — Ctrl(+Shift)+Tab walk tabs in most-recently-used order
+    // (browser-style back/forward) instead of by position. Loaded here as a
+    // background plugin so it records focus history from session start; the
+    // Ctrl Tab / Ctrl Shift Tab binds below MessagePlugin "back"/"forward" to
+    // it. Its grants are pre-seeded into zellij's permission cache by hearth,
+    // same as link-handler. See zellij/tab-history/src/main.rs.
+    "file:~/.config/zellij/plugins/tab-history.wasm"
 }
 
 keybinds {
@@ -96,12 +103,26 @@ keybinds {
                 x "5%"; y "5%"; width "90%"; height "90%"
             }
         }
-        // Ctrl (Shift) Tab — cycle tabs, in any mode. Only works because
-        // ghostty/config explicitly sends the kitty-protocol encoding for
-        // these (macOS AppKit otherwise swallows ctrl+tab before the
-        // terminal sees it). The custom layout's zjstatus bar shows the
-        // "ctrl+tab ↻" reminder top-right.
-        bind "Ctrl Tab" { GoToNextTab; }
-        bind "Ctrl Shift Tab" { GoToPreviousTab; }
+        // Ctrl (Shift) Tab — walk tabs in most-recently-used order via the
+        // tab-history plugin (see load_plugins above), NOT by position:
+        // Ctrl Tab goes "back" toward older/previously-focused tabs, Ctrl
+        // Shift Tab goes "forward" back toward where you came from — like a
+        // browser's history. Repeated presses within ~1.5s walk a frozen
+        // snapshot back and forth; after ~1.5s of stillness the tab you
+        // landed on commits as the new "current" node. Works in any mode.
+        // Only works at all because ghostty/config explicitly sends the
+        // kitty-protocol encoding for these (macOS AppKit otherwise swallows
+        // ctrl+tab before the terminal sees it). The custom layout's zjstatus
+        // bar shows the "Ctrl+Tab" reminder top-right.
+        bind "Ctrl Tab" {
+            MessagePlugin "file:~/.config/zellij/plugins/tab-history.wasm" {
+                name "back"
+            }
+        }
+        bind "Ctrl Shift Tab" {
+            MessagePlugin "file:~/.config/zellij/plugins/tab-history.wasm" {
+                name "forward"
+            }
+        }
     }
 }
