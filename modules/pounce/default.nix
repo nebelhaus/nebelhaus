@@ -32,12 +32,6 @@ let
     substitute ${./commands/rebuild.sh} $out/rebuild.sh \
       --subst-var-by hostname ${lib.escapeShellArg hostname}
     chmod 555 $out/rebuild.sh
-    # nix-config.sh: bake the GUI editor (nebelhaus.hearth.guiEditor) so opening
-    # the config doesn't hardcode one person's editor.
-    rm $out/nix-config.sh
-    substitute ${./commands/nix-config.sh} $out/nix-config.sh \
-      --subst-var-by guiEditor ${lib.escapeShellArg config.nebelhaus.hearth.guiEditor}
-    chmod 555 $out/nix-config.sh
   '';
 
   # The built-in command set exposed by the pounce-commands package. The daemon

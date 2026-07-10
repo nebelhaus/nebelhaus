@@ -745,8 +745,13 @@ in
           source = ./zellij/float-term.sh;
           executable = true;
         };
-        ".config/zellij/helix-open-pane.sh" = {
-          source = ./zellij/helix-open-pane.sh;
+        # The one "open in the editor" launcher — a new zellij tab running
+        # nebelhaus.hearth.editor (baked into @editor@). Shared by the "Nix
+        # Config" palette/bar commands and the file-association hijack.
+        ".config/zellij/editor-open-pane.sh" = {
+          text = builtins.replaceStrings [ "@editor@" ] [ hearthCfg.editor ] (
+            builtins.readFile ./zellij/editor-open-pane.sh
+          );
           executable = true;
         };
         ".config/zellij/yazi-shell.sh" = {
@@ -807,19 +812,21 @@ in
       ];
 
       # File-association hijack — opt-in (nebelhaus.hearth.hijackFileAssociations).
-      # Off by default: silently making HelixOpen.app the handler for a dozen
+      # Off by default: silently making EditorOpen.app the handler for a dozen
       # extensions is a jarring, hard-to-undo surprise on someone else's machine.
-      home.activation.helixOpenApp = lib.mkIf hearthCfg.hijackFileAssociations (
+      # It opens files in the rice editor (nebelhaus.hearth.editor) via the same
+      # zellij launcher the palette/bar use.
+      home.activation.editorOpenApp = lib.mkIf hearthCfg.hijackFileAssociations (
         lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           appDir="$HOME/Applications"
           $DRY_RUN_CMD mkdir -p "$appDir"
-          $DRY_RUN_CMD /usr/bin/osacompile -o "$appDir/HelixOpen.app" -e 'on open theFiles' -e 'repeat with theFile in theFiles' -e 'set file_path to POSIX path of theFile' -e 'do shell script "$HOME/.config/zellij/helix-open-pane.sh " & quoted form of file_path' -e 'end repeat' -e 'end open'
-          $DRY_RUN_CMD /usr/bin/plutil -replace CFBundleIdentifier -string "org.nebelhaus.helixopen" "$appDir/HelixOpen.app/Contents/Info.plist"
+          $DRY_RUN_CMD /usr/bin/osacompile -o "$appDir/EditorOpen.app" -e 'on open theFiles' -e 'repeat with theFile in theFiles' -e 'set file_path to POSIX path of theFile' -e 'do shell script "$HOME/.config/zellij/editor-open-pane.sh " & quoted form of file_path' -e 'end repeat' -e 'end open'
+          $DRY_RUN_CMD /usr/bin/plutil -replace CFBundleIdentifier -string "org.nebelhaus.editoropen" "$appDir/EditorOpen.app/Contents/Info.plist"
 
           # Now set default handlers using duti
           if [ -x "${pkgs.duti}/bin/duti" ]; then
             for ext in json txt md ts tsx js jsx yaml yml toml nix css sh; do
-              $DRY_RUN_CMD "${pkgs.duti}/bin/duti" -s org.nebelhaus.helixopen "$ext" all
+              $DRY_RUN_CMD "${pkgs.duti}/bin/duti" -s org.nebelhaus.editoropen "$ext" all
             done
           fi
         ''

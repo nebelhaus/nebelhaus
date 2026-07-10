@@ -50,23 +50,13 @@
       default = "hx";
       example = "nvim";
       description = ''
-        The shell command for $EDITOR / $VISUAL (git, etc.). A terminal editor
-        (hx, nvim, vim, nano) is the natural fit for the rice; a GUI editor works
-        too if its CLI blocks (e.g. "code -w"). To open the Nix
-        config folder in a GUI app from the palette/bar, set hearth.guiEditor.
-      '';
-    };
-
-    hearth.guiEditor = lib.mkOption {
-      type = lib.types.str;
-      default = "hx";
-      example = "com.microsoft.VSCode";
-      description = ''
-        What the "Nix Config" palette command and menu item open ~/.config/nix
-        with. The default "hx" (or "helix") opens it in a new Helix tab in the
-        terminal — the same launcher the file-association hijack uses — so no GUI
-        editor is assumed. Set a bundle id / .app name (e.g. "com.microsoft.VSCode")
-        to use a GUI editor instead, or "" to just reveal it in Finder.
+        The ONE editor the rice uses everywhere. It's the shell command for
+        $EDITOR / $VISUAL (git, etc.) AND what every "open in an editor" action
+        launches — the "Nix Config" palette command, the bar's nix-open item,
+        and the file-association hijack. Those open the target in a new zellij
+        tab running this command, so a terminal editor (hx, nvim, vim, nano) is
+        the natural fit for the rice; a GUI editor's CLI works too (e.g. "code"
+        or "code -w" to block).
       '';
     };
 
@@ -74,11 +64,11 @@
       type = lib.types.bool;
       default = false;
       description = ''
-        When true, build a small HelixOpen.app and make it the default handler
+        When true, build a small opener app and make it the default handler
         for common text/code extensions (json, md, ts, nix, …) via `duti`, so
-        double-clicking those files opens them in Helix in a terminal. Off by
-        default: silently rewriting your file associations is a jarring,
-        hard-to-undo change, so it's strictly opt-in.
+        double-clicking those files opens them in nebelhaus.hearth.editor in a
+        terminal. Off by default: silently rewriting your file associations is a
+        jarring, hard-to-undo change, so it's strictly opt-in.
       '';
     };
 
