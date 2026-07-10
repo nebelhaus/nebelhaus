@@ -20,15 +20,6 @@ let
 
   apps = config.nebelhaus.prowl.apps;
 
-  # SketchyBar plugins, with @guiEditor@ in nix_open.sh baked from
-  # nebelhaus.hearth.guiEditor (so it doesn't hardcode one person's editor).
-  sketchybarPlugins = pkgs.runCommand "nebelhaus-sketchybar-plugins" { } ''
-    cp -r ${./sketchybar/plugins} $out
-    chmod -R u+w $out
-    substituteInPlace $out/nix_open.sh \
-      --subst-var-by guiEditor ${lib.escapeShellArg config.nebelhaus.hearth.guiEditor}
-  '';
-
   bashArray = xs: lib.concatMapStringsSep " " (x: ''"${x}"'') xs;
   appWorkspaces = lib.filter (w: w != null) (map (a: a.workspace) apps);
   iconFont =
@@ -186,7 +177,7 @@ lib.mkIf config.nebelhaus.sill.enable {
         # tinted PINK). Drawn as apple.logo's background.image in sketchybarrc.
         ".config/sketchybar/nebelhaus-ears.png".source = ./sketchybar/nebelhaus-ears.png;
         ".config/sketchybar/aerospace-notify.sh".source = ./sketchybar/aerospace-notify.sh;
-        ".config/sketchybar/plugins".source = sketchybarPlugins;
+        ".config/sketchybar/plugins".source = ./sketchybar/plugins;
       };
     };
 }
