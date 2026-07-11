@@ -154,8 +154,7 @@
               example = "s";
               description = ''
                 The leader letter for this app: tap Caps Lock then this key to
-                launch/focus it, or use the hyper chord (⌘⌥⌃⇧ + key). Must be
-                unique across the roster.
+                launch/focus it. Must be unique across the roster.
               '';
             };
             name = lib.mkOption {
@@ -170,9 +169,9 @@
               description = ''
                 The AeroSpace workspace this app owns — its window auto-moves
                 here, it gets a SketchyBar pill, and ⌥⇧<key> throws a window to
-                it. null makes the app "launcher-only": the leader/hyper chord
-                still opens it in the current workspace, but it claims no
-                workspace, pill, or auto-assign rule (e.g. Passwords).
+                it. null makes the app "launcher-only": the leader still opens
+                it in the current workspace, but it claims no workspace, pill,
+                or auto-assign rule (e.g. Passwords).
               '';
             };
             appId = lib.mkOption {
@@ -237,7 +236,7 @@
       ];
       description = ''
         The app roster — ONE source of truth for the tiling launcher. Each entry
-        wires an app into AeroSpace (leader key, hyper chord, workspace + window
+        wires an app into AeroSpace (leader key, workspace + window
         auto-assign), SketchyBar (a workspace pill), and the pounce cheatsheet,
         so those three configs never drift. Set your own roster in your host
         file; the default is a neutral terminal + browser so a fresh install

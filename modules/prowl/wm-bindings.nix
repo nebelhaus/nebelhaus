@@ -37,24 +37,6 @@
         };
       }
       {
-        keys = "⌥ ⌘ ⌃ ⇧ ←↓↑→";
-        action = "Move window";
-        binds = {
-          alt-shift-cmd-ctrl-left = "move left";
-          alt-shift-cmd-ctrl-down = "move down";
-          alt-shift-cmd-ctrl-up = "move up";
-          alt-shift-cmd-ctrl-right = "move right";
-        };
-      }
-      {
-        keys = "⌥ ⌘ ⌃ ⇧ -/=";
-        action = "Resize window";
-        binds = {
-          alt-shift-cmd-ctrl-minus = "resize smart -50";
-          alt-shift-cmd-ctrl-equal = "resize smart +50";
-        };
-      }
-      {
         keys = "⌥ /";
         action = "Tiles layout";
         binds.alt-slash = "layout tiles horizontal vertical";
