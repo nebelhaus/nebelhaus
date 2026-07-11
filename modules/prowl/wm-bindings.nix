@@ -26,21 +26,12 @@
   {
     title = "Window Management";
     items = [
-      # Focus is a caps-leader action now: tap caps, then an arrow moves focus and
-      # drops into `navigate` mode so further arrows repeat (⇧+arrow moves the
-      # window). That binding lives in [mode.launch.binding] / [mode.navigate.binding]
+      # Focus AND move are caps-leader actions now: tap caps, then an arrow moves
+      # focus and drops into `navigate` mode, where arrows repeat and ⇧+arrow moves
+      # the focused window. Both live in [mode.launch.binding] / [mode.navigate.binding]
       # in aerospace.toml and on the Launch Mode cheatsheet page — same idea as
-      # caps-then-a-digit for workspaces — so there's no main-mode focus chord here.
-      {
-        keys = "⌥ ⌘ ⌃ ⇧ ←↓↑→";
-        action = "Move window";
-        binds = {
-          alt-shift-cmd-ctrl-left = "move left";
-          alt-shift-cmd-ctrl-down = "move down";
-          alt-shift-cmd-ctrl-up = "move up";
-          alt-shift-cmd-ctrl-right = "move right";
-        };
-      }
+      # caps-then-a-digit for workspaces — so there's no main-mode focus/move chord
+      # here (the old ⌥⇧⌘⌃-arrow mover was retired for this).
       {
         keys = "⌥ ⌘ ⌃ ⇧ -/=";
         action = "Resize window";

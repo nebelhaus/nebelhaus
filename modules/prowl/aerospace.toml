@@ -52,11 +52,12 @@ outer.right = [{ monitor."Built-in Retina Display" = 10 }, 20]
 
 # Static tiling / workspace / layout / palette bindings — generated from
 # modules/prowl/wm-bindings.nix, the SAME table that renders the pounce
-# cheatsheet, so a binding and its caption can't drift. (move ⌥⌘⌃⇧arrows,
-# resize ⌥⌘⌃⇧-/=, layouts ⌥/ ⌥,, move-window-to-workspace ⌥⇧1-4, fullscreen ⌥f,
-# back-and-forth ⌥⇥, move-workspace ⌥⇧⇥, resort ⌥⇧r, palette ⌘space.) Moving
-# focus and focusing workspaces 1-4 are caps-leader actions — see
-# [mode.launch.binding] below (arrow → navigate mode, digit → workspace).
+# cheatsheet, so a binding and its caption can't drift. (resize ⌥⌘⌃⇧-/=,
+# layouts ⌥/ ⌥,, move-window-to-workspace ⌥⇧1-4, fullscreen ⌥f, back-and-forth
+# ⌥⇥, move-workspace ⌥⇧⇥, resort ⌥⇧r, palette ⌘space.) Moving focus/windows and
+# focusing workspaces 1-4 are caps-leader actions — see [mode.launch.binding]
+# below (arrow → navigate mode where arrows focus and ⇧+arrow moves, digit →
+# workspace).
 @MAIN_STATIC@
 # App-workspace throws (⌥⇧<key>) — generated from nebelhaus.prowl.apps.
 @MAIN_MOVES@
