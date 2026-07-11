@@ -39,14 +39,12 @@ the machine, run one command, and the house stands again exactly as it was.
 The house is built from composable nix-darwin modules. Take the whole thing, or
 import one room into your own config.
 
-| room | what it does |
-|------|--------------|
-| 🛖 **den** | the foundation — macOS defaults (dock/finder/trackpad/keyboard), the Homebrew framework + tap-trust, core CLI tools, fonts, weekly GC |
-| 🐈 **prowl** | opinionated [AeroSpace](https://github.com/nikitabobko/AeroSpace) tiling, launched via launchd (survives cold boot), Caps→F18 leader, wake-time window re-sort |
-| 🪟 **sill** | a [SketchyBar](https://github.com/FelixKratz/SketchyBar) setup perched on the top edge, with stray-agent eviction |
-| 🔥 **hearth** | the terminal experience — zsh, a Nebelung-tinted starship prompt, git, and a themed toolbelt (bat, delta, lazygit, lsd, yazi, zoxide, fzf), plus the ghostty / zellij / yazi dotfiles |
-| 🔖 **collar** | identity & auth — Touch ID for sudo (with `reattach`, so it works inside tmux/zellij) |
-| 🐾 **pounce** | the [Pounce](https://github.com/nebelhaus/pounce) command palette, wired in as a self-signing daemon that holds its Accessibility grant across rebuilds, and ⌘Space freed for it |
+- 🛖 **den** — the foundation — macOS defaults (dock/finder/trackpad/keyboard), the Homebrew framework + tap-trust, core CLI tools, fonts, weekly GC
+- 🐈 **prowl** — opinionated [AeroSpace](https://github.com/nikitabobko/AeroSpace) tiling, launched via launchd (survives cold boot), Caps→F18 leader, wake-time window re-sort
+- 🪟 **sill** — a [SketchyBar](https://github.com/FelixKratz/SketchyBar) setup perched on the top edge, with stray-agent eviction
+- 🔥 **hearth** — the terminal experience — zsh, a Nebelung-tinted starship prompt, git, and a themed toolbelt (bat, delta, lazygit, lsd, yazi, zoxide, fzf), plus the ghostty / zellij / yazi dotfiles
+- 🔖 **collar** — identity & auth — Touch ID for sudo (with `reattach`, so it works inside tmux/zellij)
+- 🐾 **pounce** — the [Pounce](https://github.com/nebelhaus/pounce) command palette, wired in as a self-signing daemon that holds its Accessibility grant across rebuilds, and ⌘Space freed for it
 
 Plus the theme, [**nebelung**](https://github.com/nebelhaus/nebelung) — a
 silver-mist Catppuccin variant — and [**pounce**](https://github.com/nebelhaus/pounce),
