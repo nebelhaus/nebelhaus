@@ -53,6 +53,14 @@ let
         action = "Focus workspace 1-4";
       }
       {
+        key = "←↓↑→";
+        action = "Move focus — enters navigate, arrows repeat (⎋ exits)";
+      }
+      {
+        key = "⇧ ←↓↑→";
+        action = "Move the focused window (in navigate)";
+      }
+      {
         key = "- / =";
         action = "Resize active tile (repeats)";
       }
@@ -220,6 +228,7 @@ lib.mkIf config.nebelhaus.pounce.enable {
         items = [
           { key = "⇪ v ↵"; action = "Pastes straight into the app you left"; }
           { key = "⌥ ⇧ x → ⇪ x"; action = "Throw window to app's workspace, follow it"; }
+          { key = "⇪ → → →"; action = "Navigate: arrows move focus, ⇧+arrow moves the window (⎋ ends)"; }
           { key = "⇪ - - -"; action = "Resize repeats without re-tapping caps (⎋ ends)"; }
           { key = "⌥ ⇧ r"; action = "Untangle windows after a laptop wake"; }
         ];

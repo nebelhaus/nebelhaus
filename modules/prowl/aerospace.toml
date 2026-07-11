@@ -99,14 +99,14 @@ equal = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off',
 # further arrows keep moving focus without re-tapping caps. ⇧+arrow MOVES the
 # focused window instead (the replacement for the old hyper move chord). esc /
 # enter (in navigate mode) return to main.
-left = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'focus left', 'mode navigate']
-down = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'focus down', 'mode navigate']
-up = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'focus up', 'mode navigate']
-right = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'focus right', 'mode navigate']
-shift-left = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'move left', 'mode navigate']
-shift-down = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'move down', 'mode navigate']
-shift-up = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'move up', 'mode navigate']
-shift-right = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'move right', 'mode navigate']
+left = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget @HOME@/.config/sketchybar/plugins/navigate_mode.sh on', 'focus left', 'mode navigate']
+down = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget @HOME@/.config/sketchybar/plugins/navigate_mode.sh on', 'focus down', 'mode navigate']
+up = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget @HOME@/.config/sketchybar/plugins/navigate_mode.sh on', 'focus up', 'mode navigate']
+right = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget @HOME@/.config/sketchybar/plugins/navigate_mode.sh on', 'focus right', 'mode navigate']
+shift-left = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget @HOME@/.config/sketchybar/plugins/navigate_mode.sh on', 'move left', 'mode navigate']
+shift-down = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget @HOME@/.config/sketchybar/plugins/navigate_mode.sh on', 'move down', 'mode navigate']
+shift-up = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget @HOME@/.config/sketchybar/plugins/navigate_mode.sh on', 'move up', 'mode navigate']
+shift-right = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget @HOME@/.config/sketchybar/plugins/navigate_mode.sh on', 'move right', 'mode navigate']
 # App launcher letters — generated from nebelhaus.prowl.apps.
 @LAUNCH_LETTERS@
 # Resize mode (entered via the launch leader's -/=). Repeat -/= to keep
@@ -129,8 +129,8 @@ shift-left = 'move left'
 shift-down = 'move down'
 shift-up = 'move up'
 shift-right = 'move right'
-esc = 'mode main'
-enter = 'mode main'
+esc = ['exec-and-forget @HOME@/.config/sketchybar/plugins/navigate_mode.sh off', 'mode main']
+enter = ['exec-and-forget @HOME@/.config/sketchybar/plugins/navigate_mode.sh off', 'mode main']
 
 # Ghostty routing. Title matching races window detection (the AX title lands
 # after the window is mapped), so popup windows (peek, rebuild) used to get
