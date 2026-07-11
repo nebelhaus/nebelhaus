@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Let a branch be checked on demand (e.g. before opening a PR) without
+  # having to push to main first.
+  workflow_dispatch:
 
 jobs:
   eval:
