@@ -1,5 +1,6 @@
 theme = dark:nebelung,light:Catppuccin Latte
 
+font-family = JetBrainsMono Nerd Font Mono
 font-size = 19
 
 # Auto-attach to (or create) the "main" zellij session on launch.

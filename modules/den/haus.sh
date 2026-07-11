@@ -181,9 +181,27 @@ cmd_doctor() {
     fi
   done
 
-  echo
-  say "if the pounce palette opens but won't auto-paste, grant Accessibility once:"
-  printf '    pounce --request-accessibility\n'
+  # Accessibility grant — pounce's auto-paste and emoji insertion need it, and a
+  # missing grant is the #1 "why won't paste work" gotcha. Only meaningful when
+  # pounce is enabled (its launchd plist exists).
+  if launchctl print "gui/$uid/org.nixos.pounce" >/dev/null 2>&1; then
+    echo
+    say "Accessibility"
+    if command -v pounce >/dev/null 2>&1 && [ "$(pounce --check-accessibility 2>/dev/null)" = "true" ]; then
+      ok "pounce has Accessibility (auto-paste + emoji work)"
+    else
+      bad "pounce is missing Accessibility — grant once: pounce --request-accessibility"
+    fi
+  fi
+
+  # Homebrew casks aren't tracked by Nix generations, so a rollback can't rewind
+  # them and undeclared casks linger. Flag the drift so it isn't a silent gap.
+  if command -v brew >/dev/null 2>&1; then
+    echo
+    say "Homebrew"
+    ok "brew on PATH ($(brew list --cask 2>/dev/null | grep -c . ) casks installed)"
+    warn "casks aren't in Nix generations — 'haus rollback' won't rewind them (brew uninstall --zap <cask>)"
+  fi
 }
 
 case "${1:-status}" in

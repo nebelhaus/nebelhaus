@@ -148,8 +148,8 @@ cookbook of every knob you can set there.
 This repo is one of a family (`nebelung` the theme, `pounce` the palette,
 this rice, and your own thin config on top). The
 [workshop](https://github.com/nebelhaus/workshop) checks them all out side by
-side and ships a `haus` CLI that handles the cross-repo flow — most usefully
-`haus try`, which builds your real machine against your **local, uncommitted**
+side and ships a `bench` CLI that handles the cross-repo flow — most usefully
+`bench try`, which builds your real machine against your **local, uncommitted**
 checkouts, so you never push to find out whether something works.
 
 ## the fog
