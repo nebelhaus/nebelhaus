@@ -114,9 +114,12 @@ in
         glow # markdown renderer; yazi's glow previewer shells out to it
         fd # fast finder; used by yazi/zoxide navigation
         iina
-        opencode
         duti
-      ];
+      ]
+      # opencode has no x86_64-darwin build, so guard on the package's own
+      # platform list rather than hardcoding an arch — it self-heals the day
+      # upstream adds Intel, and keeps the example-intel eval green meanwhile.
+      ++ lib.optional (lib.meta.availableOn pkgs.stdenv.hostPlatform pkgs.opencode) pkgs.opencode;
 
       programs.zsh = {
         enable = true;
