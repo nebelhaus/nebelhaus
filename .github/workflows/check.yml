@@ -16,3 +16,19 @@ jobs:
       # option names, and broken module wiring before any consumer does. (Eval
       # is platform-independent; no macOS runner needed until we *build*.)
       - run: nix eval .#darwinConfigurations.example.system.drvPath
+
+  shellcheck:
+    name: shellcheck bootstrap.sh
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # bootstrap.sh is the standalone curl|bash installer — the one shell
+      # script here that isn't a nix template (@PLACEHOLDER@ substitution) or a
+      # zsh sketchybar plugin, so it's the one we can lint as-is. Warning level
+      # catches real bugs (undefined vars, bad quoting) without failing on
+      # info-level style nits. It's what nebelhaus.com/init.sh serves, so a
+      # regression here reaches every new installer.
+      - name: shellcheck
+        run: |
+          sudo apt-get update && sudo apt-get install -y shellcheck
+          shellcheck --severity=warning bootstrap.sh

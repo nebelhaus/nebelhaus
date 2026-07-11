@@ -225,6 +225,9 @@ if [ -n "$INTERACTIVE" ]; then
     # selected (the default) = the rice sets its tidy defaults, as before.
     # Selected = your current values are read now and pinned into your config,
     # overriding the rice — so your feel carries over to a fresh install.
+    # The ’ below is a deliberate curly apostrophe: a plain ' would close the
+    # single-quoted --header string. shellcheck SC1112 flags it either way.
+    # shellcheck disable=SC1112
     KEPT="$(printf 'dock\nkeyboard\nfinder' | "$GUM" choose --no-limit \
       --header 'Keep your CURRENT macOS settings for (space toggles; none = use the rice’s):')"
     echo "$KEPT" | grep -qx dock     && KEEP_DOCK=1
