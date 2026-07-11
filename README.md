@@ -34,6 +34,13 @@ the machine, run one command, and the house stands again exactly as it was.
 
 </div>
 
+📖 **Full docs & guides: [nebelhaus.com](https://nebelhaus.com)** — start with
+[Install](https://nebelhaus.com/start/install/) and [First run](https://nebelhaus.com/start/first-run/),
+then the how-to guides: [Making it yours](https://nebelhaus.com/guides/making-it-yours/),
+[Adding apps & tools](https://nebelhaus.com/guides/adding-apps/),
+[Window management](https://nebelhaus.com/guides/window-management/), and
+[Moving to a new Mac](https://nebelhaus.com/guides/new-mac/).
+
 ## the rooms
 
 The house is built from composable nix-darwin modules. Take the whole thing, or
@@ -87,6 +94,8 @@ haus edit           # open your host config in $EDITOR
 haus doctor         # check Nix, the CLT, and the GUI agents
 ```
 
+When to reach for each is covered in [Keeping in sync](https://nebelhaus.com/guides/staying-in-sync/).
+
 ## steal one room
 
 Every room is a `darwinModule`. Pull just what you want into your own flake:
@@ -119,7 +128,9 @@ nebelhaus ships everything — system *and* shell. The only things it leaves bla
 are the bits that are personal to you: git name/email/signing key
 (`nebelhaus.git.*`), the pounce signing identity, your secrets, and your private
 app list. All of those live in your host file (`hosts/<hostname>/default.nix`) —
-so the rice is complete out of the box, and you layer *you* on top.
+so the rice is complete out of the box, and you layer *you* on top. The
+[Making it yours](https://nebelhaus.com/guides/making-it-yours/) guide is a
+cookbook of every knob you can set there.
 
 ## identity
 

@@ -16,6 +16,12 @@ elsewhere.
 | the pounce palette app or its command scripts | `~/code/nebelhaus/pounce` |
 | colors / the theme palette | `~/code/nebelhaus/nebelung` |
 | one machine's personal apps / identity / secrets | `~/.config/nix` (or that machine's own config) |
+| user-facing docs / guides (nebelhaus.com) | `~/code/nebelhaus/workshop` (`web/`, Astro Starlight) |
+
+> **Docs live downstream.** The how-to guides users read are the Astro site in
+> the `workshop` repo (`web/src/content/docs/`), served at nebelhaus.com. When a
+> change here alters user-facing behavior (a new option, a changed keybinding, a
+> workflow), update the matching guide there too, or it silently drifts.
 
 > **Claude: enforce this.** If a request targets a different repo than the one
 > whose files you're in, STOP and say so before editing — e.g. "That's a color
