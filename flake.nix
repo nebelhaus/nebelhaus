@@ -106,6 +106,7 @@
         sill = ./modules/sill;
         collar = ./modules/collar;
         pounce = ./modules/pounce;
+        hush = ./modules/hush;
         default = ./modules;
       };
 

@@ -42,6 +42,7 @@ modules/
   sill/                   # SketchyBar
   collar/                 # Touch ID sudo
   pounce/                 # the palette daemon (launchd + self-signing)
+  hush/                   # Focus/DND one-switch: declarative hotkey 175 + Slack + hooks
 hosts/example/            # the template a consumer copies
 ```
 
