@@ -106,6 +106,7 @@ Every room is a `darwinModule`. Pull just what you want into your own flake:
   modules = [
     inputs.nebelhaus.darwinModules.prowl   # just the tiling
     inputs.nebelhaus.darwinModules.sill    # just the bar
+    { nixpkgs.hostPlatform = "aarch64-darwin"; }  # rooms don't pick a platform for you
   ];
 }
 ```

@@ -65,6 +65,10 @@
           inherit system;
           specialArgs = { inherit inputs username hostname; };
           modules = [
+            # The builder's `system` arg decides the platform (mkDefault so a
+            # host file can still override). Was hardcoded in den, which broke
+            # x86_64-darwin no matter what callers passed.
+            { nixpkgs.hostPlatform = nixpkgs.lib.mkDefault system; }
             { nixpkgs.overlays = [ pounce.overlays.default ]; }
             home-manager.darwinModules.home-manager
             {
@@ -108,7 +112,9 @@
       inherit mkNebelhaus;
 
       # `nix run github:nebelhaus/nebelhaus#pounce`
-      packages.aarch64-darwin.pounce = pounce.packages.aarch64-darwin.default;
+      packages = nixpkgs.lib.genAttrs [ "aarch64-darwin" "x86_64-darwin" ] (system: {
+        pounce = pounce.packages.${system}.default;
+      });
 
       # `nix run github:nebelhaus/nebelhaus#bootstrap` — raise the house on a
       # fresh Mac. Scaffolds a thin personal config at ~/.config/nix; it never
@@ -134,6 +140,15 @@
       darwinConfigurations.example = mkNebelhaus {
         username = "you";
         hostname = "example";
+      };
+
+      # The same example on Intel — exists so CI proves the whole house still
+      # *evaluates* for x86_64-darwin (building/running it stays untested until
+      # someone with an Intel Mac reports in).
+      darwinConfigurations.example-intel = mkNebelhaus {
+        username = "you";
+        hostname = "example";
+        system = "x86_64-darwin";
       };
     };
 }

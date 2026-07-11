@@ -447,6 +447,7 @@ $(say "Your config is written. Review it, then raise the house:")
 
   Build first, switch second — a failed build never touches a running system.
   That first switch puts \`haus\` on your PATH; after it, a rebuild is: haus rebuild
+  and \`haus doctor\` confirms everything came up.
 EOF
 
 cat <<EOF
@@ -471,4 +472,26 @@ EOF
 if [ -n "$DRY_RUN" ]; then
   echo; say "[dry-run] generated $DEST/hosts/$HOSTNAME/default.nix:"
   sed 's/^/    /' "$DEST/hosts/$HOSTNAME/default.nix"
+fi
+
+# ---- optional: raise it right now ------------------------------------------
+# One more consent gate turns the two-command install into one. Interactive
+# only — scripted/--defaults runs keep the old contract (scaffold, print the
+# command, stop), and declining changes nothing: the command is already on
+# screen above. Build first; a failed build activates nothing.
+if [ -n "$INTERACTIVE" ] && [ -z "$DRY_RUN" ] && [ -n "${GUM:-}" ] \
+  && "$GUM" confirm "Raise the house now? (build first — nothing activates if the build fails)"; then
+  say "Building $HOSTNAME — the first build downloads the world; later ones are fast…"
+  if (cd "$DEST" && nix build ".#darwinConfigurations.$HOSTNAME.system"); then
+    say "Build OK — switching (sudo will ask once)…"
+    if (cd "$DEST" && sudo ./result/sw/bin/darwin-rebuild switch --flake ".#$HOSTNAME"); then
+      printf '\n'; say "The house stands. A quick health check:"
+      /run/current-system/sw/bin/haus doctor || true
+      printf '\n'; say "From here: haus edit · haus rebuild · haus doctor — and tap ⇪ then / for the cheatsheet."
+    else
+      warn "Switch failed — the build is intact; re-run the switch command above once you've fixed the error."
+    fi
+  else
+    warn "Build failed — nothing was activated. Fix the error above, then re-run the build command."
+  fi
 fi

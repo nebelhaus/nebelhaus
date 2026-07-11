@@ -15,7 +15,10 @@ jobs:
       # Pure evaluation of the full darwin system — catches syntax errors, bad
       # option names, and broken module wiring before any consumer does. (Eval
       # is platform-independent; no macOS runner needed until we *build*.)
+      # Both platforms: the Intel eval guards against anything re-hardcoding
+      # aarch64 the way den once did.
       - run: nix eval .#darwinConfigurations.example.system.drvPath
+      - run: nix eval .#darwinConfigurations.example-intel.system.drvPath
 
   shellcheck:
     name: shellcheck bootstrap.sh
@@ -31,4 +34,6 @@ jobs:
       - name: shellcheck
         run: |
           sudo apt-get update && sudo apt-get install -y shellcheck
-          shellcheck --severity=warning bootstrap.sh
+          # bootstrap.sh reaches every new installer via nebelhaus.com/init.sh;
+          # haus.sh ships onto every machine as the everyday CLI.
+          shellcheck --severity=warning bootstrap.sh modules/den/haus.sh
