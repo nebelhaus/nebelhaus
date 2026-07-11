@@ -60,10 +60,6 @@ let
       "alt-shift-${a.key} = 'move-node-to-workspace ${a.workspace}'\n"
   ) apps;
 
-  hyperChords = lib.concatMapStrings (
-    a: "cmd-alt-ctrl-shift-${a.key} = 'exec-and-forget ${launchInvocation a}'\n"
-  ) apps;
-
   launchLetters = lib.concatMapStrings (
     a: "${a.key} = ['exec-and-forget ${launchInvocation a}', 'mode main']\n"
   ) apps;
@@ -80,8 +76,8 @@ let
   ) apps;
 
   aerospaceToml = builtins.replaceStrings
-    [ "@HOME@" "@BIN@" "@MAIN_STATIC@" "@SERVICE_STATIC@" "@MAIN_MOVES@" "@HYPER_CHORDS@" "@LAUNCH_LETTERS@" "@WINDOW_RULES@" ]
-    [ homeDir binDir mainStatic serviceStatic mainMoves hyperChords launchLetters windowRules ]
+    [ "@HOME@" "@BIN@" "@MAIN_STATIC@" "@SERVICE_STATIC@" "@MAIN_MOVES@" "@LAUNCH_LETTERS@" "@WINDOW_RULES@" ]
+    [ homeDir binDir mainStatic serviceStatic mainMoves launchLetters windowRules ]
     (builtins.readFile ./aerospace.toml);
 
   resortScript = builtins.replaceStrings [ "@RESORT_CASES@" ] [ resortCases ] (

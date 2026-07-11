@@ -52,23 +52,17 @@ outer.right = [{ monitor."Built-in Retina Display" = 10 }, 20]
 
 # Static tiling / workspace / layout / palette bindings — generated from
 # modules/prowl/wm-bindings.nix, the SAME table that renders the pounce
-# cheatsheet, so a binding and its caption can't drift. (focus ⌥hjkl, move
-# ⌥⌘⌃⇧arrows, resize ⌥⌘⌃⇧-/=, layouts ⌥/ ⌥,, move-window-to-workspace ⌥⇧1-4,
-# fullscreen ⌥f, back-and-forth ⌥⇥, move-workspace ⌥⇧⇥, resort ⌥⇧r, palette
-# ⌘space.) Focusing workspaces 1-4 is a caps-leader action — see
+# cheatsheet, so a binding and its caption can't drift. (focus ⌥hjkl, layouts
+# ⌥/ ⌥,, move-window-to-workspace ⌥⇧1-4, fullscreen ⌥f, back-and-forth ⌥⇥,
+# move-workspace ⌥⇧⇥, resort ⌥⇧r, palette ⌘space.) Resizing is a caps-leader
+# action (tap caps, then -/=). Focusing workspaces 1-4 is a caps-leader too — see
 # [mode.launch.binding] below, next to the app launchers.
 @MAIN_STATIC@
 # App-workspace throws (⌥⇧<key>) — generated from nebelhaus.prowl.apps.
 @MAIN_MOVES@
-# App launchers — hyper (caps lock, = cmd-alt-ctrl-shift) + letter. Generated
-# from nebelhaus.prowl.apps. launch.sh switches to the assigned workspace first,
-# then opens/focuses the app (no workspace arg = open/focus in place). These
-# physical cmd-alt-ctrl-shift chords are a fallback for when useNativeHyper is
-# off; the caps-tap leader below is the usual path.
-@HYPER_CHORDS@
-# Leader: Caps Lock is remapped to F18 (see configuration.nix useNativeHyper).
-# Tap caps -> enter `launch` mode -> letter -> open app. The hyper chords above
-# stay as a fallback for when useNativeHyper is flipped off.
+# Leader: Caps Lock is remapped to F18. Tap caps -> enter `launch` mode ->
+# letter -> open app (the launcher letters live in [mode.launch.binding] below,
+# generated from nebelhaus.prowl.apps).
 f18 = ['mode launch', 'exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh on']
 
 # ⌘space (palette), ⌥f, ⌥⇥, ⌥⇧⇥, ⌥⇧r are part of the generated static block
@@ -80,8 +74,8 @@ alt-shift-semicolon = 'mode service'
 # generated from modules/prowl/wm-bindings.nix, same table as the cheatsheet.
 [mode.service.binding]
 @SERVICE_STATIC@
-# Launch leader mode (entered by tapping caps -> F18). Each letter mirrors the
-# hyper chords above, then drops back to main. esc / any unbound key + esc to
+# Launch leader mode (entered by tapping caps -> F18). Each letter launches or
+# focuses its app, then drops back to main. esc / any unbound key + esc to
 # bail out without launching anything.
 [mode.launch.binding]
 esc = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'mode main']

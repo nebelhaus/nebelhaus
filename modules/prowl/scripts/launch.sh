@@ -12,8 +12,8 @@
 app="$1"
 ws="$2"
 
-# Undim the bar immediately. Safe no-op when invoked outside launch mode (e.g.
-# the hyper-chord fallback bindings) — disarm bails when nothing is armed.
+# Undim the bar immediately. Safe no-op when invoked outside launch mode —
+# disarm bails when nothing is armed.
 # Guarded: prowl works without sill, so skip the launch-mode toggle if absent.
 [ -x "$HOME/.config/sketchybar/plugins/launch_mode.sh" ] \
     && "$HOME/.config/sketchybar/plugins/launch_mode.sh" off 2>/dev/null
