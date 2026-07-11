@@ -53,6 +53,10 @@ let
         action = "Focus workspace 1-4";
       }
       {
+        key = "←↓↑→";
+        action = "Focus tile — ⇧ to move it (repeats)";
+      }
+      {
         key = "- / =";
         action = "Resize active tile (repeats)";
       }

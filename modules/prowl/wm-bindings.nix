@@ -12,7 +12,7 @@
 #
 # Each item:
 #   keys    display string for the cheatsheet (human-friendly, may fold several
-#           chords into one row like "⌥ hjkl"). Omit for a toml-only binding.
+#           chords into one row like "⌥ ⌘ ⌃ ⇧ ←↓↑→"). Omit for a toml-only binding.
 #   action  cheatsheet caption. Omit alongside keys for a toml-only binding.
 #   binds   attrset of aerospace chord → command. The command is a string, or a
 #           list of strings for a multi-command binding (e.g. ["join-with left"
@@ -26,16 +26,11 @@
   {
     title = "Window Management";
     items = [
-      {
-        keys = "⌥ hjkl";
-        action = "Focus direction";
-        binds = {
-          alt-h = "focus left";
-          alt-j = "focus down";
-          alt-k = "focus up";
-          alt-l = "focus right";
-        };
-      }
+      # Focus is a caps-leader action now: tap caps, then an arrow moves focus and
+      # drops into `navigate` mode so further arrows repeat (⇧+arrow moves the
+      # window). That binding lives in [mode.launch.binding] / [mode.navigate.binding]
+      # in aerospace.toml and on the Launch Mode cheatsheet page — same idea as
+      # caps-then-a-digit for workspaces — so there's no main-mode focus chord here.
       {
         keys = "⌥ ⌘ ⌃ ⇧ ←↓↑→";
         action = "Move window";
