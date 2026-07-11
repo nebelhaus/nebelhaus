@@ -31,8 +31,9 @@
     ttyd
     # The everyday end-user CLI: haus rebuild / update / rollback / status /
     # edit / doctor — so a nebelhaus machine never needs raw nix incantations.
-    # System-wide (not home-manager) so sudo and non-login shells see it too. A
-    # workshop checkout can shadow this with the developer `haus` via PATH order.
+    # System-wide (not home-manager) so sudo and non-login shells see it too.
+    # (The workshop's developer CLI is `bench` — a different name on purpose,
+    # so the two never shadow each other.)
     (writeShellScriptBin "haus" (builtins.readFile ./haus.sh))
   ];
 

@@ -2,7 +2,7 @@
 # haus — the everyday CLI for a nebelhaus machine, so you never memorise the Nix
 # incantations. This is the END-USER haus that ships in the rice (den puts it on
 # PATH). It drives your OWN machine only — it knows nothing about the workshop
-# family repos or agent worktrees (that's the separate developer `haus`).
+# family repos or agent worktrees (that's the workshop's developer CLI, `bench`).
 #
 #   haus rebuild        build + switch this machine from your config (the usual day)
 #   haus update         pull the latest nebelhaus rice, then rebuild

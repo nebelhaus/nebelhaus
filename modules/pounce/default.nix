@@ -209,9 +209,9 @@ lib.mkIf config.nebelhaus.pounce.enable {
         items = [
           { key = "⌃ ⌥ c"; action = "Agent in an isolated worktree branch"; }
           { key = "⌃ ⌥ ⇧ c"; action = "Agent in this checkout (one per tab)"; }
-          { key = "haus status"; action = "Agent branches, dirty repos, stale locks"; }
-          { key = "haus try"; action = "Build against local checkouts (no push)"; }
-          { key = "haus ship"; action = "Push the chain, bumping locks per hop"; }
+          { key = "bench status"; action = "Agent branches, dirty repos, stale locks"; }
+          { key = "bench try"; action = "Build against local checkouts (no push)"; }
+          { key = "bench ship"; action = "Push the chain, bumping locks per hop"; }
         ];
       }
       {
