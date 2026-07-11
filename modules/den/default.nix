@@ -56,6 +56,13 @@
     ];
   };
 
+  # ---- Fonts ----------------------------------------------------------------
+  # The rice's terminal font. JetBrains Mono Nerd Font carries the powerline +
+  # icon glyphs that starship, lsd, and yazi draw with — without a Nerd Font
+  # they render as tofu. hearth points Ghostty at it. `fonts.packages` is a list
+  # option, so this merges with the sketchybar-app-font sill installs.
+  fonts.packages = [ pkgs.nerd-fonts.jetbrains-mono ];
+
   # Homebrew's tap-trust check is flaky under sudo-driven activation (the
   # per-user trust store gets bypassed), so third-party taps fail with "Refusing
   # to load cask … from untrusted tap". We curate our taps ourselves; disable the

@@ -12,6 +12,10 @@
 #
 # Flags / env:
 #   --defaults, NEBELHAUS_NONINTERACTIVE=1   skip the interview, take smart defaults
+#   --from <url>, NEBELHAUS_FROM=<url>       RESTORE a config you already have in
+#                                            git (a new/wiped Mac) instead of
+#                                            scaffolding a fresh one — clones it,
+#                                            skips the interview, prints the build
 #   NEBELHAUS_DRY_RUN=1                       touch nothing: write the generated
 #                                            config to a scratch dir and echo every
 #                                            mutating step (for developing this script)
@@ -20,13 +24,32 @@
 # Idempotent: safe to re-run; it leaves an existing config alone.
 set -euo pipefail
 
+say()  { printf '\033[38;5;103m🌫  %s\033[0m\n' "$*"; }
+warn() { printf '\033[38;5;179m⚠  %s\033[0m\n' "$*"; }
+die()  { printf '\033[38;5;167m✗  %s\033[0m\n' "$*" >&2; exit 1; }
+
+# run — do a MUTATING thing, or just show it under dry-run.
+run() { if [ -n "$DRY_RUN" ]; then printf '\033[2m   [dry-run] %s\033[0m\n' "$*"; else "$@"; fi; }
+
 # ---- config + flags -------------------------------------------------------
 USERNAME="$(id -un)"
 HOSTNAME="$(scutil --get LocalHostName 2>/dev/null || hostname -s)"
 
 NONINTERACTIVE="${NEBELHAUS_NONINTERACTIVE:-}"
 DRY_RUN="${NEBELHAUS_DRY_RUN:-}"
-[ "${1:-}" = "--defaults" ] && NONINTERACTIVE=1
+
+# --from <url> / NEBELHAUS_FROM restores an existing config instead of scaffolding
+# (see Phase 1b). Parse args here so --defaults still gates INTERACTIVE below.
+FROM_URL="${NEBELHAUS_FROM:-}"
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --defaults) NONINTERACTIVE=1 ;;
+    --from)     shift; FROM_URL="${1:-}"; [ -n "$FROM_URL" ] || die "--from needs a git URL (e.g. --from https://github.com/you/nix-config)" ;;
+    --from=*)   FROM_URL="${1#--from=}" ;;
+    *)          : ;;
+  esac
+  shift
+done
 
 # Dry-run can't prompt and mustn't touch the real config, so it's non-interactive
 # and writes to a scratch dir.
@@ -41,13 +64,6 @@ fi
 # `curl | bash` would hang waiting on stdin.
 INTERACTIVE=1
 { [ -n "$NONINTERACTIVE" ] || [ ! -t 0 ]; } && INTERACTIVE=
-
-say()  { printf '\033[38;5;103m🌫  %s\033[0m\n' "$*"; }
-warn() { printf '\033[38;5;179m⚠  %s\033[0m\n' "$*"; }
-die()  { printf '\033[38;5;167m✗  %s\033[0m\n' "$*" >&2; exit 1; }
-
-# run — do a MUTATING thing, or just show it under dry-run.
-run() { if [ -n "$DRY_RUN" ]; then printf '\033[2m   [dry-run] %s\033[0m\n' "$*"; else "$@"; fi; }
 
 # dflt — read a macOS default (read-only), or "unset" if it has no value yet.
 dflt() { /usr/bin/defaults read "$1" "$2" 2>/dev/null || echo "unset"; }
@@ -139,6 +155,32 @@ else
   run sh -c 'curl -fsSL https://install.determinate.systems/nix | sh -s -- install --determinate'
   # shellcheck disable=SC1091
   [ -n "$DRY_RUN" ] || . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+fi
+
+# ---- Phase 1b: restore an existing config (--from) ------------------------
+# A new or wiped Mac converging on the machine you already described in git.
+# The prerequisites above still ran; we clone your config and skip the interview
+# and scaffold entirely — the opposite direction from a fresh install.
+if [ -n "$FROM_URL" ]; then
+  if [ -e "$DEST/flake.nix" ]; then
+    say "You already have a config at $DEST — leaving it alone (pull it: git -C $DEST pull)."
+  else
+    say "Restoring your config from $FROM_URL → $DEST"
+    run git clone "$FROM_URL" "$DEST"
+  fi
+  cat <<EOF
+
+$(say "Your config is in place. Raise the house:")
+
+    cd $DEST
+    nix build .#darwinConfigurations.$HOSTNAME.system \\
+      && sudo ./result/sw/bin/darwin-rebuild switch --flake .#$HOSTNAME
+
+  If this Mac's hostname isn't a host in your config, pass the right one:
+    --flake .#<hostname>   (list them:  nix eval $DEST#darwinConfigurations --apply builtins.attrNames)
+  That first switch puts \`haus\` on your PATH; after it, a rebuild is: haus rebuild
+EOF
+  exit 0
 fi
 
 # ---- already have a config? leave it alone -------------------------------
