@@ -49,7 +49,7 @@ import one room into your own config.
 - 🛖 **den** — the foundation — macOS defaults (dock/finder/trackpad/keyboard), the Homebrew framework + tap-trust, core CLI tools, fonts, weekly GC
 - 🐈 **prowl** — opinionated [AeroSpace](https://github.com/nikitabobko/AeroSpace) tiling, launched via launchd (survives cold boot), Caps→F18 leader, wake-time window re-sort
 - 🪟 **sill** — a [SketchyBar](https://github.com/FelixKratz/SketchyBar) setup perched on the top edge, with stray-agent eviction
-- 🔥 **hearth** — the terminal experience — zsh, a Nebelung-tinted starship prompt, git, and a themed toolbelt (bat, delta, lazygit, lsd, yazi, zoxide, fzf), plus the ghostty / zellij / yazi dotfiles
+- 🔥 **hearth** — the terminal experience — zsh, a Nebelung-tinted starship prompt, git, helix as the default editor, and a themed toolbelt (bat, delta, lazygit, lsd, yazi, zoxide, fzf), plus the ghostty / zellij / yazi dotfiles
 - 🔖 **collar** — identity & auth — Touch ID for sudo (with `reattach`, so it works inside tmux/zellij)
 - 🐾 **pounce** — the [Pounce](https://github.com/nebelhaus/pounce) command palette, wired in as a self-signing daemon that holds its Accessibility grant across rebuilds, and ⌘Space freed for it
 
@@ -86,7 +86,7 @@ never type the incantation again:
 ```sh
 haus rebuild        # build + switch this machine
 haus update         # pull the latest rice, then rebuild
-haus rollback       # go back a generation
+haus rollback       # go back a generation (haus generations lists them)
 haus status         # current generation + how old your pinned rice is
 haus edit           # open your host config in $EDITOR
 haus doctor         # check Nix, the CLT, and the GUI agents

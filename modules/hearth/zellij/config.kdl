@@ -36,12 +36,12 @@ load_plugins {
 keybinds {
     shared {
         // Super c — spawn an ISOLATED claude agent. --worktree hands the
-        // session its own checkout (the `haus wt-create` hook in
+        // session its own checkout (the `bench wt-create` hook in
         // ~/.claude/settings.json places it under ~/.cache/claude-worktrees/
         // <repo>/<name>, branch worktree-<name>, branched from local HEAD), so
         // parallel agents never move this checkout's branch out from under
         // each other. Merge/inspect their branches from the main checkout;
-        // `haus status` lists them. Cmd c reaches zellij as Super c because
+        // `bench status` lists them. Cmd c reaches zellij as Super c because
         // ghostty/config unbinds cmd+c; the status-bar fork renders the
         // "Super + c claude" hint next to pane/tab in the bottom-right.
         //
