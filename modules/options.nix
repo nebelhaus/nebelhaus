@@ -267,6 +267,24 @@
       description = "The pounce command palette daemon (⌘Space) + its rice commands.";
     };
 
+    tour.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        The haus tour — a first-run tutor that walks the four moves (launch /
+        navigate / resize / palette) as ONE quiet pill in the bar, advancing
+        live as each move is detected. It never opens a window or steals
+        focus: a fresh machine just shows a dormant "new here?" hint, clicking
+        it (or `haus tour`, or ⌘Space → tour) starts the lap, right-click
+        hides it forever. Detection reuses signals the rice already fires (the
+        leader-mode scripts) — no key logging, no Accessibility.
+
+        Needs prowl + sill (it silently stays out of the bar without them);
+        the ⌘Space step is dropped when pounce is off. Progress lives in
+        ~/.local/state/nebelhaus — `haus tour reset` re-arms a finished tour.
+      '';
+    };
+
     sill.plugins = lib.mkOption {
       type = lib.types.listOf (
         lib.types.enum [

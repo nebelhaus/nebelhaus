@@ -110,4 +110,11 @@ in the consumer. CI evaluates the example host on every push.
   self-describing script each (metadata in a `# pounce: key = value` header),
   layered onto the palette via `pounce-commands.override { extraCommandDirs … }`.
   No registry to edit in either repo; drop the script and rebuild.
+- **The haus tour** (first-run tutor): ONE state machine,
+  `modules/sill/sketchybar/plugins/tour.sh`, drives a single bar pill. The
+  leader-mode scripts + `aerospace-notify.sh` feed it `tour.sh event <name>`
+  behind a `[ -f ~/.local/state/nebelhaus/tour ]` guard — one stat when idle;
+  keep it that cheap. `haus tour` and the pounce `tour` command are just doors
+  into it. Gated by `nebelhaus.tour.enable` via the generated
+  `tour_item.sh` / `tour_config.sh` (see `modules/sill/default.nix`).
 ```

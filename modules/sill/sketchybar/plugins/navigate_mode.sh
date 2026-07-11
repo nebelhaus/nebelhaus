@@ -30,6 +30,8 @@ front_app() {
 case "$1" in
     on)
         : > "$STATE"
+        # Haus-tour hook — one stat when no tour is mid-flight (plugins/tour.sh).
+        { [ -f "$HOME/.local/state/nebelhaus/tour" ] && "$HOME/.config/sketchybar/plugins/tour.sh" event navigate; } >/dev/null 2>&1 &
         sketchybar --set front_app background.color=$SKY label.color=$BASE \
                                     label="$(front_app) $GLYPH"
         ;;

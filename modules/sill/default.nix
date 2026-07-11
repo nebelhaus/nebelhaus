@@ -105,6 +105,38 @@ let
       # GENERATED from nebelhaus.sill.plugins by modules/sill/default.nix — do not edit.
     ''
     + lib.concatMapStrings (name: optionalPluginBlocks.${name}) config.nebelhaus.sill.plugins;
+
+  # The haus-tour pill (plugins/tour.sh) — the first-run tutor. Sourced by
+  # sketchybarrc AFTER the right-side items so it lands leftmost of the right
+  # stack: launch mode replaces the LEFT side of the bar, and that's exactly
+  # when the user is mid-step, so the instruction must live on the right.
+  # Empty when the tour isn't wired (tour disabled, or no prowl to teach —
+  # steps 1-3 are all leader moves). `init` repaints whatever state the last
+  # session left: mid-tour step, done (hidden), or the dormant hint.
+  tourWired = config.nebelhaus.tour.enable && config.nebelhaus.prowl.enable;
+  tourItemSh =
+    ''
+      #!/bin/bash
+      # GENERATED from nebelhaus.tour.enable by modules/sill/default.nix — do not edit.
+    ''
+    + lib.optionalString tourWired ''
+      sketchybar --add item tour right \
+          --set tour \
+              drawing=off \
+              icon.padding_left=10 \
+              icon.padding_right=4 \
+              label.padding_right=10 \
+              label.font="Hack Nerd Font:Bold:13.0" \
+              background.color=$MANTLE \
+              click_script="$HOME/.config/sketchybar/plugins/tour.sh click"
+      "$HOME/.config/sketchybar/plugins/tour.sh" init
+    '';
+  tourConfigSh = ''
+    #!/bin/bash
+    # GENERATED from nebelhaus.pounce.enable by modules/sill/default.nix — do not
+    # edit. Whether the tour has a step 4 (the ⌘Space palette needs pounce).
+    TOUR_HAS_PALETTE=${if config.nebelhaus.pounce.enable then "1" else "0"}
+  '';
 in
 lib.mkIf config.nebelhaus.sill.enable {
   # SketchyBar (brew) + its tap. sketchybar-app-font renders the workspace pill
@@ -171,6 +203,8 @@ lib.mkIf config.nebelhaus.sill.enable {
         ".config/sketchybar/colors.sh".text = colorsSh;
         ".config/sketchybar/workspaces.sh".text = workspacesSh;
         ".config/sketchybar/optional_items.sh".text = optionalItemsSh;
+        ".config/sketchybar/tour_item.sh".text = tourItemSh;
+        ".config/sketchybar/tour_config.sh".text = tourConfigSh;
         ".config/sketchybar/sketchybarrc".source = ./sketchybar/sketchybarrc;
         # The far-left logo pill's image: the nebelhaus ears (the two cat-ear
         # shapes of the org mark, extracted from web/logos/nebelhaus-mark and

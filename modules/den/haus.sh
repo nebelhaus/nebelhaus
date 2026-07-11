@@ -11,6 +11,7 @@
 #   haus status          current generation + how old your pinned rice is
 #   haus edit            open your host config (identity, apps) in $EDITOR
 #   haus doctor          check the machine's health (Nix, CLT, the GUI agents)
+#   haus tour            take the guided haus tour (it lives in the bar)
 set -euo pipefail
 
 # A bare/sudo/login-item shell may have almost nothing on PATH; make sure the
@@ -43,6 +44,7 @@ haus — the everyday CLI for a nebelhaus machine.
   haus status         current generation + how old your pinned rice is
   haus edit           open your host config in $EDITOR
   haus doctor         check the machine's health (Nix, CLT, the GUI agents)
+  haus tour           take the guided haus tour (haus tour reset re-arms it)
 EOF
 }
 
@@ -224,6 +226,19 @@ cmd_doctor() {
   fi
 }
 
+# The tour itself is the bar's tour.sh (sill ships it; see modules/sill) —
+# haus is just the terminal-shaped door to it, for the user who read the
+# bootstrap's closing line instead of spotting the pill.
+cmd_tour() {
+  local plugin="$HOME/.config/sketchybar/plugins/tour.sh"
+  [ -x "$plugin" ] || die "the tour lives in the bar — it needs the sill + prowl rooms enabled."
+  case "${1:-start}" in
+    start) "$plugin" start && say "the tour is in the bar — follow the paw, top right." ;;
+    reset) "$plugin" reset && say "tour re-armed — the dormant hint is back in the bar." ;;
+    *)     die "unknown tour subcommand '$1' — try: haus tour [start|reset]" ;;
+  esac
+}
+
 case "${1:-status}" in
   rebuild)     cmd_rebuild ;;
   update)      cmd_update ;;
@@ -232,6 +247,7 @@ case "${1:-status}" in
   status)      cmd_status ;;
   edit)        cmd_edit ;;
   doctor)      cmd_doctor ;;
+  tour)        cmd_tour "${2:-}" ;;
   -h|--help|help) usage ;;
-  *)           die "unknown command '$1' — try: rebuild update rollback generations status edit doctor" ;;
+  *)           die "unknown command '$1' — try: rebuild update rollback generations status edit doctor tour" ;;
 esac
