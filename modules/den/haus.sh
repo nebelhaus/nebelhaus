@@ -15,7 +15,8 @@ set -euo pipefail
 
 # A bare/sudo/login-item shell may have almost nothing on PATH; make sure the
 # tools we call (nix, darwin-rebuild, jq, git) resolve wherever we're invoked.
-export PATH="/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:/etc/profiles/per-user/$(id -un)/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
+PATH="/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:/etc/profiles/per-user/$(id -un)/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
+export PATH
 
 # Your config flake — the thin consumer with your host file, scaffolded by the
 # bootstrap. Override with HAUS_CONSUMER if it lives elsewhere.
@@ -75,8 +76,27 @@ cmd_rebuild() {
 }
 
 cmd_update() {
+  local old new owner repo subjects
+  old="$(jq -r '.nodes.nebelhaus.locked.rev // ""' "$CONSUMER/flake.lock" 2>/dev/null || true)"
   say "pulling the latest nebelhaus rice …"
   ( cd "$CONSUMER" && nix flake update nebelhaus )
+  new="$(jq -r '.nodes.nebelhaus.locked.rev // ""' "$CONSUMER/flake.lock" 2>/dev/null || true)"
+  if [ -n "$old" ] && [ "$old" = "$new" ]; then
+    say "already at the latest rice (${new:0:12}) — rebuilding anyway."
+  elif [ -n "$old" ] && [ -n "$new" ]; then
+    # Show what's about to land. Best-effort via the GitHub compare API —
+    # offline, rate-limited, or non-GitHub upstreams just skip the list.
+    owner="$(jq -r '.nodes.nebelhaus.original.owner // "nebelhaus"' "$CONSUMER/flake.lock")"
+    repo="$(jq -r '.nodes.nebelhaus.original.repo // "nebelhaus"' "$CONSUMER/flake.lock")"
+    subjects="$(curl -fsSL --max-time 5 \
+      -H 'accept: application/vnd.github+json' \
+      "https://api.github.com/repos/$owner/$repo/compare/$old...$new" 2>/dev/null \
+      | jq -r '.commits[]?.commit.message | split("\n")[0]' 2>/dev/null | head -15 || true)"
+    if [ -n "$subjects" ]; then
+      say "new in the rice (${old:0:7} → ${new:0:7}):"
+      printf '%s\n' "$subjects" | sed 's/^/  · /'
+    fi
+  fi
   cmd_rebuild
 }
 

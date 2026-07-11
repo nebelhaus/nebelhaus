@@ -135,7 +135,9 @@
   };
 
   nixpkgs.config.allowUnfree = true;
-  nixpkgs.hostPlatform = "aarch64-darwin";
+  # hostPlatform is set by mkNebelhaus (from its `system` arg) — hardcoding it
+  # here silently forced aarch64 on every consumer. Standalone room users set
+  # nixpkgs.hostPlatform themselves, as in any nix-darwin config.
   system.stateVersion = 5;
 
   # Minimal home base so feature modules can layer `home.file` / packages on top.
