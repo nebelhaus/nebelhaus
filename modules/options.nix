@@ -428,6 +428,25 @@
       '';
     };
 
+    pounce.windowSwitcher = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Replace the stock ⌘Tab app switcher with pounce's MRU *window* switcher:
+        tap ⌘⇥ to toggle to the last window (across workspaces), hold ⌘ and keep
+        tapping ⇥ to walk older ones, type while holding to fuzzy-filter
+        (frecency-ranked). Rows carry the window's AeroSpace workspace, and
+        focusing goes through `aerospace focus --window-id` so a window parked
+        on another workspace surfaces correctly.
+
+        Needs the daemon to hold an Accessibility grant — in practice, set
+        nebelhaus.pounce.signingIdentity so the grant survives rebuilds. Without
+        the grant the event tap can't install and stock ⌘Tab keeps working, so
+        this default is safe on a fresh, not-yet-granted install. false leaves
+        ⌘Tab native even when the grant is there.
+      '';
+    };
+
     pounce.signingIdentity = lib.mkOption {
       type = lib.types.str;
       default = "";
