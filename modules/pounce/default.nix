@@ -32,6 +32,7 @@ let
     substitute ${./commands/rebuild.sh} $out/rebuild.sh \
       --subst-var-by hostname ${lib.escapeShellArg hostname}
     chmod 555 $out/rebuild.sh
+    ${lib.optionalString (!config.nebelhaus.hush.enable) "rm $out/hush.sh"}
   '';
 
   # The built-in command set exposed by the pounce-commands package. The daemon

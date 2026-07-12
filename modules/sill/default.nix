@@ -51,6 +51,24 @@ let
     }
   '';
 
+  # The hush pill — generic (no personal hardware/service), so unlike the
+  # sill.plugins items below it rides nebelhaus.hush.enable, not an opt-in
+  # list. hush_change is fired by the hush engine after its own toggles and by
+  # the hush-watcher agent (modules/hush) when the Focus DB changes; the
+  # update_freq poll is only a backstop for missed events.
+  hushBlock = ''
+    sketchybar --add event hush_change
+    sketchybar --add item hush right \
+        --set hush \
+            update_freq=30 \
+            script="$HOME/.config/sketchybar/plugins/hush.sh" \
+            background.color=$SURFACE0 \
+            icon.padding_left=10 \
+            icon.padding_right=10 \
+            label.drawing=off \
+        --subscribe hush mouse.clicked hush_change system_woke
+  '';
+
   # The two gated personal items, emitted only when nebelhaus.sill.plugins lists
   # them. They reference $SURFACE0 (from colors.sh) and $HOME, both live when
   # sketchybarrc sources this file.
@@ -102,8 +120,10 @@ let
   optionalItemsSh =
     ''
       #!/bin/bash
-      # GENERATED from nebelhaus.sill.plugins by modules/sill/default.nix — do not edit.
+      # GENERATED from nebelhaus.hush.enable + nebelhaus.sill.plugins by
+      # modules/sill/default.nix — do not edit.
     ''
+    + lib.optionalString config.nebelhaus.hush.enable hushBlock
     + lib.concatMapStrings (name: optionalPluginBlocks.${name}) config.nebelhaus.sill.plugins;
 
   # The haus-tour pill (plugins/tour.sh) — the first-run tutor. Sourced by
