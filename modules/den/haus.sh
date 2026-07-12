@@ -224,6 +224,28 @@ cmd_doctor() {
     ok "brew on PATH ($(brew list --cask 2>/dev/null | grep -c . ) casks installed)"
     warn "casks aren't in Nix generations — 'haus rollback' won't rewind them (brew uninstall --zap <cask>)"
   fi
+
+  # Secrets — the declaration (secretspec.toml) rebuilds with Nix, but the
+  # VALUES live in the provider and may need entering once per machine.
+  echo
+  say "Secrets"
+  if command -v secretspec >/dev/null 2>&1; then
+    local provider
+    provider="$(sed -n 's/^provider *= *"\(.*\)"/\1/p' "$HOME/.config/secretspec/config.toml" 2>/dev/null | head -1)"
+    if [ -n "$provider" ]; then ok "secretspec on PATH (default provider: $provider)"
+    else warn "no default provider — set nebelhaus.secrets.provider, or run: secretspec config init"; fi
+    # If your config flake declares secrets, verify their values are present.
+    # </dev/null keeps check from prompting; missing values are for `set`.
+    if [ -f "$CONSUMER/secretspec.toml" ]; then
+      if (cd "$CONSUMER" && secretspec check </dev/null >/dev/null 2>&1); then
+        ok "all secrets in $CONSUMER/secretspec.toml have values"
+      else
+        bad "missing secret values — run: cd $CONSUMER && secretspec check"
+      fi
+    fi
+  else
+    bad "secretspec missing — 'haus rebuild' installs it (the secrets room)"
+  fi
 }
 
 # The tour itself is the bar's tour.sh (sill ships it; see modules/sill) —
