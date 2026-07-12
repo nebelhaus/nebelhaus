@@ -241,6 +241,7 @@ lib.mkIf config.nebelhaus.pounce.enable {
           { key = "nix"; action = "Open the nix config in your editor"; }
           { key = "reload"; action = "Reload SketchyBar / AeroSpace"; }
           { key = "force"; action = "Force-quit an app"; }
+          { key = "tour"; action = "The guided haus tour (the four moves)"; }
         ];
       }
     ]);

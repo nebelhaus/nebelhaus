@@ -487,7 +487,7 @@ if [ -n "$INTERACTIVE" ] && [ -z "$DRY_RUN" ] && [ -n "${GUM:-}" ] \
     if (cd "$DEST" && sudo ./result/sw/bin/darwin-rebuild switch --flake ".#$HOSTNAME"); then
       printf '\n'; say "The house stands. A quick health check:"
       /run/current-system/sw/bin/haus doctor || true
-      printf '\n'; say "From here: haus edit · haus rebuild · haus doctor — and tap ⇪ then / for the cheatsheet."
+      printf '\n'; say "From here: haus edit · haus rebuild · haus doctor — the haus tour is waiting in the bar (or type: haus tour), and ⇪ then / opens the cheatsheet."
     else
       warn "Switch failed — the build is intact; re-run the switch command above once you've fixed the error."
     fi

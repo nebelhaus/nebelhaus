@@ -90,7 +90,12 @@ haus rollback       # go back a generation (haus generations lists them)
 haus status         # current generation + how old your pinned rice is
 haus edit           # open your host config in $EDITOR
 haus doctor         # check Nix, the CLT, and the GUI agents
+haus tour           # a guided lap of the four moves, right in the bar
 ```
+
+On a fresh machine the bar also shows a small "new here?" paw — click it and
+the **haus tour** walks you through the four moves (launch, navigate, resize,
+palette) live, advancing as it detects each one. Right-click hides it forever.
 
 When to reach for each is covered in [Keeping in sync](https://nebelhaus.com/guides/staying-in-sync/).
 
