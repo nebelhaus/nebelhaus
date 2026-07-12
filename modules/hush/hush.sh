@@ -25,15 +25,35 @@ SLACK_SNOOZE=@slackSnooze@
 SLACK_SNOOZE_MINUTES=1440 # failsafe cap; unhush ends it earlier
 HOOKS=(@hooks@)
 
+# The stable-signed pounce copy (modules/pounce keeps its TCC grants alive
+# across rebuilds). When it's new enough to have the `focus` subcommand, hush
+# rides its Accessibility + Full Disk Access grants for the press AND the
+# state read — one pair of checkboxes covers every surface. The probe greps
+# --help because an OLDER pounce treats unknown args as ClientMode and would
+# open the palette; never call `focus` unprobed.
+POUNCE_SIGNED="$HOME/.local/state/pounce/Pounce.app/Contents/MacOS/pounce"
+pounce_focus_available() {
+    [ -x "$POUNCE_SIGNED" ] && "$POUNCE_SIGNED" --help 2>/dev/null | grep -q "focus status"
+}
+
 note() { printf 'hush: %s\n' "$*" >&2; }
 notify() { /usr/bin/osascript -e "display notification \"$1\" with title \"hush\"" >/dev/null 2>&1 || true; }
 poke_bar() { [ -x "$SKETCHYBAR" ] && "$SKETCHYBAR" --trigger hush_change >/dev/null 2>&1 || true; }
 
-# on|off. Exact when Assertions.json is readable (the calling app has Full
-# Disk Access); otherwise falls back to our own last write. Blind spots in
-# fallback mode: toggles made from Control Center or another device.
+# on|off. Exact when the signed pounce can report it (its FDA grant) or when
+# Assertions.json is readable directly (the calling app's own FDA); otherwise
+# falls back to our own last write. Blind spots in fallback mode: toggles
+# made from Control Center or another device.
 focus_state() {
-    local db
+    local s db
+    if pounce_focus_available; then
+        s=$("$POUNCE_SIGNED" focus status 2>/dev/null) || s=""
+        case "$s" in on | off)
+            echo "$s"
+            return
+            ;;
+        esac
+    fi
     db=$(/bin/cat "$DB" 2>/dev/null || true)
     if [ -n "$db" ]; then
         if printf '%s' "$db" | "$JQ" -e '(.data[0].storeAssertionRecords // []) | length > 0' >/dev/null 2>&1; then
@@ -46,12 +66,15 @@ focus_state() {
     /bin/cat "$STATE_FILE" 2>/dev/null || echo off
 }
 
-# Press the DND chord. TCC: the keystroke is attributed to the app that
-# invoked hush — pounce palette runs inherit pounce's Accessibility grant,
-# the pill needs sketchybar granted once, the CLI needs your terminal.
-# TODO: prefer `pounce focus toggle` once that subcommand lands in the pounce
-# repo, so every surface rides pounce's grant.
+# Press the DND chord. Preferred: the signed pounce presses it under its own
+# Accessibility grant (`pounce focus toggle`, nebelhaus/pounce). Fallback:
+# System Events — then the keystroke is attributed to the app that invoked
+# hush (palette runs inherit pounce's grant, the pill needs sketchybar
+# granted once, the CLI needs your terminal).
 press_hotkey() {
+    if pounce_focus_available && "$POUNCE_SIGNED" focus toggle 2>/dev/null; then
+        return 0
+    fi
     /usr/bin/osascript -e "tell application \"System Events\" to key code $KEY_CODE using {control down, option down, shift down, command down}" >/dev/null 2>&1
 }
 
@@ -129,6 +152,14 @@ apply() { # $1 = on|off
 
 doctor() {
     echo "hush doctor — the one-time setup, checked:"
+
+    if pounce_focus_available; then
+        echo "  [ok] signed pounce has the focus subcommand — hush rides its TCC grants"
+        echo "       (grant Accessibility + Full Disk Access to Pounce.app once, done)"
+    else
+        echo "  [~~] no signed pounce with 'focus' — using the per-surface fallback"
+        echo "       (needs a pounce with the focus subcommand + pounce.signingIdentity set)"
+    fi
 
     if /usr/bin/defaults read com.apple.symbolichotkeys AppleSymbolicHotKeys 2>/dev/null \
         | grep -qE '^[[:space:]]*175[[:space:]]*='; then
