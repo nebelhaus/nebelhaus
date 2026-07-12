@@ -180,6 +180,15 @@ lib.mkIf config.nebelhaus.pounce.enable {
         key = "space";
         modifiers = [ "cmd" ];
       };
+      # ⌘Tab → the MRU window switcher (the last stock macOS keybinding the rice
+      # retires). Gated on Accessibility inside the daemon: unsigned/ungranted
+      # installs keep stock ⌘Tab, so shipping this on is safe. The option exists
+      # for hosts that want the native app switcher back.
+      windows = {
+        enabled = config.nebelhaus.pounce.windowSwitcher;
+        key = "tab";
+        modifiers = [ "cmd" ];
+      };
       clipboard = {
         enabled = true;
         maxEntries = 200;
@@ -195,6 +204,22 @@ lib.mkIf config.nebelhaus.pounce.enable {
       }
     ]
     ++ wmPages
+    # The whole page is conditional — a cheatsheet teaching keys that do
+    # nothing would be worse than no page. Keys must stay true to the
+    # `windows` block written into config.json above.
+    ++ lib.optionals config.nebelhaus.pounce.windowSwitcher [
+      {
+        title = "Window Switcher [⌘ ⇥]";
+        page = "Tips";
+        items = [
+          { key = "⌘ ⇥"; action = "Toggle to the last window — release to land"; }
+          { key = "⌘ ⇥ ⇥ …"; action = "Walk all windows, most-recent first (⌘⇧⇥ backwards)"; }
+          { key = "⌘ + type"; action = "Filter windows while holding (frecency-ranked)"; }
+          { key = "↵ / ⎋"; action = "Commit / cancel without releasing ⌘"; }
+          { key = "⌥ ⇥"; action = "Its workspace-level sibling: last workspace"; }
+        ];
+      }
+    ]
     ++ [
       # ── Tips page (⇥ flips to it) — workflows and the stuff that's hard to
       # remember. Keep every entry TRUE to the configs it describes: keys from
