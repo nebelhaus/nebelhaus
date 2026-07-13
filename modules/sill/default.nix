@@ -110,6 +110,7 @@ let
           --subscribe elgato mouse.clicked
     '';
     harvest = ''
+      sketchybar --add event harvest_update
       sketchybar --add item harvest right \
           --set harvest \
               update_freq=3 \
