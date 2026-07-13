@@ -3,8 +3,10 @@
 #
 # The haus tour — the first-run tutor. One quiet pill at the FAR RIGHT of the
 # bar (tour_item.sh --move's it next to the clock, so a notch can never cover
-# it) walks the four moves (launch / navigate / resize / palette): no window,
-# no focus steal, no key logging. Completion is detected from signals the rice
+# it) walks the four moves (launch / navigate / resize / palette): no focus
+# steal, no key logging, and no window of its own — except the "haus tour"
+# buddy Finder window steps 2-3 spawn when the workspace is too empty to
+# demonstrate on (see buddy_open). Completion is detected from signals the rice
 # already fires — the leader-mode scripts and aerospace-notify.sh call
 # `tour.sh event <name>`, each guarded by a single `[ -f $STATE ]`, so an idle
 # machine pays one stat per mode change and nothing else. We verify the
@@ -104,12 +106,17 @@ hide() { sketchybar --set tour drawing=off; }
 # be forced on). A pill's own script can still redraw it mid-tour (media
 # change, agent event) — accepted clutter; the instruction itself sits
 # notch-safe next to the clock.
+#
+# mute MERGES into an existing $MUTED rather than truncating it: a re-mute
+# while pills are already hidden (start over a mid-flight tour, init after a
+# partial repaint) would otherwise record nothing and orphan every hidden
+# pill — the restore list must survive until unmute actually runs.
 mute() {
-    : > "$MUTED"
+    touch "$MUTED"
     local it
     for it in weather media battery wifi hush agents elgato harvest; do
         [ "$(sketchybar --query "$it" 2>/dev/null | jq -r '.geometry.drawing')" = on ] || continue
-        echo "$it" >> "$MUTED"
+        grep -qxF "$it" "$MUTED" || echo "$it" >> "$MUTED"
         sketchybar --set "$it" drawing=off
     done
 }
@@ -121,6 +128,30 @@ unmute() {
         sketchybar --set "$it" drawing=on
     done < "$MUTED"
     rm -f "$MUTED"
+}
+
+# Steps 2-3 demonstrate nothing on a lone window: `focus left` has nowhere to
+# go, `resize smart` just re-fills the workspace — the tour would "pass" while
+# the user sees nothing move. So entering either step guarantees a sparring
+# partner: if the focused workspace holds fewer than two windows, spawn a
+# Finder window on an empty folder literally named "haus tour" — the title
+# explains the apparition. AppleScript, not `open`: `make new Finder window`
+# sidesteps the open-folders-in-tabs pref (which would tab into an existing
+# window on some other workspace) and doesn't activate Finder, so focus stays
+# where the user left it. buddy_close reaps every such window, however the
+# tour ends — no state to track, the window name IS the marker.
+buddy_open() {
+    [ "$(aerospace list-windows --workspace focused | wc -l)" -ge 2 ] && return
+    mkdir -p "$STATE_DIR/haus tour"
+    osascript -e "tell application \"Finder\" to make new Finder window to (POSIX file \"$STATE_DIR/haus tour\")" >/dev/null 2>&1
+}
+
+buddy_close() {
+    osascript -e 'tell application "Finder"
+        repeat while (exists Finder window "haus tour")
+            close Finder window "haus tour"
+        end repeat
+    end tell' >/dev/null 2>&1
 }
 
 # A short colored beat between steps ("tap ⇪ then t… nice"). Sleeping while
@@ -135,6 +166,7 @@ flash() { # flash <bg-color> <seconds> <label>
 finish() {
     flash "$MAUVE" 4 "the house is yours $PAW — ⇪ / opens the cheatsheet"
     touch "$DONE"; rm -f "$STATE"
+    buddy_close
     unmute
     hide
 }
@@ -143,8 +175,8 @@ finish() {
 # flashes nothing — no praise for a move that didn't happen.
 advance() {
     case "$(step)" in
-        1a|1b) [ -n "$1" ] && flash "$GREEN" 2 "$1"; echo 2 > "$STATE" ;;
-        2)     [ -n "$1" ] && flash "$GREEN" 2 "$1"; echo 3 > "$STATE" ;;
+        1a|1b) [ -n "$1" ] && flash "$GREEN" 2 "$1"; echo 2 > "$STATE"; buddy_open ;;
+        2)     [ -n "$1" ] && flash "$GREEN" 2 "$1"; echo 3 > "$STATE"; buddy_open ;;
         3)     [ -n "$1" ] && flash "$GREEN" 2 "$1"
                if [ "$TOUR_HAS_PALETTE" = 1 ]; then echo 4 > "$STATE"; else finish; return; fi ;;
         4)     finish; return ;;
@@ -179,13 +211,13 @@ case "$1" in
         else dormant; fi
         ;;
     start)   acquire_lock; start ;;
-    reset)   acquire_lock; rm -f "$STATE" "$DONE"; unmute; dormant ;;
+    reset)   acquire_lock; rm -f "$STATE" "$DONE"; buddy_close; unmute; dormant ;;
     skip)    acquire_lock; advance "" ;;
-    dismiss) acquire_lock; touch "$DONE"; rm -f "$STATE"; unmute; hide ;;
+    dismiss) acquire_lock; touch "$DONE"; rm -f "$STATE"; buddy_close; unmute; hide ;;
     click)
         # $BUTTON is exported by sketchybar for click_scripts.
         acquire_lock
-        if [ "${BUTTON:-left}" = "right" ]; then touch "$DONE"; rm -f "$STATE"; unmute; hide
+        if [ "${BUTTON:-left}" = "right" ]; then touch "$DONE"; rm -f "$STATE"; buddy_close; unmute; hide
         elif [ -f "$STATE" ]; then advance ""
         else start; fi
         ;;
