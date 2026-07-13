@@ -35,6 +35,13 @@
     # (The workshop's developer CLI is `bench` — a different name on purpose,
     # so the two never shadow each other.)
     (writeShellScriptBin "haus" (builtins.readFile ./haus.sh))
+
+    # `wt` — manages Claude Code agent worktrees: closing a `claude --worktree`
+    # pane (hearth's Super-c bind) never loses uncommitted work, and every
+    # session stays resumable. Ships here because the rice already provides the
+    # worktree keybinds; the WorktreeCreate/WorktreeRemove hooks (wired in your
+    # host's settings.json) point at this. Self-contained — no repo/flake/bench.
+    (writeShellScriptBin "wt" (builtins.readFile ./wt.sh))
   ];
 
   # ---- Homebrew framework ---------------------------------------------------
