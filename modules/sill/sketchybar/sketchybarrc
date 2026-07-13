@@ -367,9 +367,11 @@ sketchybar --add item wifi right \
 source "$HOME/.config/sketchybar/optional_items.sh"
 
 # The haus-tour pill — GENERATED gate (nebelhaus.tour.enable); empty when the
-# tour isn't wired. Added last on the right so it sits nearest the center, and
-# stays visible while launch mode takes over the left side (exactly when the
-# user is mid-step). plugins/tour.sh owns all its state, labels, and colors.
+# tour isn't wired. On the right because launch mode takes over the left side
+# (exactly when the user is mid-step), but --move'd next to the clock so a
+# MacBook notch can't cover it; sourced last so its `init` sees every
+# right-side pill (mid-tour it hides them to make room). plugins/tour.sh owns
+# all its state, labels, and colors.
 source "$HOME/.config/sketchybar/tour_item.sh"
 
 ##### Finalizing Setup #####

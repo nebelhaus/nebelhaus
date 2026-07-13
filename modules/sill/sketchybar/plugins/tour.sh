@@ -1,8 +1,9 @@
 #!/bin/bash
 # tour.sh init|start|click|skip|dismiss|reset|status|event <launch|workspace|navigate|resize|palette>
 #
-# The haus tour — the first-run tutor. One quiet pill on the RIGHT side of the
-# bar walks the four moves (launch / navigate / resize / palette): no window,
+# The haus tour — the first-run tutor. One quiet pill at the FAR RIGHT of the
+# bar (tour_item.sh --move's it next to the clock, so a notch can never cover
+# it) walks the four moves (launch / navigate / resize / palette): no window,
 # no focus steal, no key logging. Completion is detected from signals the rice
 # already fires — the leader-mode scripts and aerospace-notify.sh call
 # `tour.sh event <name>`, each guarded by a single `[ -f $STATE ]`, so an idle
@@ -27,7 +28,8 @@
 #
 # State: $STATE holds the current step; $DONE present == completed or
 # dismissed — it's what keeps the dormant hint from ever coming back. `reset`
-# clears both and re-arms the hint.
+# clears both and re-arms the hint. $MUTED lists the right-side pills hidden
+# while a tour runs (see mute/unmute).
 #
 # Concurrency: caps->letter can fire `launch` and `workspace` back to back as
 # fire-and-forget processes, so every mutation runs under the same mkdir-lock
@@ -40,6 +42,7 @@ export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
 STATE_DIR="$HOME/.local/state/nebelhaus"
 STATE="$STATE_DIR/tour"        # current step: 1a | 1b | 2 | 3 | 4
 DONE="$STATE_DIR/tour-done"    # present == completed or dismissed
+MUTED="$STATE_DIR/tour-muted"  # right-side pills hidden while a tour runs
 LOCK="/tmp/sketchybar_tour.lock"
 
 source "$HOME/.config/sketchybar/colors.sh"
@@ -89,10 +92,36 @@ render() {
 dormant() {
     sketchybar --set tour drawing=on \
         background.color=$MANTLE icon="$PAW" icon.color=$PINK \
-        label.color=$SUBTEXT0 label="new here? click for a tour (right-click hides)"
+        label.color=$SUBTEXT0 label="new here? click for a tour"
 }
 
 hide() { sketchybar --set tour drawing=off; }
+
+# While a tour runs, the other right-side pills get out of the way — the step
+# labels need room, and a notch'd laptop has none to spare mid-bar. Only the
+# clock stays. $MUTED records exactly which pills WE hid, so unmute restores
+# those and nothing else (agents & co. manage their own drawing and must not
+# be forced on). A pill's own script can still redraw it mid-tour (media
+# change, agent event) — accepted clutter; the instruction itself sits
+# notch-safe next to the clock.
+mute() {
+    : > "$MUTED"
+    local it
+    for it in weather media battery wifi hush agents elgato harvest; do
+        [ "$(sketchybar --query "$it" 2>/dev/null | jq -r '.geometry.drawing')" = on ] || continue
+        echo "$it" >> "$MUTED"
+        sketchybar --set "$it" drawing=off
+    done
+}
+
+unmute() {
+    [ -f "$MUTED" ] || return 0
+    local it
+    while IFS= read -r it; do
+        sketchybar --set "$it" drawing=on
+    done < "$MUTED"
+    rm -f "$MUTED"
+}
 
 # A short colored beat between steps ("tap ⇪ then t… nice"). Sleeping while
 # holding the lock is deliberate — see the concurrency note up top.
@@ -106,6 +135,7 @@ flash() { # flash <bg-color> <seconds> <label>
 finish() {
     flash "$MAUVE" 4 "the house is yours $PAW — ⇪ / opens the cheatsheet"
     touch "$DONE"; rm -f "$STATE"
+    unmute
     hide
 }
 
@@ -133,27 +163,29 @@ start() {
     mkdir -p "$STATE_DIR"
     rm -f "$DONE"
     echo 1a > "$STATE"
+    mute
     render
 }
 
 case "$1" in
     init)
-        # Called by the generated tour_item.sh right after adding the item:
-        # repaint whatever the last session left — a mid-tour step, done
-        # (hidden), or the dormant first-run hint.
+        # Called by the generated tour_item.sh right after adding the item —
+        # last in sketchybarrc, so every right-side pill already exists:
+        # repaint whatever the last session left — a mid-tour step (re-muting
+        # the freshly-added pills), done (hidden), or the dormant hint.
         acquire_lock
-        if [ -f "$STATE" ]; then render
+        if [ -f "$STATE" ]; then mute; render
         elif [ -f "$DONE" ]; then hide
         else dormant; fi
         ;;
     start)   acquire_lock; start ;;
-    reset)   acquire_lock; rm -f "$STATE" "$DONE"; dormant ;;
+    reset)   acquire_lock; rm -f "$STATE" "$DONE"; unmute; dormant ;;
     skip)    acquire_lock; advance "" ;;
-    dismiss) acquire_lock; touch "$DONE"; rm -f "$STATE"; hide ;;
+    dismiss) acquire_lock; touch "$DONE"; rm -f "$STATE"; unmute; hide ;;
     click)
         # $BUTTON is exported by sketchybar for click_scripts.
         acquire_lock
-        if [ "${BUTTON:-left}" = "right" ]; then touch "$DONE"; rm -f "$STATE"; hide
+        if [ "${BUTTON:-left}" = "right" ]; then touch "$DONE"; rm -f "$STATE"; unmute; hide
         elif [ -f "$STATE" ]; then advance ""
         else start; fi
         ;;

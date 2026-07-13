@@ -127,10 +127,12 @@ let
     + lib.optionalString config.nebelhaus.hush.enable hushBlock
     + lib.concatMapStrings (name: optionalPluginBlocks.${name}) config.nebelhaus.sill.plugins;
 
-  # The haus-tour pill (plugins/tour.sh) — the first-run tutor. Sourced by
-  # sketchybarrc AFTER the right-side items so it lands leftmost of the right
-  # stack: launch mode replaces the LEFT side of the bar, and that's exactly
-  # when the user is mid-step, so the instruction must live on the right.
+  # The haus-tour pill (plugins/tour.sh) — the first-run tutor. It must live on
+  # the RIGHT (launch mode replaces the LEFT side of the bar exactly when the
+  # user is mid-step), but --move'd next to the clock at the far right: added
+  # last it would land nearest the center, which a MacBook notch covers. It is
+  # still sourced by sketchybarrc AFTER the other right-side items so `init`
+  # sees them all — mid-tour it hides them (tour.sh mute) to make room.
   # Empty when the tour isn't wired (tour disabled, or no prowl to teach —
   # steps 1-3 are all leader moves). `init` repaints whatever state the last
   # session left: mid-tour step, done (hidden), or the dormant hint.
@@ -150,6 +152,7 @@ let
               label.font="Hack Nerd Font:Bold:13.0" \
               background.color=$MANTLE \
               click_script="$HOME/.config/sketchybar/plugins/tour.sh click"
+      sketchybar --move tour after clock
       "$HOME/.config/sketchybar/plugins/tour.sh" init
     '';
   tourConfigSh = ''
