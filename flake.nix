@@ -107,6 +107,7 @@
         collar = ./modules/collar;
         pounce = ./modules/pounce;
         hush = ./modules/hush;
+        secrets = ./modules/secrets;
         default = ./modules;
       };
 

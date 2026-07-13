@@ -188,8 +188,12 @@ in
             # Homebrew (Apple Silicon)
             eval "$(/opt/homebrew/bin/brew shellenv)"
 
-            # Load your secrets here in your HOST file (this is the public rice):
-            #   export SOME_API_KEY="$(cat ~/.secrets/some-key)"
+            # Secrets: prefer secretspec (ships with the rice) — a project
+            # declares its secrets in a committed secretspec.toml and
+            # `secretspec run -- cmd` injects the values from your provider
+            # (nebelhaus.secrets.provider) into just that process, nothing
+            # plaintext on disk. Anything you truly need in EVERY shell,
+            # export in your HOST file's initContent (this is the public rice).
           '')
           ''
             # Nebelung zsh-syntax-highlighting colours (replaces catppuccin's

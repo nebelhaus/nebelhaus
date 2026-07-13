@@ -12,7 +12,7 @@ elsewhere.
 
 | Want to change… | Repo |
 |---|---|
-| the rice: macOS defaults, tiling (prowl), bar (sill), shell (hearth), security (collar), pounce wiring (den) | `~/code/nebelhaus/nebelhaus` ← **you are here** |
+| the rice: macOS defaults, tiling (prowl), bar (sill), shell (hearth), security (collar), secrets plumbing (secrets), pounce wiring (den) | `~/code/nebelhaus/nebelhaus` ← **you are here** |
 | the pounce palette app or its command scripts | `~/code/nebelhaus/pounce` |
 | colors / the theme palette | `~/code/nebelhaus/nebelung` |
 | one machine's personal apps / identity / secrets | `~/.config/nix` (or that machine's own config) |
@@ -34,7 +34,7 @@ elsewhere.
 flake.nix                 # mkNebelhaus builder + darwinModules outputs + example host
 modules/
   default.nix             # imports all rooms
-  options.nix             # nebelhaus.git.* + nebelhaus.pounce.signingIdentity (host-set)
+  options.nix             # nebelhaus.git.* / secrets.provider / pounce.signingIdentity (host-set)
   lib/gui-wait.nix        # withGUIWait: cold-boot-safe GUI agent launch wrapper
   den/                    # system: macOS defaults, Homebrew framework, core CLI, GC
   hearth/                 # shell: zsh, starship, git, yazi, zellij, ghostty + theming
@@ -43,6 +43,7 @@ modules/
   collar/                 # Touch ID sudo
   pounce/                 # the palette daemon (launchd + self-signing)
   hush/                   # Focus/DND one-switch: declarative hotkey 175 + Slack + hooks
+  secrets/                # secretspec: declarative secrets, provider chosen per host
 hosts/example/            # the template a consumer copies
 ```
 
@@ -93,6 +94,11 @@ in the consumer. CI evaluates the example host on every push.
   `/etc/homebrew/brew.env` — third-party taps fail trust checks under sudo activation.
 - **Touch ID + zellij** (`modules/collar`): `reattach = true` is required because sudo
   runs inside zellij; without pam_reattach the Touch ID prompt beachballs.
+- **secretspec + keychain ACLs** (`modules/secrets`): with the default "keyring"
+  provider, macOS keys each item's "Always Allow" to the exact binary — a rebuild that
+  changes secretspec's store path re-prompts once per secret. Harmless (approve again);
+  cloud providers (gcsm/awssm/bws/…) have no per-item ACL. Login-keychain items do NOT
+  sync via iCloud — a clean wipe means `secretspec check` + re-entering values.
 - **Determinate owns the nix daemon** (`modules/den`): `nix.enable = false`; config
   lives in `/etc/nix/nix.custom.conf`. GC is our own weekly launchd job.
 - **The pounce build shells out to `/usr/bin/xcrun swiftc`** — needs Xcode CLT + the
