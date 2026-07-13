@@ -109,17 +109,30 @@ shift-up = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh of
 shift-right = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget @HOME@/.config/sketchybar/plugins/navigate_mode.sh on', 'move right', 'mode navigate']
 # App launcher letters — generated from nebelhaus.prowl.apps.
 @LAUNCH_LETTERS@
-# Resize mode (entered via the launch leader's -/=). Repeat -/= to keep
-# growing/shrinking the focused tiled window; esc/enter to return to main.
+# Resize mode (entered via the launch leader's -/=, or by pressing -/= while
+# navigating). Repeat -/= to keep growing/shrinking the focused tiled window;
+# arrows flow straight into navigate mode without re-tapping caps; esc/enter
+# return to main. Each *_mode.sh `on` clears the sibling indicator's state
+# itself — one script call per transition, so the front-app pill can't race.
 [mode.resize.binding]
 minus = 'resize smart -50'
 equal = 'resize smart +50'
+left = ['exec-and-forget @HOME@/.config/sketchybar/plugins/navigate_mode.sh on', 'focus left', 'mode navigate']
+down = ['exec-and-forget @HOME@/.config/sketchybar/plugins/navigate_mode.sh on', 'focus down', 'mode navigate']
+up = ['exec-and-forget @HOME@/.config/sketchybar/plugins/navigate_mode.sh on', 'focus up', 'mode navigate']
+right = ['exec-and-forget @HOME@/.config/sketchybar/plugins/navigate_mode.sh on', 'focus right', 'mode navigate']
+shift-left = ['exec-and-forget @HOME@/.config/sketchybar/plugins/navigate_mode.sh on', 'move left', 'mode navigate']
+shift-down = ['exec-and-forget @HOME@/.config/sketchybar/plugins/navigate_mode.sh on', 'move down', 'mode navigate']
+shift-up = ['exec-and-forget @HOME@/.config/sketchybar/plugins/navigate_mode.sh on', 'move up', 'mode navigate']
+shift-right = ['exec-and-forget @HOME@/.config/sketchybar/plugins/navigate_mode.sh on', 'move right', 'mode navigate']
 esc = ['exec-and-forget @HOME@/.config/sketchybar/plugins/resize_mode.sh off', 'mode main']
 enter = ['exec-and-forget @HOME@/.config/sketchybar/plugins/resize_mode.sh off', 'mode main']
 
-# Navigate mode (entered via the launch leader's arrows). Arrows keep moving
-# focus; ⇧+arrow moves the focused window in that direction (replacing the old
-# ⌘⌥⌃⇧ hyper move chord); esc/enter return to main.
+# Navigate mode (entered via the launch leader's arrows, or by pressing an
+# arrow while resizing). Arrows keep moving focus; ⇧+arrow moves the focused
+# window in that direction (replacing the old ⌘⌥⌃⇧ hyper move chord); -/=
+# flows straight into resize mode without re-tapping caps; esc/enter return
+# to main.
 [mode.navigate.binding]
 left = 'focus left'
 down = 'focus down'
@@ -129,6 +142,8 @@ shift-left = 'move left'
 shift-down = 'move down'
 shift-up = 'move up'
 shift-right = 'move right'
+minus = ['exec-and-forget @HOME@/.config/sketchybar/plugins/resize_mode.sh on', 'resize smart -50', 'mode resize']
+equal = ['exec-and-forget @HOME@/.config/sketchybar/plugins/resize_mode.sh on', 'resize smart +50', 'mode resize']
 esc = ['exec-and-forget @HOME@/.config/sketchybar/plugins/navigate_mode.sh off', 'mode main']
 enter = ['exec-and-forget @HOME@/.config/sketchybar/plugins/navigate_mode.sh off', 'mode main']
 

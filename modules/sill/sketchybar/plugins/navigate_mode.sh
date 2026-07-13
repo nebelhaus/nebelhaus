@@ -15,7 +15,11 @@
 
 export PATH="/run/current-system/sw/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
 
-STATE="/tmp/sketchybar_navigate_state"   # present == armed
+STATE="/tmp/sketchybar_navigate_state"    # present == armed
+SIBLING="/tmp/sketchybar_resize_state"    # resize_mode.sh's state — `on` clears
+                                          # it so a resize→navigate hop is ONE
+                                          # script call (two async calls would
+                                          # race on the same pill)
 
 source "$HOME/.config/sketchybar/colors.sh"
 
@@ -30,6 +34,7 @@ front_app() {
 case "$1" in
     on)
         : > "$STATE"
+        rm -f "$SIBLING"
         # Haus-tour hook — one stat when no tour is mid-flight (plugins/tour.sh).
         { [ -f "$HOME/.local/state/nebelhaus/tour" ] && "$HOME/.config/sketchybar/plugins/tour.sh" event navigate; } >/dev/null 2>&1 &
         sketchybar --set front_app background.color=$SKY label.color=$BASE \

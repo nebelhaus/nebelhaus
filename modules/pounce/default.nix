@@ -63,7 +63,7 @@ let
       }
       {
         key = "- / =";
-        action = "Resize active tile (repeats)";
+        action = "Resize active tile — enters resize, repeats (⎋ exits)";
       }
       {
         key = "v / e";
@@ -256,6 +256,7 @@ lib.mkIf config.nebelhaus.pounce.enable {
           { key = "⌥ ⇧ x → ⇪ x"; action = "Throw window to app's workspace, follow it"; }
           { key = "⇪ → → →"; action = "Navigate: arrows move focus, ⇧+arrow moves the window (⎋ ends)"; }
           { key = "⇪ - - -"; action = "Resize repeats without re-tapping caps (⎋ ends)"; }
+          { key = "⇪ → - →"; action = "Navigate and resize flow into each other — no re-tap"; }
           { key = "⌥ ⇧ r"; action = "Untangle windows after a laptop wake"; }
         ];
       }
