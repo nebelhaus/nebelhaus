@@ -8,6 +8,7 @@
 {
   config,
   username,
+  hostname,
   ...
 }:
 
@@ -758,6 +759,16 @@ in
         ".config/zellij/editor-open-pane.sh" = {
           text = builtins.replaceStrings [ "@editor@" ] [ hearthCfg.editor ] (
             builtins.readFile ./zellij/editor-open-pane.sh
+          );
+          executable = true;
+        };
+        # The one "open the nix config" opener — resolves this host's
+        # hosts/@hostname@/default.nix and hands it to the launcher above with
+        # the flake root as cwd. The "Nix Config" palette command (pounce) and
+        # the bar's nix pill (sill) both exec this.
+        ".config/zellij/nix-config-open.sh" = {
+          text = builtins.replaceStrings [ "@hostname@" ] [ hostname ] (
+            builtins.readFile ./zellij/nix-config-open.sh
           );
           executable = true;
         };

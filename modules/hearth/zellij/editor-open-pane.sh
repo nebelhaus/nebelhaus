@@ -3,9 +3,11 @@
 # Open a file OR a directory in the rice editor, in a new zellij tab. @editor@
 # is baked from nebelhaus.hearth.editor at build time (the one editor the whole
 # rice uses — same value as $EDITOR). Called by the EditorOpen.app
-# file-association handler (a file) and by the "Nix Config" palette/bar
-# commands (a directory).
+# file-association handler (a file) and by nix-config-open.sh (a file plus a
+# cwd override, so the pane sits at the flake root rather than the file's own
+# directory).
 FILE_PATH="${1:A}"
+CWD_OVERRIDE="${2:+${2:A}}"
 
 # 1. Ensure Ghostty is running
 if ! pgrep -x "Ghostty" > /dev/null; then
@@ -26,12 +28,12 @@ if ! zellij list-sessions 2>/dev/null | grep -q "main"; then
 fi
 
 # A directory opens as `<editor> .` cwd'd into it; a file opens cwd'd into its
-# parent.
+# parent, unless the caller passed an explicit cwd as $2.
 if [ -d "$FILE_PATH" ]; then
     DIR_PATH="$FILE_PATH"
     TARGET="."
 else
-    DIR_PATH="$(dirname "$FILE_PATH")"
+    DIR_PATH="${CWD_OVERRIDE:-$(dirname "$FILE_PATH")}"
     TARGET="$FILE_PATH"
 fi
 
