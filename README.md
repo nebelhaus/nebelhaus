@@ -1,7 +1,7 @@
 <div align="center">
 
-<!-- identity banner — pink-on-gray wordmark (assets/nebelhaus-banner-gray-bg-rounded.png) -->
-<img src="./assets/nebelhaus-banner-gray-bg-rounded.png" alt="nebelhaus" width="520">
+<!-- M4 fog banner — seamless-loop APNG, fog drifts behind a still wordmark (static fallback: assets/nebelhaus-banner-gray-bg-rounded.png) -->
+<img src="./assets/nebelhaus-banner-fog.png" alt="nebelhaus" width="520">
 
 **an opinionated macOS, raised in the fog**
 
