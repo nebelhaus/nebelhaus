@@ -66,11 +66,13 @@ focus_state() {
     /bin/cat "$STATE_FILE" 2>/dev/null || echo off
 }
 
-# Press the DND chord. Preferred: the signed pounce presses it under its own
-# Accessibility grant (`pounce focus toggle`, nebelhaus/pounce). Fallback:
-# System Events — then the keystroke is attributed to the app that invoked
-# hush (palette runs inherit pounce's grant, the pill needs sketchybar
-# granted once, the CLI needs your terminal).
+# Press the DND chord. Preferred: `pounce focus toggle` — since pounce 0.4.3
+# the CLI forwards the press to the resident daemon whenever the calling
+# context lacks the grant (TCC checks the RESPONSIBLE process — sketchybar
+# for the pill, your terminal for the CLI — never the pounce binary itself),
+# so the one Accessibility checkbox on the signed Pounce.app covers every
+# surface. Fallback: System Events — only without a focus-capable pounce;
+# then the keystroke is attributed to the app that invoked hush.
 press_hotkey() {
     if pounce_focus_available && "$POUNCE_SIGNED" focus toggle 2>/dev/null; then
         return 0
@@ -177,10 +179,11 @@ doctor() {
         echo "       app that runs hush (your terminal for the CLI, sketchybar for the pill)."
     fi
 
-    echo "  [??] Accessibility can't be probed without actually toggling; the keypress"
-    echo "       needs it on the invoking app. Palette runs inherit pounce's grant;"
-    echo "       for the bar pill add sketchybar, for the CLI add your terminal"
-    echo "       (System Settings → Privacy & Security → Accessibility)."
+    echo "  [??] Accessibility can't be probed without actually toggling. With the"
+    echo "       signed pounce above, its daemon presses on behalf of every surface"
+    echo "       (pill, palette, CLI) — the one grant on Pounce.app is enough."
+    echo "       Without it, the app invoking hush needs its own grant (System"
+    echo "       Settings → Privacy & Security → Accessibility)."
 
     if [ "$SLACK_ENABLED" = 1 ]; then
         TOK=$(slack_token)
