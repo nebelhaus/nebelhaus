@@ -143,9 +143,14 @@
     title = "System";
     items = [
       {
+        # Display-only: the pounce daemon registers ⌘Space itself (in-process
+        # Carbon hotkey, see modules/pounce). Binding it here too made AeroSpace
+        # win the race and spawn the palette — so every palette command ran
+        # under AEROSPACE's TCC identity, where e.g. CoreBluetooth aborts
+        # (AeroSpace.app has no Bluetooth usage description). Commands must
+        # spawn from the daemon so grants land on the signed Pounce.app.
         keys = "⌘ Space";
         action = "Command Palette";
-        binds.cmd-space = "exec-and-forget @BIN@/pounce-palette";
       }
       {
         keys = "⌥ ⇧ r";
