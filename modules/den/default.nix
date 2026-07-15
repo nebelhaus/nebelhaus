@@ -8,6 +8,18 @@
   ...
 }:
 
+let
+  # Extra Homebrew packages appended by the pounce "Install App" command's
+  # "just install" lane, kept in a JSON file so they stay machine-editable
+  # without hand-patching Nix (the roster's rosterFile counterpart). Shape:
+  # { "casks": [ … ], "brews": [ … ] }. null → nothing extra.
+  installsFile = config.nebelhaus.homebrew.installsFile;
+  installs =
+    if installsFile != null then
+      builtins.fromJSON (builtins.readFile installsFile)
+    else
+      { };
+in
 {
   system.primaryUser = username;
 
@@ -59,9 +71,13 @@
 
     # A minimal, opinionated starter set. Edit freely in your host file —
     # `homebrew.casks = [ ... ];` merges with whatever the modules declare.
+    # nebelhaus.homebrew.installsFile (the pounce "Install App" command) appends
+    # its casks/brews here too, so an app added from the palette is declarative.
     casks = [
       "ghostty" # the terminal the rice is themed for
-    ];
+    ]
+    ++ (installs.casks or [ ]);
+    brews = installs.brews or [ ];
   };
 
   # ---- Fonts ----------------------------------------------------------------

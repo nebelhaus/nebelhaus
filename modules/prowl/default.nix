@@ -25,6 +25,14 @@ let
   binDir = "/etc/profiles/per-user/${username}/bin";
   launchSh = "${homeDir}/.config/aerospace/launch.sh";
 
+  # Extra roster entries appended by the pounce "Install App" command live in a
+  # JSON file (nebelhaus.prowl.rosterFile) so the roster stays machine-editable
+  # without hand-patching Nix. Read at build time and folded into the option
+  # BELOW (config block) so every consumer — this module, sill's pills, the
+  # pounce cheatsheet — sees the merged roster and nothing drifts.
+  rosterFile = config.nebelhaus.prowl.rosterFile;
+  fileApps = lib.optionals (rosterFile != null) (builtins.fromJSON (builtins.readFile rosterFile));
+
   apps = config.nebelhaus.prowl.apps;
 
   # The static tiling/workspace/service bindings, shared with the pounce
@@ -88,6 +96,11 @@ let
   rosterCasks = lib.filter (c: c != null) (map (a: a.cask) apps);
 in
 lib.mkIf config.nebelhaus.prowl.enable {
+  # Fold the JSON roster file into the roster option. List options concatenate
+  # across definitions, so this appends to the host's hand-written apps; every
+  # reader of nebelhaus.prowl.apps (here, sill, pounce) then sees both.
+  nebelhaus.prowl.apps = fileApps;
+
   # AeroSpace itself (cask) + its tap. Roster apps that name a cask ride along.
   # Merged into den's homebrew config.
   homebrew.taps = [ "nikitabobko/tap" ];

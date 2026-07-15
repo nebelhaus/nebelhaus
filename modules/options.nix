@@ -268,6 +268,20 @@
       '';
     };
 
+    prowl.rosterFile = lib.mkOption {
+      type = lib.types.nullOr lib.types.path;
+      default = null;
+      example = lib.literalExpression "./roster.json";
+      description = ''
+        Optional JSON file of extra roster entries, appended to
+        nebelhaus.prowl.apps at build time (same per-app schema, as an array).
+        This is what makes the roster machine-editable: the pounce "Install App"
+        command appends structured entries here and rebuilds, so apps gain a
+        workspace + leader key without hand-editing the Nix list. null disables
+        it. The file must be tracked by the flake's git repo to be read.
+      '';
+    };
+
     # ---- optional rooms ----
     # den + hearth + collar are always on (system, shell, Touch ID). These three
     # are the choosable rooms — turning one off drops its packages, agents, and
@@ -375,6 +389,19 @@
         description = ''
           Upgrade outdated Homebrew packages on every rebuild. Off by default
           for the same reproducibility reason as autoUpdate.
+        '';
+      };
+      installsFile = lib.mkOption {
+        type = lib.types.nullOr lib.types.path;
+        default = null;
+        example = lib.literalExpression "./installs.json";
+        description = ''
+          Optional JSON file — { "casks": [ … ], "brews": [ … ] } — of extra
+          Homebrew packages, merged into homebrew.casks / homebrew.brews at
+          build time. The counterpart to prowl.rosterFile for packages that
+          don't belong on the tiling roster: the pounce "Install App" command's
+          "just install" lane appends here and rebuilds. null disables it. The
+          file must be tracked by the flake's git repo to be read.
         '';
       };
     };
