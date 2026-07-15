@@ -21,6 +21,12 @@ keybind = cmd+p=unbind
 keybind = cmd+y=unbind
 keybind = cmd+shift+y=unbind
 keybind = cmd+shift+t=unbind
+# cmd+l → zellij "Super l" (force a genuine PTY winsize kick + ^L redraw). A
+# fast WM resize of the ghostty window — an app tiling in beside it, then
+# leaving — can land zellij back on a size it already thinks the pane has, so
+# it never re-signals the child; the pane's TUI (claude code) keeps wrapping at
+# the stale narrow width, and a bare ctrl+l only redraws at that wrong width.
+keybind = cmd+l=unbind
 # cmd+c → zellij "Super c" (spawn a claude --worktree agent). Unbinding drops
 # ghostty's copy-on-cmd+c, but our copy path is zellij selection → copy_command
 # (copy-clean.pl), not ghostty's raw-grid copy, so normal copying is unaffected.
