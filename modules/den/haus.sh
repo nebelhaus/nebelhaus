@@ -11,6 +11,7 @@
 #   haus status          current generation + how old your pinned rice is
 #   haus edit            open your host config (identity, apps) in $EDITOR
 #   haus doctor          check the machine's health (Nix, CLT, the GUI agents)
+#   haus btm             check BTM daemon-gating (macOS 26 Tahoe+; no-op before)
 #   haus tour            take the guided haus tour (it lives in the bar)
 set -euo pipefail
 
@@ -44,6 +45,7 @@ haus — the everyday CLI for a nebelhaus machine.
   haus status         current generation + how old your pinned rice is
   haus edit           open your host config in $EDITOR
   haus doctor         check the machine's health (Nix, CLT, the GUI agents)
+  haus btm            check BTM daemon-gating (macOS 26 Tahoe+; no-op before)
   haus tour           take the guided haus tour (haus tour reset re-arms it)
 EOF
 }
@@ -179,6 +181,12 @@ cmd_doctor() {
   local uid; uid="$(id -u)"
   say "nebelhaus doctor"
 
+  # On macOS 26 Tahoe+, a "stopped agent" is often BTM gating the /bin/sh-invoked
+  # nix login item rather than a cold-boot wedge — point at `haus btm` when so.
+  local osver osmajor btmhint=""
+  osver="$(sw_vers -productVersion 2>/dev/null || echo 0)"; osmajor="${osver%%.*}"
+  [ "${osmajor:-0}" -ge 26 ] && btmhint=" · on Tahoe+ this is often BTM: haus btm"
+
   # Determinate Nix (den assumes it owns the daemon: nix.enable = false).
   if [ -f /nix/receipt.json ]; then ok "Determinate Nix installed"
   elif [ -d /nix ]; then bad "/nix exists but not Determinate — nebelhaus expects the Determinate installer"
@@ -199,7 +207,7 @@ cmd_doctor() {
     label="${pair%%:*}"; name="${pair##*:}"
     if launchctl print "gui/$uid/$label" >/dev/null 2>&1; then
       if pgrep -qx "$name"; then ok "$name running"
-      else bad "$name enabled but not running — check /tmp/$name.err.log (a wedged cold-boot agent: launchctl kickstart -k gui/$uid/$label)"; fi
+      else bad "$name enabled but not running — check /tmp/$name.err.log (a wedged cold-boot agent: launchctl kickstart -k gui/$uid/$label)$btmhint"; fi
     fi
   done
 
@@ -248,6 +256,63 @@ cmd_doctor() {
   fi
 }
 
+# macOS 26 Tahoe and later gate LaunchDaemons/Agents whose executable isn't
+# Apple-signed, via Background Task Management (BTM). Every nix login item runs
+# through `/bin/sh -c "…"`, which BTM flags as "unidentified developer" and can
+# silently refuse to launch at login — the agent registers but never starts, so
+# your bar/tiling/palette come up dead after the upgrade. There is NO declarative
+# fix: the remedy is a toggle in the BTM store, which is GUI-only (sfltool can
+# dump it but not set it). So this DETECTS the condition and prints the one-time
+# manual fix. A pure no-op before Tahoe — nothing to gate there.
+cmd_btm() {
+  local ver major
+  ver="$(sw_vers -productVersion 2>/dev/null || echo 0)"; major="${ver%%.*}"
+  say "Background Task Management (BTM)"
+
+  if [ "${major:-0}" -lt 26 ]; then
+    ok "macOS $ver — pre-Tahoe; BTM doesn't gate nix daemons here. Nothing to do."
+    return 0
+  fi
+
+  warn "macOS $ver: Tahoe+ can block nix login items (they run via /bin/sh) from starting."
+
+  # The BTM store is root-only. Try passwordlessly first, then a plain sudo
+  # (collar's Touch ID prompts here); degrade gracefully if we can read neither.
+  local dump="" blocked=""
+  if dump="$(sudo -n sfltool dumpbtm 2>/dev/null)"; then :
+  elif dump="$(sudo sfltool dumpbtm 2>/dev/null)"; then :
+  else dump=""; fi
+
+  if [ -n "$dump" ]; then
+    local stanzas
+    stanzas="$(printf '%s\n' "$dump" | grep -A8 -iE 'nixos|darwin-store' 2>/dev/null || true)"
+    if [ -z "$stanzas" ]; then
+      warn "no nix items in the BTM store yet — they appear after the first post-upgrade login."
+    elif printf '%s\n' "$stanzas" | grep -qi 'disallowed'; then
+      bad "nix background items are DISALLOWED by BTM — that's why daemons won't start."
+      blocked=1
+    else
+      ok "nix background items are allowed by BTM — daemons aren't being gated."
+    fi
+  else
+    warn "couldn't read the BTM store (needs sudo). Inspect it by hand:"
+    printf '     sudo sfltool dumpbtm | grep -B2 -A8 -iE "nixos|darwin-store"\n'
+    blocked=1
+  fi
+
+  if [ -n "$blocked" ]; then
+    echo
+    say "one-time fix (GUI-only — BTM has no CLI to set it):"
+    cat <<'EOF'
+     1. System Settings → General → Login Items & Extensions
+     2. Scroll to "Allow in the Background"
+     3. Find the entries named "sh" — subtitle "Item from unidentified developer"
+     4. Toggle them ON, then reboot
+        (already ON but still blocked? flip OFF then ON to force a DB write)
+EOF
+  fi
+}
+
 # The tour itself is the bar's tour.sh (sill ships it; see modules/sill) —
 # haus is just the terminal-shaped door to it, for the user who read the
 # bootstrap's closing line instead of spotting the pill.
@@ -269,7 +334,8 @@ case "${1:-status}" in
   status)      cmd_status ;;
   edit)        cmd_edit ;;
   doctor)      cmd_doctor ;;
+  btm)         cmd_btm ;;
   tour)        cmd_tour "${2:-}" ;;
   -h|--help|help) usage ;;
-  *)           die "unknown command '$1' — try: rebuild update rollback generations status edit doctor tour" ;;
+  *)           die "unknown command '$1' — try: rebuild update rollback generations status edit doctor btm tour" ;;
 esac
