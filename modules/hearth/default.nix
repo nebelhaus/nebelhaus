@@ -728,8 +728,8 @@ in
         # zjstatus (dj95/zjstatus) — the configurable tab-bar the custom layout
         # uses; pinned release wasm, built against zellij-tile 0.44.
         ".config/zellij/plugins/zjstatus.wasm".source = pkgs.fetchurl {
-          url = "https://github.com/dj95/zjstatus/releases/download/v0.23.0/zjstatus.wasm";
-          hash = "sha256-4AaQEiNSQjnbYYAh5MxdF/gtxL+uVDKJW6QfA/E4Yf8=";
+          url = "https://github.com/dj95/zjstatus/releases/download/v0.24.0/zjstatus.wasm";
+          hash = "sha256-HM7ezh3tYs8+IJvmkM3TnKb7noIo7XGpUfZQf5lWZps=";
         };
         ".config/zellij/launch.sh" = {
           source = ./zellij/launch.sh;
