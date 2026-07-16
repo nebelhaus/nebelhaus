@@ -73,8 +73,9 @@ if [ ! -s "$INDEX" ]; then
 fi
 
 # ── step 1: search the catalog ────────────────────────────────────────────
-# Row: title(token) \t subtitle(desc) \t icon \t actions \t group \t type \t appname
-# Fields 6-7 are hidden and echoed back on selection.
+# Input row: title(token) \t subtitle(desc) \t icon \t actions \t group \t type \t appname
+# On selection pounce echoes "<action>\t<the whole input row>" (State.swift:299),
+# so every field shifts +1: token=f2, group=f6, type=f7, appname=f8.
 list="$(awk -F'\t' '{
   icon  = ($1 == "cask") ? "app.badge" : "terminal"
   group = ($1 == "cask") ? "Apps · cask" : "CLI · formula"
@@ -85,8 +86,8 @@ selected="$(printf '%s\n' "$list" | pounce -p "Install App — search Homebrew" 
 [ -z "$selected" ] && exit 0
 
 token="$(field "$selected" 2)"
-type="$(field "$selected" 6)"
-appname="$(field "$selected" 7)"
+type="$(field "$selected" 7)"
+appname="$(field "$selected" 8)"
 [ -z "$token" ] && exit 0
 [ -z "$appname" ] && appname="$token"
 
