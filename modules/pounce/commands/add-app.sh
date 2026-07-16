@@ -201,6 +201,11 @@ if haus rebuild; then
       haus rebuild || true
     fi
   fi
+  # The rebuild rewrote the bar's workspace config + aerospace.toml, but the live
+  # daemons keep their old state — a newly added workspace pill / launcher binding
+  # won't show until they reload. Nudge both so the change is visible immediately.
+  sketchybar --reload 2>/dev/null || true
+  aerospace reload-config 2>/dev/null || true
   echo
   echo "✓ $APPNAME is installed and wired."
   rm -f "$ROSTER_JSON.bak" "$INSTALLS_JSON.bak"
