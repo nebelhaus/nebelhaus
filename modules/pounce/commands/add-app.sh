@@ -206,6 +206,11 @@ if haus rebuild; then
   # won't show until they reload. Nudge both so the change is visible immediately.
   sketchybar --reload 2>/dev/null || true
   aerospace reload-config 2>/dev/null || true
+  # Commit the change so the host tree stays clean (an uncommitted roster.json
+  # otherwise blocks the next `bench ship`). Path-scoped, so nothing else you have
+  # in flight is touched; push stays your call.
+  git commit -q -m "config: add $APPNAME via pounce Install App" -- \
+    "$(basename "$ROSTER_JSON")" "$(basename "$INSTALLS_JSON")" 2>/dev/null || true
   echo
   echo "✓ $APPNAME is installed and wired."
   rm -f "$ROSTER_JSON.bak" "$INSTALLS_JSON.bak"
