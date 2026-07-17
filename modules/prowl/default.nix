@@ -166,6 +166,12 @@ lib.mkIf config.nebelhaus.prowl.enable {
       text = resortScript;
       executable = true;
     };
+    # caps→z reopen-last-closed-app: pops the stack sill's last_closed_app.sh
+    # plugin fills on every app quit, and `open -b`s it back (browser ⌘⇧T analog).
+    ".config/aerospace/reopen-last-app.sh" = {
+      source = ./scripts/reopen-last-app.sh;
+      executable = true;
+    };
     ".config/aerospace/on-wake.sh" = {
       source = ./scripts/on-wake.sh;
       executable = true;

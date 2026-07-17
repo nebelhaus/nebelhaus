@@ -192,6 +192,16 @@ sketchybar --add item empty_workspace left \
         script="$HOME/.config/sketchybar/plugins/empty_workspace.sh" \
     --subscribe empty_workspace front_app_switched
 
+# Reopen-last-closed-app recorder — pushes a quit app's bundle id onto a stack
+# that the caps→z leader (reopen-last-app.sh) pops to relaunch it, the browser
+# ⌘⇧T analog. Non-drawing; see plugins/last_closed_app.sh for the quit detection.
+sketchybar --add item last_closed_app left \
+    --set last_closed_app \
+        drawing=off \
+        updates=on \
+        script="$HOME/.config/sketchybar/plugins/last_closed_app.sh" \
+    --subscribe last_closed_app front_app_switched
+
 # Front app name
 sketchybar --add item front_app left \
     --set front_app \

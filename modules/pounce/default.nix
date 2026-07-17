@@ -42,7 +42,7 @@ let
 
   # Launch-mode cheatsheet rows — generated from the app roster so the "Caps
   # Lock" page always matches AeroSpace's launcher, then the fixed leader
-  # actions (resize / clipboard / emoji / exit) appended.
+  # actions (resize / clipboard / emoji / reopen-last-app / exit) appended.
   launchModeItems =
     (map (a: {
       key = a.key;
@@ -68,6 +68,10 @@ let
       {
         key = "v / e";
         action = "Clipboard / Emoji";
+      }
+      {
+        key = "z";
+        action = "Reopen last closed app";
       }
       {
         key = "/";
