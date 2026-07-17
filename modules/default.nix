@@ -1,5 +1,5 @@
 # The whole house. Import this for the full rice, or import individual rooms
-# (den / prowl / sill / collar / pounce / hush / secrets) from `darwinModules`
+# (den / prowl / sill / collar / pounce / trill / hush / secrets) from `darwinModules`
 # in the flake.
 {
   imports = [
@@ -11,6 +11,7 @@
     ./sill
     ./collar
     ./pounce
+    ./trill
     ./hush
     ./secrets
   ];

@@ -305,6 +305,12 @@
       description = "The pounce command palette daemon (⌘Space) + its rice commands.";
     };
 
+    trill.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "The trill Messages client, installed from the nebelhaus Homebrew tap.";
+    };
+
     tour.enable = lib.mkOption {
       type = lib.types.bool;
       default = true;
