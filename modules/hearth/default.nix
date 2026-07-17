@@ -762,6 +762,13 @@ in
           );
           executable = true;
         };
+        # pounce's terminal launcher (POUNCE_TERMINAL_LAUNCHER, wired in
+        # modules/pounce) — opens `ssh <host>` etc. in a new `main`-session tab,
+        # same flow as editor-open-pane.sh above.
+        ".config/zellij/pounce-terminal.sh" = {
+          source = ./zellij/pounce-terminal.sh;
+          executable = true;
+        };
         # The one "open the nix config" opener — resolves this host's
         # hosts/@hostname@/default.nix and hands it to the launcher above with
         # the flake root as cwd. The "Nix Config" palette command (pounce) and

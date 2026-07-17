@@ -158,6 +158,10 @@ lib.mkIf config.nebelhaus.pounce.enable {
         # pounce-palette on ⌘Space — see modules/prowl/aerospace.toml.)
         POUNCE_BUILTIN_DIR = builtinCommandsDir;
         POUNCE_EXTRA_COMMAND_DIRS = "${riceCommands}";
+        # Where the ssh plugin (and any command that respects the hook) opens a
+        # terminal: a new tab in the `main` zellij session instead of stock
+        # Terminal. See modules/hearth/zellij/pounce-terminal.sh.
+        POUNCE_TERMINAL_LAUNCHER = "/Users/${username}/.config/zellij/pounce-terminal.sh";
       };
     };
   };
@@ -171,7 +175,13 @@ lib.mkIf config.nebelhaus.pounce.enable {
       # The generic command library, plus this rice's own commands layered on
       # via runtime discovery. Same-filename scripts shadow pounce built-ins.
       (pkgs.pounce-commands.override { extraCommandDirs = [ riceCommands ]; })
-    ];
+    ]
+    # The optional plugins are discovered via ~/.config/pounce/commands symlinks
+    # (dev checkout), not the `plugins` override, so their CLI deps wouldn't come
+    # along automatically. Pull every optional plugin's tool into the profile so
+    # audio/bluetooth/github stop guarding "not found"; pounce-commands is the
+    # single source of truth for that list (its pluginRuntimeDeps).
+    ++ pkgs.pounce-commands.allPluginDeps;
 
     # Palette settings — pounce re-reads this on each open. Edit + rebuild.
     home.file.".config/pounce/config.json".text = builtins.toJSON {
