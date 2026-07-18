@@ -1,4 +1,5 @@
 --- @since 26.1.22
+--- @sync entry
 
 -- peek-open — bound to Enter in the main yazi keymap, but only CHANGES anything
 -- inside the "peek" overlay (Super y, see zellij/peek-run.sh, which exports
@@ -9,21 +10,18 @@
 --   • file → fall through to `open`, paging it fullscreen — peek stays a reader.
 -- Outside peek (a normal `yy` session, PEEK unset) it is a plain passthrough to
 -- `open`, i.e. exactly yazi's default Enter — so regular yazi is unaffected.
--- Uses only the modern (26.x) Lua API (ya.sync / ya.emit), matching the other
--- vendored plugins in this tree.
-
--- Read the hovered entry in the sync context; return its path iff it's a dir.
-local hovered_dir = ya.sync(function()
-	local h = cx.active.current.hovered
-	if h and h.cha.is_dir then
-		return tostring(h.url)
-	end
-	return nil
-end)
+--
+-- Runs as a SYNC entry (the `--- @sync entry` annotation above) — this matters:
+-- an async plugin is itself an "ongoing task" while it runs, so emitting `quit`
+-- from inside one makes yazi flash its "tasks are still running?" confirm popup
+-- for a frame before exiting (yazi#993/#1059). A sync entry runs on the main
+-- thread, counts as no task, so `quit` exits cleanly with no popup — and it can
+-- read `cx` directly, so the old ya.sync() wrapper is gone too.
 
 return {
 	entry = function()
-		local dir = os.getenv("PEEK") == "1" and hovered_dir()
+		local h = cx.active.current.hovered
+		local dir = os.getenv("PEEK") == "1" and h and h.cha.is_dir and tostring(h.url)
 		if not dir then
 			-- Not in peek, or hovering a file: yazi's default Enter (open/page).
 			ya.emit("open", {})
