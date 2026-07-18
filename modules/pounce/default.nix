@@ -74,6 +74,10 @@ let
         action = "Reopen last closed app";
       }
       {
+        key = ",";
+        action = "System Settings";
+      }
+      {
         key = "/";
         action = "This cheatsheet";
       }

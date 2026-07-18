@@ -89,11 +89,13 @@ slash = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off',
 4 = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'workspace 4', 'mode main']
 # Non-launch leader actions. v = clipboard history; e = emoji picker; z =
 # reopen last closed app (the browser ⌘⇧T analog — relaunch the most recently
-# quit app; press again to walk back). (palette is on cmd+space now, so the old
+# quit app; press again to walk back); , = macOS System Settings (mirrors the
+# ⌘, "preferences" convention). (palette is on cmd+space now, so the old
 # space->palette leader is gone.)
 v = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget @BIN@/pounce --clipboard', 'mode main']
 e = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget @BIN@/pounce --emoji', 'mode main']
 z = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget @HOME@/.config/aerospace/reopen-last-app.sh', 'mode main']
+comma = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget open -b com.apple.systempreferences', 'mode main']
 # - / = resize the focused tiled window (growing it shrinks its neighbour). The
 # first press also drops into `resize` mode so further -/= repeat without re-tapping caps.
 minus = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget @HOME@/.config/sketchybar/plugins/resize_mode.sh on', 'resize smart -50', 'mode resize']
