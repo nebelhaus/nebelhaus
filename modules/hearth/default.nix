@@ -225,18 +225,22 @@ in
 
             # Auto-name the current zellij tab after the repo whenever you cd.
             if [[ -n "$ZELLIJ" ]]; then
-              # New panes inherit the focused pane's cwd (Super p) — which,
-              # next to a claude --worktree pane, is the agent's throwaway
-              # checkout under ~/.cache/claude-worktrees. A fresh interactive
-              # shell has no business starting there: hop to the repo the
-              # worktree belongs to (the parent of the shared .git).
-              # $CLAUDECODE spares the agent's own subshells — those must
-              # stay in the worktree.
-              if [[ -z "$CLAUDECODE" && "$PWD" == "$HOME/.cache/claude-worktrees/"* ]]; then
+              # New panes/tabs inherit the focused pane's cwd (Super p / Super t)
+              # — which, next to a claude --worktree pane, is the agent's
+              # throwaway checkout under ~/.cache/claude-worktrees. A fresh
+              # interactive shell has no business starting there: hop to the repo
+              # the worktree belongs to (the parent of the shared .git).
+              # $CLAUDECODE spares the agent's own subshells, and $ZJ_STAY spares
+              # the deliberate "stay here" spawns (Super Shift p, and the peek
+              # Enter-on-dir tab) — those must stay in the worktree. Both fire
+              # once at shell birth, so unset ZJ_STAY afterward to keep it out of
+              # child processes and later cd's.
+              if [[ -z "$CLAUDECODE" && -z "$ZJ_STAY" && "$PWD" == "$HOME/.cache/claude-worktrees/"* ]]; then
                 _wt_main="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
                 [[ -n "$_wt_main" ]] && cd "''${_wt_main:h}"
                 unset _wt_main
               fi
+              unset ZJ_STAY
 
               _zj_name_tab() {
                 local root name
@@ -378,6 +382,12 @@ in
               notification = true;
             };
           };
+          # peek-open: Enter inside the Super-y peek overlay. On a directory it
+          # spawns a new zellij tab cwd'd there (the folded-in Super-Shift-t
+          # picker); on a file it pages as normal. Gated on PEEK=1 (set only by
+          # peek-run.sh), so in a plain `yy` session it's a no-op passthrough to
+          # yazi's default Enter. See yazi/plugins/peek-open.yazi.
+          peek-open.package = ./yazi/plugins/peek-open.yazi;
         };
         keymap.mgr.prepend_keymap = [
           {
@@ -391,6 +401,14 @@ in
             on = "Y";
             run = "plugin copy-file-contents";
             desc = "Copy file contents to clipboard";
+          }
+          {
+            # Enter routes through peek-open: in the peek overlay a directory
+            # opens a new zellij tab there, a file pages fullscreen; everywhere
+            # else it's plain `open` (yazi's default Enter). See peek-open.yazi.
+            on = "<Enter>";
+            run = "plugin peek-open";
+            desc = "Peek: open dir as tab / page file (else default open)";
           }
         ];
         settings.plugin.prepend_previewers = [
@@ -683,8 +701,7 @@ in
 
         # yazi theme (replaces catppuccin.yazi): mgr/status/mode palette (mauve
         # accent) plus the syntect theme its syntect_theme line points at —
-        # reusing the Nebelung bat tmTheme so previews match bat. The yazi-picker
-        # theme.toml symlinks to this one, so it inherits Nebelung too.
+        # reusing the Nebelung bat tmTheme so previews match bat.
         ".config/yazi/theme.toml".source =
           "${nebelung.themes}/yazi/themes/mocha/catppuccin-mocha-${accent}.toml";
         ".config/yazi/Catppuccin-mocha.tmTheme".source =
@@ -700,11 +717,12 @@ in
         # Custom layout, rendered from the in-repo template (see zellijLayout
         # in the let above).
         ".config/zellij/layouts/custom.kdl".text = zellijLayout;
-        # The same layout with the content tab pinned to $HOME — the Super-t
-        # NewTab bind opens tabs from this file, so a new tab always starts at
-        # ~ no matter where the focused pane lives. Tab-level cwd is the only
-        # form zellij honors under a default_tab_template (newtab.sh pulls the
-        # same trick per-pick); the assert trips at eval time if custom.kdl's
+        # The same layout with the content tab pinned to $HOME — the
+        # Super-Shift-t NewTab bind opens tabs from this file, so a new tab
+        # always starts at ~ no matter where the focused pane lives. Tab-level
+        # cwd is the only form zellij honors under a default_tab_template
+        # (peek-run.sh pulls the same trick per-pick); the assert trips at eval
+        # time if custom.kdl's
         # content-tab line ever changes shape, instead of silently shipping a
         # layout that no-ops back to cwd inheritance.
         ".config/zellij/layouts/home.kdl".text =
@@ -783,26 +801,10 @@ in
           source = ./zellij/yazi-shell.sh;
           executable = true;
         };
-        ".config/zellij/newtab.sh" = {
-          source = ./zellij/newtab.sh;
-          executable = true;
-        };
-        # Shortlist for the Super-Shift-t picker (nebelhaus.hearth.newTabDirs):
-        # newtab.sh builds its picker view from this file, one home-relative
-        # dir per line. Absent (option unset) = the picker browses all of $HOME.
-        ".config/zellij/newtab-dirs" = lib.mkIf (hearthCfg.newTabDirs != [ ]) {
-          text = lib.concatMapStrings (d: d + "\n") hearthCfg.newTabDirs;
-        };
         ".config/zellij/copy-clean.pl" = {
           source = ./zellij/copy-clean.pl;
           executable = true;
         };
-
-        # yazi new-tab picker (isolated config; shares theme.toml with main yazi)
-        ".config/yazi-picker/yazi.toml".source = ./yazi/picker/yazi.toml;
-        ".config/yazi-picker/keymap.toml".source = ./yazi/picker/keymap.toml;
-        ".config/yazi-picker/theme.toml".source =
-          config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.config/yazi/theme.toml";
       };
 
       # zellij grants plugin permissions through an interactive prompt in the

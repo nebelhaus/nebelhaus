@@ -31,13 +31,6 @@
   # project's committed secretspec.toml, not an option here.
   # nebelhaus.secrets.provider = "keyring";
 
-  # Optional: shortlist for the Super-Shift-t "new tab" picker — it opens on
-  # just these home-relative dirs instead of all of $HOME. Unset = browse $HOME.
-  nebelhaus.hearth.newTabDirs = [
-    # "code"
-    # ".config"
-  ];
-
   # Your apps — merged with the casks the modules install (ghostty, aerospace).
   homebrew.casks = [
     # "google-chrome"

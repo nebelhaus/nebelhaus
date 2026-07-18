@@ -2,7 +2,7 @@
 // v0.44.3, MIT), forked to change what a click DOES. Upstream opens files in
 // $EDITOR (floating pane) and directories in the filepicker; this fork opens
 // both in a new tab cwd'd at the path's directory, auto-named after its git
-// repo — the same behavior as newtab.sh. Everything else (path regex, hover
+// repo — the same behavior as peek-run.sh. Everything else (path regex, hover
 // underline/italic, cwd tracking, dir-entry highlights, ~/$VAR expansion) is
 // upstream, kept verbatim so the fork stays diffable against new zellij
 // releases.
@@ -240,14 +240,14 @@ impl State {
             None => {
                 // Layout missing/reformatted: at least name the tab; cwd may
                 // land in $HOME (`new-tab --cwd` is ignored under a
-                // default_tab_template) — same fallback as newtab.sh.
+                // default_tab_template) — same fallback as peek-run.sh.
                 new_tab(Some(name.as_str()), Some(dir.to_string_lossy().as_ref()));
             },
         }
     }
 
     /// Clone the live layout file and inject cwd + name onto its content tab —
-    /// the same trick as newtab.sh: `new-tab --cwd` is silently ignored when a
+    /// the same trick as peek-run.sh: `new-tab --cwd` is silently ignored when a
     /// default_tab_template is active (zellij 0.44), but a tab-level cwd in a
     /// layout IS honored, and reusing custom.kdl verbatim keeps the
     /// tab-bar/status-bar and the spiral/columns/grid swap layouts intact.
@@ -256,7 +256,7 @@ impl State {
         let layout_src = Path::new(home).join(".config/zellij/layouts/custom.kdl");
         let src = std::fs::read_to_string(host_path(&layout_src)).ok()?;
 
-        // KDL-escape (backslash then double-quote), mirroring newtab.sh.
+        // KDL-escape (backslash then double-quote), mirroring peek-run.sh.
         let cwd_escaped = kdl_escape(&dir.to_string_lossy());
         let name_escaped = kdl_escape(name);
 
@@ -354,7 +354,7 @@ fn host_path(path: &Path) -> PathBuf {
 }
 
 /// The tab name for a directory: its git-root's basename, or its own basename
-/// outside a repo — the same naming as newtab.sh. `.git` is checked with
+/// outside a repo — the same naming as peek-run.sh. `.git` is checked with
 /// metadata (not is_dir) because linked worktrees and submodules have a
 /// `.git` FILE.
 fn tab_name_for(dir: &Path) -> String {

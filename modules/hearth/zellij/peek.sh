@@ -27,10 +27,16 @@ export PATH="/opt/homebrew/bin:/etc/profiles/per-user/$USER/bin:/run/current-sys
 FIFO="$HOME/.cache/peek.fifo"
 PIDFILE="$HOME/.cache/peek.pid"
 RETURNFILE="$HOME/.cache/peek.return"
+SESSIONFILE="$HOME/.cache/peek.session"
 WINDOW_TITLE="quick-terminal-peek"
 
 # Record where to hand focus back on dismiss (the app the user is in now).
 osascript -l JavaScript -e 'ObjC.import("AppKit"); String($.NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier)' 2>/dev/null > "$RETURNFILE"
+
+# Record which zellij session summoned us, so peek-run.sh (a separate ghostty
+# instance, no $ZELLIJ of its own) knows where to open a tab when Enter picks a
+# directory. This script runs as a zellij floating pane, so it still has it.
+printf '%s\n' "${ZELLIJ_SESSION_NAME:-}" > "$SESSIONFILE"
 
 # The target frame: 85% of the visible frame of the screen the cursor is on,
 # centered. Recomputed on every summon (via the shared float-term helper, which
