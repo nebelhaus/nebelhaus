@@ -138,8 +138,8 @@ keybinds {
         // landed on commits as the new "current" node. Works in any mode.
         // Only works at all because ghostty/config explicitly sends the
         // kitty-protocol encoding for these (macOS AppKit otherwise swallows
-        // ctrl+tab before the terminal sees it). The custom layout's zjstatus
-        // bar shows the "Ctrl+Tab" reminder top-right.
+        // ctrl+tab before the terminal sees it). The custom layout's tab-bar
+        // shows the "Ctrl+Tab" reminder top-right.
         bind "Ctrl Tab" {
             MessagePlugin "file:~/.config/zellij/plugins/tab-history.wasm" {
                 name "back"

@@ -522,25 +522,34 @@ fn render_mode_key_indicators(
                         KeyShortcut::new(mode, action, key)
                     })
                     .collect();
+                // Fork: render the " Ctrl +" prefix into a scratch LinePart and
+                // only commit it TOGETHER with a shortcut list that fits. The
+                // upstream code appended the prefix unconditionally, so in a thin
+                // pane where neither the full nor the shortened list fits you got
+                // a dangling " Ctrl +" with nothing after it — the "broken bar"
+                // look. Now that case renders nothing on the left instead.
+                let mut modifier_prefix = LinePart::default();
                 render_common_modifiers(
                     &colored_elements,
                     help,
                     &modifiers,
-                    &mut line_part_to_render,
+                    &mut modifier_prefix,
                     separator,
                 );
 
                 let full_shortcut_list =
                     full_inline_keys_modes_shortcut_list(&keys_without_common_modifiers, help);
 
-                if line_part_to_render.len + full_shortcut_list.len <= max_len {
+                if modifier_prefix.len + full_shortcut_list.len <= max_len {
+                    line_part_to_render.append(&modifier_prefix);
                     line_part_to_render.append(&full_shortcut_list);
                 } else {
                     let shortened_shortcut_list = shortened_inline_keys_modes_shortcut_list(
                         &keys_without_common_modifiers,
                         help,
                     );
-                    if line_part_to_render.len + shortened_shortcut_list.len <= max_len {
+                    if modifier_prefix.len + shortened_shortcut_list.len <= max_len {
+                        line_part_to_render.append(&modifier_prefix);
                         line_part_to_render.append(&shortened_shortcut_list);
                     }
                 }

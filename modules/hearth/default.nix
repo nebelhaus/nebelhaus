@@ -51,25 +51,18 @@ in
       zenAccent = lib.toUpper (lib.substring 0 1 accent) + lib.substring 1 (lib.stringLength accent) accent;
       zenTheme = "${nebelung.themes}/zen/themes/Mocha/${zenAccent}";
 
-      # The zellij custom layout, rendered from the in-repo template with
-      # Nebelung colours injected from nebelung.palette (zjstatus can't read
-      # zellij theme files, so the bar colours ride in here — like lazygit's
-      # do). Shared by custom.kdl and its $HOME-pinned home.kdl variant below.
+      # The zellij custom layout, rendered from the in-repo template. Only two
+      # tokens remain: the login name for the tab-bar's username pill, and
+      # $HOME for the plugin paths. Bar/tab colours no longer ride in here —
+      # our tab-bar + status-bar plugins read the zellij "nebelung" theme
+      # directly (the old zjstatus couldn't, so its colours used to be injected
+      # here). Shared by custom.kdl and its $HOME-pinned home.kdl variant below.
       zellijLayout =
-        builtins.replaceStrings [ "@mantle@" "@text@" "@green@" "@overlay0@" "@peach@" "@username@" "@HOME@" ]
-          (
-            (with nebelung.palette; [
-              mantle
-              text
-              green
-              overlay0
-              peach
-            ])
-            ++ [
-              (builtins.substring 0 6 username)
-              config.home.homeDirectory
-            ]
-          )
+        builtins.replaceStrings [ "@username@" "@HOME@" ]
+          [
+            (builtins.substring 0 6 username)
+            config.home.homeDirectory
+          ]
           (builtins.readFile ./zellij/custom.kdl);
 
       # Seeds a zellij plugin's grants into the permission cache (see the
@@ -743,12 +736,13 @@ in
         # built-in except the bottom-right quick hints also surface NewTab,
         # so Super-t shows next to Super-p. Wasm vendored by its build.sh.
         ".config/zellij/plugins/status-bar.wasm".source = ./zellij/plugins/zellij_status_bar.wasm;
-        # zjstatus (dj95/zjstatus) — the configurable tab-bar the custom layout
-        # uses; pinned release wasm, built against zellij-tile 0.44.
-        ".config/zellij/plugins/zjstatus.wasm".source = pkgs.fetchurl {
-          url = "https://github.com/dj95/zjstatus/releases/download/v0.24.0/zjstatus.wasm";
-          hash = "sha256-HM7ezh3tYs8+IJvmkM3TnKb7noIo7XGpUfZQf5lWZps=";
-        };
+        # Our tab-bar fork (see zellij/tab-bar/): the top bar, replacing the
+        # third-party zjstatus that used to sit here. Same active-anchored tab
+        # scroll viewport as upstream zellij:tab-bar (so tabs stay readable on a
+        # thin pane instead of clipping under the right-hand widgets, which is
+        # what zjstatus did), themed to nebelung, with a username pill + a
+        # Ctrl+Tab / swap-layout right side. Wasm vendored by its build.sh.
+        ".config/zellij/plugins/tab-bar.wasm".source = ./zellij/plugins/zellij_tab_bar.wasm;
         ".config/zellij/launch.sh" = {
           source = ./zellij/launch.sh;
           executable = true;
@@ -834,6 +828,14 @@ in
       # and calls go_to_tab (ChangeApplicationState) to switch tabs; both are
       # pre-seeded because it's a background plugin with no pane to prompt in.
       home.activation.zellijTabHistoryPermissions = seedZellijPluginPermissions "tab-history.wasm" [
+        "ReadApplicationState"
+        "ChangeApplicationState"
+      ];
+      # tab-bar renders from TabUpdate/ModeUpdate (ReadApplicationState) and
+      # switches tabs on a mouse click via switch_tab_to (ChangeApplicationState).
+      # It DOES have a pane (it's the top bar), but seeding avoids a first-run
+      # permission prompt flashing in the bar itself — same as the status-bar fork.
+      home.activation.zellijTabBarPermissions = seedZellijPluginPermissions "tab-bar.wasm" [
         "ReadApplicationState"
         "ChangeApplicationState"
       ];
