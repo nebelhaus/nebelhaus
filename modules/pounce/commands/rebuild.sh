@@ -4,15 +4,18 @@
 # pounce: icon = arrow.triangle.2.circlepath
 # Rebuild nix system configuration in a small centered ghostty window.
 #
-# Host-agnostic: `@hostname@` is substituted at build time by modules/pounce
-# (from mkNebelhaus's hostname), and the flake lives at ~/.config/nix by
-# convention — override with $NEBELHAUS_FLAKE if yours is elsewhere.
+# The build/switch itself is `haus rebuild` — the same end-user CLI the whole
+# rice hands people (and that add-app.sh already reuses), so the palette and the
+# terminal agree on exactly one rebuild path. haus resolves the flake's host attr
+# at runtime, so this command no longer bakes in a `@hostname@`. The flake lives
+# at ~/.config/nix by convention; override with $NEBELHAUS_FLAKE (mapped to
+# haus's own $HAUS_CONSUMER below) if yours is elsewhere.
 #
 # The floating window is spawned by the shared float-term helper
 # (hearth/zellij/float-term.sh) — the single implementation of the macOS
 # "fresh Ghostty instance → PID-diff → AppleScript-settle → aerospace-float"
 # dance, reused by peek and the agent-peek popup too. This command's only job
-# is to build the host-specific rebuild payload and hand it off.
+# is to build the rebuild payload and hand it off.
 
 FLOAT_TERM="$HOME/.config/zellij/float-term.sh"
 WINDOW_TITLE="quick-terminal-rebuild"
@@ -24,26 +27,11 @@ cat >"$REBUILD_TMP" <<'EOF'
 #!/bin/bash
 export PATH="/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:$PATH"
 
-cd "${NEBELHAUS_FLAKE:-$HOME/.config/nix}" || exit 1
+# Bridge the plugin's documented flake override onto haus's own env var, so a
+# host that relocated its config still rebuilds the right flake.
+export HAUS_CONSUMER="${NEBELHAUS_FLAKE:-$HOME/.config/nix}"
 
-echo "Building nix configuration..."
-echo ""
-
-if nix build ".#darwinConfigurations.@hostname@.system"; then
-    echo ""
-    echo "Build successful. Switching..."
-    echo ""
-    if sudo ./result/sw/bin/darwin-rebuild switch --flake ".#@hostname@"; then
-        echo ""
-        echo "✓ System rebuild complete!"
-    else
-        echo ""
-        echo "✗ Switch failed"
-    fi
-else
-    echo ""
-    echo "✗ Build failed"
-fi
+haus rebuild
 
 echo ""
 echo "Press any key to close..."

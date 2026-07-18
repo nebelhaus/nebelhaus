@@ -14,7 +14,6 @@
   lib,
   pkgs,
   username,
-  hostname,
   ...
 }:
 
@@ -22,16 +21,12 @@ let
   identity = config.nebelhaus.pounce.signingIdentity;
 
   # This rice's palette commands (see ./commands — one self-describing script
-  # each, metadata in a `# pounce:` header). rebuild.sh can't guess the flake's
-  # host attr name at runtime, so @hostname@ is substituted here at build time
-  # from mkNebelhaus's hostname.
+  # each, metadata in a `# pounce:` header). Installed verbatim: rebuild.sh now
+  # defers host resolution to `haus rebuild` at runtime, so nothing needs a
+  # build-time `@hostname@` substitution anymore.
   riceCommands = pkgs.runCommand "nebelhaus-pounce-commands" { } ''
     mkdir -p $out
     install -m555 ${./commands}/*.sh $out/
-    rm $out/rebuild.sh
-    substitute ${./commands/rebuild.sh} $out/rebuild.sh \
-      --subst-var-by hostname ${lib.escapeShellArg hostname}
-    chmod 555 $out/rebuild.sh
     ${lib.optionalString (!config.nebelhaus.hush.enable) "rm $out/hush.sh"}
   '';
 
