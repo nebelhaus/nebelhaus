@@ -16,7 +16,7 @@ theme "nebelung"
 // Option+Click a path in any pane → new tab cwd'd there, named after the repo
 // (hover shows the underline/italic hint). link-handler is our fork of
 // zellij's built-in `link` plugin — same path detection, but the click opens
-// a tab like newtab.sh instead of $EDITOR. Declaring load_plugins here
+// a new tab cwd'd at the path instead of $EDITOR. Declaring load_plugins here
 // REPLACES the default config's list (which auto-loads "zellij:link"), so
 // this one line both disables the built-in and loads the fork. The wasm is
 // built by nix from zellij/link-handler/ and dropped here by home-manager;
@@ -60,6 +60,14 @@ keybinds {
         //            hops it to the repo's main checkout instead (the agent's
         //            throwaway dir is no place for a human shell).
         bind "Super p" { NewPane; }
+        // Super Shift p — New pane that STAYS in the focused pane's cwd, hop and
+        //            all suppressed: the no-hop sibling of Super p, for when you
+        //            DO want a shell inside an agent's worktree checkout. Runs
+        //            the login shell with ZJ_STAY=1 set, which hearth's zshrc
+        //            reads to skip the ~/.cache/claude-worktrees → main-checkout
+        //            hop (see modules/hearth default.nix). Reaches zellij because
+        //            ghostty/config unbinds cmd+shift+p (its command palette).
+        bind "Super Shift p" { Run "sh" "-c" "ZJ_STAY=1 exec \"$SHELL\""; }
 
         // Super l — "fix layout": force the focused pane's TUI to re-read its
         //            width, then redraw. A fast ghostty resize (an app tiling
@@ -81,9 +89,12 @@ keybinds {
         // yazi as a floating overlay — appears on top of the tiled claude panes,
         // dismissed with q, leaving the spiral layout untouched.
         //
-        // Super y  — Peek: read-only file browser rooted at the focused pane's
-        //            cwd (its repo). Live markdown/code preview; Enter pages a
-        //            file fullscreen. Pure "browse the tree / read the docs".
+        // Super y  — Peek: file browser rooted at the focused pane's cwd (its
+        //            repo). Live markdown/code preview; Enter on a FILE pages it
+        //            fullscreen, Enter on a DIRECTORY opens a new zellij tab
+        //            cwd'd there (the old Super-Shift-t picker, now folded in —
+        //            l/→ still descends to browse). See peek-run.sh + the
+        //            peek-open yazi plugin.
         bind "Super y" {
             Run "@HOME@/.config/zellij/peek.sh" {
                 floating true
@@ -100,26 +111,24 @@ keybinds {
                 x "5%"; y "5%"; width "90%"; height "90%"
             }
         }
-        // Super t — New tab, always at $HOME. Kept on the NewTab action (not a
-        //            script) so zellij's status bar renders the "Super + t
-        //            New Tab" hint in locked mode, mirroring Super p → New
-        //            Pane. Bare NewTab would inherit the focused pane's cwd,
-        //            and a `cwd` arg here is silently ignored under a custom
-        //            default_tab_template (see newtab.sh) — so the bind opens
-        //            home.kdl: custom.kdl with the content tab pinned
-        //            cwd=$HOME, rendered next to it by hearth.
-        bind "Super t" { NewTab { layout "@HOME@/.config/zellij/layouts/home.kdl"; }; }
-        // Super Shift t — New tab via yazi picker: browse (floating), Enter on a
-        //            folder opens a new tab cwd'd there (auto-named after the repo),
-        //            q/Esc cancels. See dotfiles/zellij/newtab.sh + yazi-picker.
-        bind "Super Shift t" {
-            Run "@HOME@/.config/zellij/newtab.sh" {
-                floating true
-                close_on_exit true
-                name "new-tab"
-                x "5%"; y "5%"; width "90%"; height "90%"
-            }
-        }
+        // Super t — New tab, inheriting the focused pane's cwd — with the SAME
+        //            worktree hop as Super p: a fresh shell born inside
+        //            ~/.cache/claude-worktrees hops to the repo's main checkout
+        //            (hearth's zshrc, keyed off $ZELLIJ). Bare NewTab is what
+        //            inherits cwd here; a `cwd` arg is silently ignored under a
+        //            custom default_tab_template, and the shell hook does the
+        //            hop, so no layout clone is needed for this bind. The
+        //            status-bar fork renders the "Super + t New Tab" hint from
+        //            this NewTab action.
+        bind "Super t" { NewTab; }
+        // Super Shift t — New tab always at $HOME, wherever the focused pane
+        //            lives. Tab-level cwd is the only form zellij honors under a
+        //            custom default_tab_template, so this opens home.kdl:
+        //            custom.kdl with the content tab pinned cwd=$HOME, rendered
+        //            next to it by hearth. (The old browse-and-pick picker that
+        //            lived here now lives in the yazi peek overlay — Super y,
+        //            Enter on a directory.)
+        bind "Super Shift t" { NewTab { layout "@HOME@/.config/zellij/layouts/home.kdl"; }; }
         // Ctrl (Shift) Tab — walk tabs in most-recently-used order via the
         // tab-history plugin (see load_plugins above), NOT by position:
         // Ctrl Tab goes "back" toward older/previously-focused tabs, Ctrl

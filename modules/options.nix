@@ -29,22 +29,6 @@
       };
     };
 
-    hearth.newTabDirs = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ ];
-      example = [
-        "code"
-        ".config"
-      ];
-      description = ''
-        Home-relative directories the Super-Shift-t "new tab" yazi picker
-        offers instead of all of $HOME. The picker opens on a view containing
-        only these; navigating into them is normal yazi. Empty list keeps the
-        default behaviour (browse $HOME). Only the picker is affected —
-        regular yazi is untouched.
-      '';
-    };
-
     hearth.editor = lib.mkOption {
       type = lib.types.str;
       default = "hx";

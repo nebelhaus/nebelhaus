@@ -19,9 +19,16 @@ export PATH="/etc/profiles/per-user/$USER/bin:/run/current-system/sw/bin:$PATH"
 # graphics to block art. This window is raw ghostty; scrub the lie.
 unset ZELLIJ ZELLIJ_SESSION_NAME ZELLIJ_PANE_ID
 
+# PEEK=1 tells the peek-open yazi plugin (Enter) it's running inside peek, so a
+# directory picks → new tab instead of yazi's default open. Unset everywhere
+# else, so a plain `yy` session keeps the default Enter.
+export PEEK=1
+
 FIFO="$HOME/.cache/peek.fifo"
 PIDFILE="$HOME/.cache/peek.pid"
 RETURNFILE="$HOME/.cache/peek.return"
+SESSIONFILE="$HOME/.cache/peek.session"
+CWDFILE="$HOME/.cache/peek.cwd"
 
 # Find the ghostty instance that owns our window. Ghostty runs its command
 # under a `login` wrapper, so $PPID is NOT the app — walk the ancestor chain.
@@ -56,10 +63,53 @@ dismiss() {
     [ -n "${rpid:-}" ] && osascript >/dev/null 2>&1 -l JavaScript -e "ObjC.import('AppKit'); \$.NSRunningApplication.runningApplicationWithProcessIdentifier($rpid).activateWithOptions(\$.NSApplicationActivateIgnoringOtherApps);"
 }
 
+# spawn_tab DIR — open a new zellij tab cwd'd at DIR in the session that
+# summoned peek (peek.sh recorded it). We're a bare ghostty instance with no
+# $ZELLIJ, so target the server explicitly with `zellij -s <session> action`.
+# Name the tab after its git root (or dir basename), same as the link-handler.
+# `new-tab --cwd` is silently ignored under a custom default_tab_template, so
+# clone the active layout and inject a tab-level cwd (the only form zellij
+# honors) — the same trick the link-handler uses.
+spawn_tab() {
+    local dir="$1" session name root layout_src esc gen
+    session=$(cat "$SESSIONFILE" 2>/dev/null)
+    [ -n "$session" ] || return 0
+
+    name="$(basename "$dir")"
+    root="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)"
+    [ -n "$root" ] && name="$(basename "$root")"
+
+    layout_src="$HOME/.config/zellij/layouts/custom.kdl"
+    gen=""
+    if [ -f "$layout_src" ]; then
+        # KDL-escape the path (backslash then double-quote) for the cwd string.
+        esc="${dir//\\/\\\\}"; esc="${esc//\"/\\\"}"
+        # Reused/overwritten each pick — no per-invocation temp to race cleanup.
+        gen="${TMPDIR:-/tmp}/zellij-peek-tab-$USER.kdl"
+        awk -v cwd="$esc" '
+            /^    tab \{$/ && !done { print "    tab cwd=\"" cwd "\" {"; done=1; next }
+            { print }
+        ' "$layout_src" > "$gen"
+        grep -q '^    tab cwd=' "$gen" || gen=""
+    fi
+
+    if [ -n "$gen" ]; then
+        zellij -s "$session" action new-tab --layout "$gen" --name "$name" 2>/dev/null
+    else
+        # Fallback (layout missing/reshaped): name the tab; cwd may land in $HOME.
+        zellij -s "$session" action new-tab --cwd "$dir" --name "$name" 2>/dev/null
+    fi
+}
+
 dir="$PWD"
 while :; do
     [ -d "$dir" ] || dir="$HOME"
+    # Clear any prior pick so only THIS session's Enter-on-dir counts.
+    rm -f "$CWDFILE"
     yazi "$dir"
+    # Enter on a directory (peek-open.yazi) drops its path here and quits yazi.
+    picked=$(cat "$CWDFILE" 2>/dev/null); rm -f "$CWDFILE"
+    [ -n "$picked" ] && [ -d "$picked" ] && spawn_tab "$picked"
     dismiss
     # Park until peek.sh hands us the next starting directory.
     dir=$(cat "$FIFO")

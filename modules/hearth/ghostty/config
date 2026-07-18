@@ -18,6 +18,11 @@ confirm-close-surface = false
 #zellij overwrites
 keybind = cmd+t=unbind
 keybind = cmd+p=unbind
+# cmd+shift+p → zellij "Super Shift p": a new pane that STAYS in the focused
+# pane's cwd, even inside an agent worktree (the no-hop sibling of cmd+p).
+# Ghostty binds cmd+shift+p to its command palette by default — unbind it so the
+# chord reaches zellij instead of popping the palette.
+keybind = cmd+shift+p=unbind
 keybind = cmd+y=unbind
 keybind = cmd+shift+y=unbind
 keybind = cmd+shift+t=unbind
