@@ -38,6 +38,20 @@ osascript -l JavaScript -e 'ObjC.import("AppKit"); String($.NSWorkspace.sharedWo
 # directory. This script runs as a zellij floating pane, so it still has it.
 printf '%s\n' "${ZELLIJ_SESSION_NAME:-}" > "$SESSIONFILE"
 
+# Root peek at the REAL repo, not a throwaway worktree checkout: if the
+# summoning pane sits inside a linked git worktree (its per-worktree gitdir
+# differs from the shared common dir), start yazi at the repo's MAIN worktree —
+# the first entry of `git worktree list` — so peek always opens you in the
+# canonical repo. A normal checkout (gitdir == common dir) or a non-repo cwd
+# falls through to $PWD unchanged. Used everywhere below in place of $PWD.
+START="$PWD"
+_gd="$(git -C "$PWD" rev-parse --path-format=absolute --git-dir 2>/dev/null)"
+_gcd="$(git -C "$PWD" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
+if [ -n "$_gd" ] && [ "$_gd" != "$_gcd" ]; then
+    _main="$(git -C "$PWD" worktree list --porcelain 2>/dev/null | sed -n '1s/^worktree //p')"
+    [ -n "$_main" ] && [ -d "$_main" ] && START="$_main"
+fi
+
 # The target frame: 85% of the visible frame of the screen the cursor is on,
 # centered. Recomputed on every summon (via the shared float-term helper, which
 # owns the cursor-screen / visibleFrame centering math) so the panel follows
@@ -56,7 +70,7 @@ if [ -s "$PIDFILE" ]; then
             # beat to start and paint while the window is still offscreen, so
             # it teleports in already-drawn. The write is backgrounded +
             # reaped so a wedged fifo can never hang the keybind.
-            printf '%s\n' "$PWD" > "$FIFO" &
+            printf '%s\n' "$START" > "$FIFO" &
             WRITER=$!
             sleep 0.15
             kill "$WRITER" 2>/dev/null
@@ -86,7 +100,7 @@ rm -f "$PIDFILE" "$FIFO"
 open -na Ghostty.app --args \
     --title="$WINDOW_TITLE" \
     --macos-hidden=always \
-    --working-directory="$PWD" \
+    --working-directory="$START" \
     --command="/bin/bash $HOME/.config/zellij/peek-run.sh"
 
 # peek-run.sh writes the instance pid the moment it starts.
