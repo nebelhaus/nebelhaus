@@ -1,4 +1,4 @@
-// Custom layout = zjstatus tab-bar + 1-line status-bar + swap layouts.
+// Custom layout = tab-bar (top) + 1-line status-bar (bottom) + swap layouts.
 // Three tiled swap layouts, cycled with Alt+[ / Alt+]: spiral (default,
 // balanced), columns (equal side-by-side), grid (equal-area balanced grid).
 // Need to wire up the bars explicitly here because zellij only injects them
@@ -10,44 +10,24 @@
 // bottom-right quick hints also surface NewTab, so Super-t shows next to
 // Super-p — upstream hardcodes that hint list and never includes NewTab.
 //
-// The top bar is zjstatus (dj95/zjstatus, wasm pinned in default.nix) instead
-// of zellij:tab-bar, purely so the right edge can carry the ctrl+tab reminder
-// — the built-in bar has no configurable slots. Tab ribbons mirror the
-// nebelung theme's ribbon_selected/unselected. This file is NOT installed
-// verbatim: default.nix renders it to ~/.config/zellij/layouts/custom.kdl,
-// substituting the @…@ tokens from nebelung.palette (colour hexes live in the
-// nebelung repo, never here).
+// The top bar is our fork of zellij:tab-bar (see zellij/tab-bar/), which
+// REPLACED the third-party zjstatus that used to live here. zjstatus had no
+// tab scroll viewport, so on a thin pane the tabs ran under the right-hand
+// widgets and clipped mid-ribbon. The fork keeps upstream tab-bar's
+// active-anchored scroll (active tab always visible, overflow collapsed into
+// left/right `+N` count pills), themed to nebelung, and renders itself the
+// two bits zjstatus was originally adopted for: the peach username pill on
+// the left (passed in as `username`) and the Ctrl+Tab reminder + Alt <[]>
+// swap-layout ribbon on the right. Tab/ribbon colours come straight from the
+// zellij "nebelung" theme (ribbon_selected/unselected), so there's nothing to
+// theme here. This file is NOT installed verbatim: default.nix renders it to
+// ~/.config/zellij/layouts/custom.kdl, substituting the @…@ tokens (colour
+// hexes and the login name live in the nebelung repo / nix, never here).
 layout {
     default_tab_template {
         pane size=1 borderless=true {
-            plugin location="file:@HOME@/.config/zellij/plugins/zjstatus.wasm" {
-                format_left  "#[bg=@peach@,fg=@mantle@,bold] @username@ #[fg=@peach@,bg=@mantle@]{tabs}"
-                // Right edge mirrors the built-in bar: dim ctrl+tab reminder,
-                // then the Alt <[]> swap-layout hint (hidden in locked mode,
-                // via the {mode} widget), then the active swap layout as a
-                // green ribbon. Clicking the ribbon cycles swap layouts.
-                format_right "#[fg=@overlay0@,bg=@mantle@,bold]Ctrl+Tab #[fg=@overlay0@,bg=@mantle@]{mode}{swap_layout}"
-                format_space "#[bg=@mantle@]"
-                border_enabled "false"
-                hide_frame_for_single_pane "false"
-
-                // Tab ribbons in the built-in bar's powerline style: dark
-                // notch cut into the left edge, arrow point on the right, no
-                // gap between ribbons so they chain like the old bar. Green =
-                // active (theme ribbon_selected), light = inactive.
-                tab_normal "#[fg=@mantle@,bg=@overlay0@]#[fg=@mantle@,bg=@overlay0@] {name} {fullscreen_indicator}{sync_indicator}{floating_indicator}#[fg=@overlay0@,bg=@mantle@]"
-                tab_active "#[fg=@mantle@,bg=@green@]#[fg=@mantle@,bg=@green@,bold] {name} {fullscreen_indicator}{sync_indicator}{floating_indicator}#[fg=@green@,bg=@mantle@]"
-                tab_separator "#[bg=@mantle@]"
-                tab_fullscreen_indicator "[] "
-                tab_sync_indicator "<> "
-                tab_floating_indicator "⬚ "
-
-                mode_normal "#[fg=@peach@,bg=@mantle@,bold]Alt <[]> "
-                mode_locked ""
-                mode_default_to_mode "normal"
-
-                swap_layout_format "#[fg=@mantle@,bg=@green@,bold] {name} "
-                swap_layout_hide_if_empty "true"
+            plugin location="file:@HOME@/.config/zellij/plugins/tab-bar.wasm" {
+                username "@username@"
             }
         }
         children
