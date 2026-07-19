@@ -871,10 +871,14 @@ in
           $DRY_RUN_CMD /usr/bin/osacompile -o "$appDir/EditorOpen.app" -e 'on open theFiles' -e 'repeat with theFile in theFiles' -e 'set file_path to POSIX path of theFile' -e 'do shell script "$HOME/.config/zellij/editor-open-pane.sh " & quoted form of file_path' -e 'end repeat' -e 'end open'
           $DRY_RUN_CMD /usr/bin/plutil -replace CFBundleIdentifier -string "org.nebelhaus.editoropen" "$appDir/EditorOpen.app/Contents/Info.plist"
 
-          # Now set default handlers using duti
+          # Now set default handlers using duti. duti prints a LaunchServices
+          # "error -50" (paramErr) when it sets a handler by bare extension —
+          # a benign quirk on modern macOS: the mapping usually still takes, and
+          # a failure here isn't worth aborting activation over. Swallow it so it
+          # stops surfacing as scary trailing output during `bench try switch`.
           if [ -x "${pkgs.duti}/bin/duti" ]; then
             for ext in json txt md ts tsx js jsx yaml yml toml nix css sh; do
-              $DRY_RUN_CMD "${pkgs.duti}/bin/duti" -s org.nebelhaus.editoropen "$ext" all
+              $DRY_RUN_CMD "${pkgs.duti}/bin/duti" -s org.nebelhaus.editoropen "$ext" all 2>/dev/null || true
             done
           fi
         ''
