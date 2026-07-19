@@ -36,7 +36,7 @@ load_plugins {
 keybinds {
     shared {
         // Super c — spawn an ISOLATED claude agent. --worktree hands the
-        // session its own checkout (the `bench wt-create` hook in
+        // session its own checkout (the `wt` WorktreeCreate hook in
         // ~/.claude/settings.json places it under ~/.cache/claude-worktrees/
         // <repo>/<name>, branch worktree-<name>, branched from local HEAD), so
         // parallel agents never move this checkout's branch out from under

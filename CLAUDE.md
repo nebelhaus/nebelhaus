@@ -12,7 +12,7 @@ elsewhere.
 
 | Want to change… | Repo |
 |---|---|
-| the rice: macOS defaults, tiling (prowl), bar (sill), shell (hearth), security (collar), secrets plumbing (secrets), pounce wiring (den) | `~/code/nebelhaus/nebelhaus` ← **you are here** |
+| the rice: macOS defaults, tiling (prowl), bar (sill), shell (hearth), security (collar), secrets plumbing (secrets), pounce wiring (pounce), Messages install (trill), Focus/DND (hush), wallpaper/accent (theme) | `~/code/nebelhaus/nebelhaus` ← **you are here** |
 | the pounce palette app or its command scripts | `~/code/nebelhaus/pounce` |
 | colors / the theme palette | `~/code/nebelhaus/nebelung` |
 | one machine's personal apps / identity / secrets | `~/.config/nix` (or that machine's own config) |
@@ -34,14 +34,18 @@ elsewhere.
 flake.nix                 # mkNebelhaus builder + darwinModules outputs + example host
 modules/
   default.nix             # imports all rooms
-  options.nix             # nebelhaus.git.* / secrets.provider / pounce.signingIdentity (host-set)
+  options.nix             # all host-set knobs: git.*, theme.{accent,wallpaper}, hearth.*,
+                          #   claude.globalMd, prowl.* (the app roster), sill.*, pounce.*,
+                          #   hush.*, trill.enable, tour.enable, homebrew.*, secrets.provider
   lib/gui-wait.nix        # withGUIWait: cold-boot-safe GUI agent launch wrapper
   den/                    # system: macOS defaults, Homebrew framework, core CLI, GC
+  theme/                  # desktop wallpaper + accent-derived bold wordmark
   hearth/                 # shell: zsh, starship, git, yazi, zellij, ghostty + theming
   prowl/                  # AeroSpace tiling
   sill/                   # SketchyBar
   collar/                 # Touch ID sudo
   pounce/                 # the palette daemon (launchd + self-signing)
+  trill/                  # the trill Messages client, installed as a Homebrew cask
   hush/                   # Focus/DND one-switch: declarative hotkey 175 + Slack + hooks
   secrets/                # secretspec: declarative secrets, provider chosen per host
 hosts/example/            # the template a consumer copies

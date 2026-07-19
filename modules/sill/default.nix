@@ -30,6 +30,13 @@ let
       a.workspace != null && a.barIcon != null
     ) "    ${a.workspace}) ICON=${lib.escapeShellArg a.barIcon} ; IFONT=${lib.escapeShellArg (iconFont a.barIcon)} ;;\n"
   ) apps;
+  # Leader-key -> workspace map for launch_mode.sh, same colon-joined shape it
+  # used to hardcode. Digits 1-4 focus the numbered workspaces; each app key maps
+  # to its workspace; a null workspace renders as "<key>:" (always closed/grey).
+  launchersStr = lib.concatStringsSep " " (
+    [ "1:1" "2:2" "3:3" "4:4" ]
+    ++ map (a: "${a.key}:${lib.optionalString (a.workspace != null) a.workspace}") apps
+  );
 
   # Sourced by sketchybarrc: the workspace roster + a per-workspace icon lookup.
   # bash 3.2 (macOS /bin/bash) has no associative arrays, hence the case in a fn.
@@ -40,6 +47,10 @@ let
     # Leader picker bubbles: the digits 1-4 (focus a numbered workspace) plus one
     # per app key (jump to its workspace) — mirrors [mode.launch.binding].
     LAUNCHER_KEYS=(${bashArray ([ "1" "2" "3" "4" ] ++ map (a: a.key) apps)})
+    # Leader hotkey -> assigned workspace, parsed by launch_mode.sh (bash 3.2 has
+    # no associative arrays, so a plain space-separated "<key>:<ws>" string). An
+    # empty <ws> means no assigned space (always shown closed/grey).
+    LAUNCHERS="${launchersStr}"
 
     # ws_icon <workspace>: sets ICON + IFONT. Default is the workspace's own
     # letter in the bar's Nerd Font; app-workspaces override to their logo glyph.
