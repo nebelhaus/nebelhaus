@@ -15,9 +15,15 @@
 # Steps are strictly sequential:
 #   1a  tap caps (launch mode armed)          <- launch_mode.sh on
 #   1b  press a letter (an app launches)      <- aerospace-notify.sh (workspace
-#                                                changed; a letter that lands on
-#                                                the CURRENT workspace won't fire
-#                                                — click the pill to skip)
+#                                                changed). The named key is
+#                                                picked to point AWAY from the
+#                                                focused workspace (launch_key),
+#                                                so pressing it always moves you
+#                                                and fires the event — otherwise
+#                                                a key that lands on the CURRENT
+#                                                workspace never fires and the
+#                                                step hangs (click the pill to
+#                                                skip if it somehow still can't).
 #   2   caps + arrow (navigate mode)          <- navigate_mode.sh on
 #   3   caps + -/=   (resize mode)            <- resize_mode.sh on
 #   4   ⌘Space, type tour                     <- the pounce "Haus Tour" command
@@ -60,9 +66,30 @@ TOTAL=3; [ "$TOUR_HAS_PALETTE" = 1 ] && TOTAL=4
 # \u/\U; \xHH works (same trick as launch_mode.sh).
 PAW=$(printf '\xEF\x86\xB0')
 
-# Step 1's letter comes from the roster (LAUNCHER_KEYS = 1 2 3 4 + app keys, in
-# roster order), so the tour teaches YOUR first app, not a hardcoded t.
-APP_KEY="${LAUNCHER_KEYS[4]:-t}"
+# Step 1b's letter. Detection (see the `workspace` event below) fires on ANY
+# workspace change, so what matters is that the key we name actually MOVES you:
+# pressing the launcher for the workspace you're already on switches nothing, no
+# aerospace-notify fires, and the step dead-ends — the #1 way the tour stalls
+# (start it from the terminal, whose key `t` leads the roster, and "press t"
+# does nothing). So pick, in roster order, the first APP key (skip the 1-4 digit
+# launchers) bound to a workspace that ISN'T the focused one. Recomputed at
+# render time, not cached, so it stays right if the user drifts workspaces mid-
+# step. Fall back to the roster's first app key when every app sits on the
+# focused workspace or aerospace is mute — the click-to-skip escape still covers
+# that corner. LAUNCHERS ("<key>:<ws>" pairs) and LAUNCHER_KEYS come from the
+# roster in workspaces.sh, the same source launch_mode.sh's picker reads.
+launch_key() {
+    local focused entry key ws
+    focused=$(aerospace list-workspaces --focused 2>/dev/null)
+    for entry in $LAUNCHERS; do
+        key=${entry%%:*}; ws=${entry#*:}
+        case "$key" in 1 | 2 | 3 | 4) continue ;; esac  # digits focus spaces, not apps
+        [ -n "$ws" ] || continue                        # null-workspace app: no guaranteed move
+        [ "$ws" = "$focused" ] && continue              # already here → pressing it moves nothing
+        printf '%s\n' "$key"; return
+    done
+    printf '%s\n' "${LAUNCHER_KEYS[4]:-t}"
+}
 
 acquire_lock() {
     local n=0
@@ -80,7 +107,7 @@ render() {
     local lbl
     case "$(step)" in
         1a) lbl="1/$TOTAL · tap ⇪ (Caps Lock)" ;;
-        1b) lbl="1/$TOTAL · now press $APP_KEY — the letters are in the bar" ;;
+        1b) lbl="1/$TOTAL · now press $(launch_key) — the letters are in the bar" ;;
         2)  lbl="2/$TOTAL · tap ⇪, then an arrow — ⎋ ends" ;;
         3)  lbl="3/$TOTAL · tap ⇪, then - or = — ⎋ ends" ;;
         4)  lbl="4/$TOTAL · press ⌘ Space, type tour, hit ↵" ;;
