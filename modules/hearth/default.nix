@@ -131,6 +131,7 @@ in
         '';
 
         shellAliases = {
+          c = "claude";
           cat = "bat --style=header,grid --tabs=2";
           ls = "lsd";
           lg = "lazygit";
