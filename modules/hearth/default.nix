@@ -801,17 +801,35 @@ in
         };
       };
 
-      # zellij grants plugin permissions through an interactive prompt in the
-      # plugin's pane — but neither of our forks can reach it: link-handler is
-      # a background plugin (load_plugins) with no pane, and status-bar never
-      # calls request_permission (built-ins don't need to, and we keep the fork
-      # diff minimal), so an ungranted plugin would sit event-less forever
-      # (zellij only auto-grants when EVERY requested permission is cached).
+      # zellij grants plugin permissions through an interactive (y/n) prompt in
+      # the plugin's pane — but none of our forks can answer it: link-handler is
+      # a background plugin (load_plugins) with no pane, status-bar never calls
+      # request_permission (built-ins don't need to, and we keep the fork diff
+      # minimal), and tab-bar's "pane" is a 1-line borderless bar you can't
+      # select — so its prompt renders in the bar but no keystroke ever reaches
+      # it. An ungranted plugin therefore sits event-less forever (zellij only
+      # auto-grants when EVERY requested permission is cached).
       # Seed the grants straight into zellij's permission cache instead (keyed
       # by the plugin's expanded path): replace our plugin's block wholesale so
       # permission-list changes propagate, but never own the file — zellij
       # rewrites it when other plugins are granted interactively, so those
       # entries must survive.
+      #
+      # OPERATIONAL GOTCHA — a live server can clobber a fresh seed, and only a
+      # bounce fixes it. zellij re-reads this file whenever a plugin requests
+      # permission, so a seed normally takes effect on the next plugin load. But
+      # a running server also *rewrites* the file from its own in-memory
+      # snapshot (whenever any plugin is granted), which can drop a grant this
+      # activation just wrote. So when a rebuild changes a bar plugin's wasm,
+      # the next new tab can surface the un-answerable prompt above even though
+      # the seed ran — the seed and the running server race for the file. The
+      # seed alone can't win that race (zellij owns the file at runtime); the
+      # fix is to bounce the server so it reloads the seeded file cleanly:
+      #     zellij kill-session <name> && zellij attach --create <name>
+      # serialize_pane_viewport is on, so pane layouts + scrollback resurrect
+      # (live processes don't — re-run them). `bench try switch` (or any
+      # rebuild) re-runs this seed; the bounce is what makes an already-running
+      # server honour it.
       home.activation.zellijLinkHandlerPermissions = seedZellijPluginPermissions "link-handler.wasm" [
         "ReadApplicationState"
         "ChangeApplicationState"
@@ -833,8 +851,9 @@ in
       ];
       # tab-bar renders from TabUpdate/ModeUpdate (ReadApplicationState) and
       # switches tabs on a mouse click via switch_tab_to (ChangeApplicationState).
-      # It DOES have a pane (it's the top bar), but seeding avoids a first-run
-      # permission prompt flashing in the bar itself — same as the status-bar fork.
+      # It's the top bar, so its prompt would render in a 1-line borderless pane
+      # you can't select — un-answerable (see the note above), which is exactly
+      # why it must be seeded rather than left to prompt on first run.
       home.activation.zellijTabBarPermissions = seedZellijPluginPermissions "tab-bar.wasm" [
         "ReadApplicationState"
         "ChangeApplicationState"
