@@ -75,7 +75,9 @@ cmd_rebuild() {
   ( cd "$CONSUMER" && nix build ".#darwinConfigurations.$host.system" ) \
     || die "build failed — nothing was changed."
   say "switching …"
-  ( cd "$CONSUMER" && sudo ./result/sw/bin/darwin-rebuild switch --flake ".#$host" )
+  # Stable /run/current-system path (not ./result): collar's passwordless-sudo
+  # rule matches that literal path — sudo no longer follows the command symlink.
+  ( cd "$CONSUMER" && sudo /run/current-system/sw/bin/darwin-rebuild switch --flake ".#$host" )
   say "the house stands."
 }
 
