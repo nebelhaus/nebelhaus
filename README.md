@@ -53,6 +53,9 @@ import one room into your own config.
 - 🔖 **collar** — identity & auth — Touch ID for sudo (with `reattach`, so it works inside tmux/zellij)
 - 🗝️ **secrets** — declarative secrets via [secretspec](https://secretspec.dev) — projects commit *which* secrets they need (never values); values live in the provider you pick per host: the local keychain by default, or 1Password / Bitwarden / GCP / AWS / Vault so they follow you to the next Mac
 - 🐾 **pounce** — the [Pounce](https://github.com/nebelhaus/pounce) command palette, wired in as a self-signing daemon that holds its Accessibility grant across rebuilds, and ⌘Space freed for it
+- 🐦 **trill** — the [Trill](https://github.com/nebelhaus/trill) native Messages client (iMessage/SMS/RCS over `chat.db`), installed as a Homebrew cask (`nebelhaus.trill.enable`)
+- 🤫 **hush** — a one-switch Focus/DND: a declarative global hotkey, plus optional Slack status and shell hooks (`nebelhaus.hush.*`)
+- 🎨 **theme** — the desktop wallpaper and an accent-derived bold wordmark (`nebelhaus.theme.accent` / `.wallpaper`)
 
 Plus the theme, [**nebelung**](https://github.com/nebelhaus/nebelung) — a
 silver-mist Catppuccin variant — and [**pounce**](https://github.com/nebelhaus/pounce),
@@ -88,9 +91,11 @@ never type the incantation again:
 haus rebuild        # build + switch this machine
 haus update         # pull the latest rice, then rebuild
 haus rollback       # go back a generation (haus generations lists them)
+haus generations    # list past generations (the rollback targets)
 haus status         # current generation + how old your pinned rice is
 haus edit           # open your host config in $EDITOR
 haus doctor         # check Nix, the CLT, and the GUI agents
+haus btm            # on macOS Tahoe+, diagnose Background Task Management blocks on nix login items
 haus tour           # a guided lap of the four moves, right in the bar
 ```
 
@@ -102,7 +107,10 @@ When to reach for each is covered in [Keeping in sync](https://nebelhaus.com/gui
 
 ## steal one room
 
-Every room is a `darwinModule`. Pull just what you want into your own flake:
+Most rooms are exported as a `darwinModule` — den, hearth, prowl, sill, collar,
+pounce, hush, secrets. Pull just what you want into your own flake (theme and
+trill aren't standalone modules; they ride along with the full `mkNebelhaus`
+house):
 
 ```nix
 {

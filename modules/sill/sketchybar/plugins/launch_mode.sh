@@ -25,17 +25,15 @@ SNAP="/tmp/sketchybar_launch_apple.json"  # present == currently armed
 LOCK="/tmp/sketchybar_launch.lock"
 
 source "$HOME/.config/sketchybar/colors.sh"
+# LAUNCHERS (leader key -> workspace map) is GENERATED from nebelhaus.prowl.apps
+# into workspaces.sh — the same data-driven roster as the workspace pills, so the
+# picker can't drift from the app roster. (bash 3.2 has no assoc arrays, hence a
+# plain "<key>:<ws>" string.)
+source "$HOME/.config/sketchybar/workspaces.sh"
 
 # md-arrow-right-bold (U+F0734) as raw UTF-8 bytes — /bin/bash is 3.2, whose
 # printf has no \u/\U; \xHH works.
 ARROW=$(printf '\xF3\xB0\x9C\xB4')
-
-# Leader hotkey -> assigned workspace (mirrors [mode.launch.binding] in
-# aerospace.toml). The digits 1-4 map to the numbered workspaces of the same
-# name; letters map to their app's workspace. Empty = no assigned space (always
-# shown as closed/grey, since there's no workspace to read open/active from):
-# Passwords.
-LAUNCHERS="1:1 2:2 3:3 4:4 t:T n:N r:R s:S b:B f:F m:M h:H c:C d:D p:"
 
 spaces() { sketchybar --query bar | jq -r '.items[] | select(startswith("space."))'; }
 
