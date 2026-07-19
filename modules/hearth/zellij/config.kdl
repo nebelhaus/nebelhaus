@@ -87,7 +87,7 @@ keybinds {
         }
 
         // yazi as a floating overlay — appears on top of the tiled claude panes,
-        // dismissed with q, leaving the spiral layout untouched.
+        // dismissed with q, leaving the tiled layout untouched.
         //
         // Super y  — Peek: file browser rooted at the focused pane's cwd (its
         //            repo). Live markdown/code preview; Enter on a FILE pages it
