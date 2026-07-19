@@ -32,6 +32,21 @@ format_duration() {
   fi
 }
 
+# The haus tour hides this pill for the length of its tutorial (tour.sh mute()).
+# Our own paints must honor that: at update_freq=3 a poll tick is almost always
+# mid-curl when the tour fires, so an unconditional `drawing=on` below would
+# race the tour's `drawing=off` — and, landing last, win — popping the pill back
+# over the step labels for the rest of the tour. Evaluated right before each
+# --set (never cached up top) so a mute that lands during our curls still wins.
+tour_drawing() {
+  local muted="$HOME/.local/state/nebelhaus/tour-muted"
+  if [ -f "$muted" ] && grep -qxF harvest "$muted" 2>/dev/null; then
+    echo off
+  else
+    echo on
+  fi
+}
+
 # Handle click events
 if [ "$SENDER" = "mouse.clicked" ]; then
   # Right-click or modifier: Open Harvest app
@@ -126,7 +141,7 @@ if [ "$RUNNING_COUNT" -gt "0" ]; then
     label.color=$BASE \
     background.color=$PEACH \
     label="$LABEL" \
-    drawing=on
+    drawing=$(tour_drawing)
 else
   # Timer is STOPPED - show most recently used entry for quick resume
   LATEST_ENTRIES=$(curl -s "${HEADERS[@]}" "$HARVEST_API_URL/time_entries?per_page=10&_=$TIMESTAMP")
@@ -148,5 +163,5 @@ else
     label.color=$TEXT \
     background.color=$SURFACE0 \
     label="$LABEL" \
-    drawing=on
+    drawing=$(tour_drawing)
 fi
