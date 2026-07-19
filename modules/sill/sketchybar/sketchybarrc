@@ -16,8 +16,15 @@ source "$HOME/.config/sketchybar/workspaces.sh"
 # opaque pill (SURFACE0/MANTLE/LAVENDER), which keeps fg legible over any
 # wallpaper region. blur_radius frosts whatever shows through the gaps between
 # pills. (A solid `color=$BASE` here is what created the old hard-edged strip.)
+#
+# height=36, not taller: the native menu bar auto-reveals on hover even while
+# hidden, and on notched displays it's only 32pt tall. den forces it opaque
+# (SLSMenuBarUseBlurredAppearance) so that reveal fully covers us — but that
+# only works if our 28pt pills stay within the 32pt band. At height=36 the
+# centered pills span y=4..32, tucked exactly under the revealed bar; height=40
+# pushed them to y=6..34, so 2px poked out below Tahoe's translucent bar.
 sketchybar --bar \
-    height=40 \
+    height=36 \
     blur_radius=30 \
     position=top \
     padding_left=10 \

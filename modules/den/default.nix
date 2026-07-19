@@ -99,9 +99,11 @@ in
   # These are the rice's OPINIONS, so every value is lib.mkDefault: a host file
   # can override any of them with a plain value and win, no conflict. That's how
   # the bootstrap's "keep your current settings" capture works — it writes your
-  # existing values into the host's system.defaults, overriding these. The one
-  # exception is _HIHideMenuBar: it's not an opinion but a function of Sill (the
-  # bar has to be hidden for Sill to replace it), so it stays rice-controlled.
+  # existing values into the host's system.defaults, overriding these. The
+  # exceptions are the two menu-bar keys below (_HIHideMenuBar and
+  # SLSMenuBarUseBlurredAppearance): not opinions but functions of Sill (the bar
+  # must be hidden for Sill to replace it, and opaque so its hover-reveal covers
+  # Sill), so they track sill.enable and stay rice-controlled.
   system.defaults = {
     dock = {
       autohide = lib.mkDefault true;
@@ -130,7 +132,17 @@ in
       TrackpadRightClick = lib.mkDefault true;
       TrackpadThreeFingerDrag = lib.mkDefault true;
     };
-    CustomUserPreferences."com.apple.commerce".AutoUpdate = lib.mkDefault true;
+    CustomUserPreferences = {
+      "com.apple.commerce".AutoUpdate = lib.mkDefault true;
+      # Companion to _HIHideMenuBar above (and same rationale: a function of Sill,
+      # not user taste). The hidden menu bar still auto-reveals on hover; Tahoe's
+      # Liquid Glass made that reveal translucent, so Sill's pills bled through it.
+      # This is the "Show menu bar background" toggle (System Settings ▸ Menu Bar) —
+      # it restores an opaque bar so the reveal fully covers Sill. Lives in
+      # CustomUserPreferences because nix-darwin's typed NSGlobalDomain block has no
+      # option for it (and no freeform); `defaults write NSGlobalDomain …` == `-g`.
+      NSGlobalDomain.SLSMenuBarUseBlurredAppearance = config.nebelhaus.sill.enable;
+    };
   };
 
   # ---- Nix housekeeping -----------------------------------------------------
