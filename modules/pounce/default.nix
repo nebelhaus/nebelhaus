@@ -21,6 +21,16 @@
 let
   identity = config.nebelhaus.pounce.signingIdentity;
 
+  # What the running signed copy was signed FROM — the store path AND the
+  # identity. The daemon writes this to the .signed-from marker; both the
+  # re-sign guard (in the daemon script) and the kickstart activation compare
+  # against it. Encoding the identity too means changing EITHER the pounce
+  # version OR signingIdentity invalidates the marker → re-sign + bounce.
+  # (Store path alone would silently keep a stale identity on an identity-only
+  # change.) Unsigned mode keeps the bare store path, matching old behaviour.
+  signedFrom =
+    "${pkgs.pounce}/Applications/Pounce.app" + lib.optionalString (identity != "") "@@${identity}";
+
   # This rice's palette commands (see ./commands — one self-describing script
   # each, metadata in a `# pounce:` header). Installed verbatim: rebuild.sh now
   # defers host resolution to `haus rebuild` at runtime, so nothing needs a
@@ -119,13 +129,13 @@ let
         DEST="$STATE_DIR/Pounce.app"
         MARKER="$STATE_DIR/.signed-from"
 
-        if [ ! -d "$DEST" ] || [ "$(/bin/cat "$MARKER" 2>/dev/null)" != "$STORE_APP" ]; then
+        if [ ! -d "$DEST" ] || [ "$(/bin/cat "$MARKER" 2>/dev/null)" != "${signedFrom}" ]; then
           /bin/mkdir -p "$STATE_DIR"
           /bin/rm -rf "$DEST"
           if /bin/cp -R "$STORE_APP" "$DEST" \
              && /bin/chmod -R u+w "$DEST" \
              && /usr/bin/codesign --force --identifier com.local.pounce -s "${identity}" "$DEST"; then
-            /usr/bin/printf '%s' "$STORE_APP" > "$MARKER"
+            /usr/bin/printf '%s' "${signedFrom}" > "$MARKER"
           else
             echo "pounce: codesign failed, falling back to unsigned store binary (no Accessibility)" >&2
             /bin/rm -f "$MARKER"
@@ -300,14 +310,14 @@ lib.mkIf config.nebelhaus.pounce.enable {
 
     # A rebuild swaps the store path under the KeepAlive'd daemon, but launchd
     # keeps the OLD image running until something bounces it. The .signed-from
-    # marker records which store path the running copy was signed from — when it
-    # lags pkgs.pounce, kick the agent; the respawn re-copies + re-signs (the
-    # stable identity keeps the Accessibility grant) and clipboard history is
-    # on disk, so the bounce loses nothing. Marker match → pounce unchanged →
-    # no bounce. Runs in home-manager activation, i.e. after nix-darwin has
-    # loaded the new agent plist.
+    # marker records the store path + identity the running copy was signed from
+    # — when it lags (a pounce bump OR a signingIdentity change), kick the agent;
+    # the respawn re-copies + re-signs (a stable identity keeps the Accessibility
+    # grant) and clipboard history is on disk, so the bounce loses nothing.
+    # Marker match → unchanged → no bounce. Runs in home-manager activation, i.e.
+    # after nix-darwin has loaded the new agent plist.
     home.activation.kickstartPounce = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      if [ "$(/bin/cat "$HOME/.local/state/pounce/.signed-from" 2>/dev/null)" != "${pkgs.pounce}/Applications/Pounce.app" ]; then
+      if [ "$(/bin/cat "$HOME/.local/state/pounce/.signed-from" 2>/dev/null)" != "${signedFrom}" ]; then
         $DRY_RUN_CMD /bin/launchctl kickstart -k "gui/$(/usr/bin/id -u)/org.nixos.pounce" || true
       fi
     '';
