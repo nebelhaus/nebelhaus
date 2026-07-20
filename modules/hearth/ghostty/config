@@ -32,6 +32,10 @@ keybind = cmd+shift+t=unbind
 # it never re-signals the child; the pane's TUI (claude code) keeps wrapping at
 # the stale narrow width, and a bare ctrl+l only redraws at that wrong width.
 keybind = cmd+l=unbind
+# cmd+f → zellij "Super f" (toggle the focused pane fullscreen). Ghostty binds
+# cmd+f to its native-macOS window fullscreen by default — unbind it so the
+# chord reaches zellij and zooms the pane instead of the whole window.
+keybind = cmd+f=unbind
 # cmd+c → zellij "Super c" (spawn a claude --worktree agent). Unbinding drops
 # ghostty's copy-on-cmd+c, but our copy path is zellij selection → copy_command
 # (copy-clean.pl), not ghostty's raw-grid copy, so normal copying is unaffected.

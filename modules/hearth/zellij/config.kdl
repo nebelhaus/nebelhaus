@@ -86,6 +86,14 @@ keybinds {
             Write 12
         }
 
+        // Super f — toggle the focused pane fullscreen (a single
+        //            ToggleFocusFullscreen, unlike Super l's twice-toggle
+        //            redraw kick). Zoom one pane to fill the tab, hit it again
+        //            to drop back into the tiled layout. Needs ghostty/config's
+        //            `cmd+f=unbind` to reach zellij — otherwise cmd+f pops
+        //            ghostty's native-macOS window fullscreen.
+        bind "Super f" { ToggleFocusFullscreen; }
+
         // yazi as a floating overlay — appears on top of the tiled claude panes,
         // dismissed with q, leaving the tiled layout untouched.
         //
