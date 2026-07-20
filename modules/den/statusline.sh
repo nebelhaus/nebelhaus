@@ -89,8 +89,28 @@ if [ "$is_wt" = 1 ] && [ "${files:-0}" -eq 0 ] && g merge-base --is-ancestor HEA
   purge=1
 fi
 
+# Row 1's ⏏ ("landed → wt reaps on close") normally comes from local ancestry
+# (purge). But a squash/rebase merge lands the work under a NEW commit, so the
+# branch is never an ancestor of main even though its PR merged. The detached
+# refresher already cached this branch's PR state in the panel; read our own row
+# (gh-free in the render path) so a merged PR lights the ⏏ too. want_pr stays 0,
+# so row 1 gets the icon without the PR number.
+own_pr=""
+if [ "$is_wt" = 1 ] && [ "$purge" = 0 ] && [ -f "$PANEL" ]; then
+  # Match our own panel row by (slug, name). slug is the remote-derived owner/name
+  # (same parse the refresher uses) — NOT the local dir name, which can differ
+  # (e.g. dir "nebelhaus" but slug "nebelhaus/workshop").
+  slug=$(g remote get-url origin 2>/dev/null)
+  slug=${slug%.git}; slug=${slug#*://}; slug=${slug#*@}; slug=${slug#*[:/]}
+  if [ -n "$slug" ]; then
+    own_pr=$(awk -F'\t' -v n="$wt_name" -v s="$slug" \
+      '$1==s && $2==n { print $7; exit }' "$PANEL")
+    [ "$own_pr" = "-" ] && own_pr=""
+  fi
+fi
+
 # --- ROW 1 : name + one status token (no repo name, no "clean") ----------------
-st=$(render_status "$ahead" "$files" "$ins" "$del" "" "$purge" 0)
+st=$(render_status "$ahead" "$files" "$ins" "$del" "$own_pr" "$purge" 0)
 if [ "$is_wt" = 1 ]; then
   row1="${DOT}●${R} ${NAME}${wt_name}${R}"
 elif [ -n "$branch" ]; then

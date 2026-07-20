@@ -66,6 +66,43 @@ wt_projdir() { # wt_projdir <abs-cwd> — Claude Code's transcript dir for that 
   printf '%s/.claude/projects/%s' "$HOME" "$(printf '%s' "$1" | sed 's/[/.]/-/g')"
 }
 
+repo_slug() { # repo_slug <checkout> — owner/name from its origin remote (for gh)
+  local url
+  url=$(git -C "$1" remote get-url origin 2>/dev/null) || return 1
+  url=${url%.git}
+  url=${url#*://}      # drop scheme  (https://host/… -> host/…)
+  url=${url#*@}        # drop user    (git@host:…    -> host:…)
+  url=${url#*[:/]}     # drop host + first separator  -> owner/name
+  [ -n "$url" ] && printf '%s' "$url" || return 1
+}
+
+_gh() { # gh with a hard timeout so a stalled network can't hang pane teardown
+  if command -v timeout >/dev/null 2>&1; then timeout 6 gh "$@"; else gh "$@"; fi
+}
+
+reap_branch() { # reap_branch <main> <branch> -> 0 if the branch was deleted
+  local main="$1" b="$2" slug state head tip
+  # Fast, offline, always-safe: ancestry-merged (fast-forward / merge-commit /
+  # rebase that kept the commits). -d refuses anything not fully in the base.
+  git -C "$main" branch -d "$b" >/dev/null 2>&1 && return 0
+  # Squash / rebase-collapse: -d refused because the branch tip isn't an ancestor
+  # of the base, yet the work may have LANDED under a new commit. The branch's
+  # merged PR is the authoritative "it landed" signal (and survives the remote
+  # branch being deleted on merge). Force-delete ONLY when the local tip is
+  # exactly what that PR merged (headRefOid) — a tip that moved on (post-merge
+  # commits, or the auto-WIP commit above) means there's un-landed work here, so
+  # keep the branch. No gh, offline, or no merged PR => keep, exactly as before.
+  command -v gh >/dev/null 2>&1 || return 1
+  slug="$(repo_slug "$main")" || return 1
+  read -r state head < <(_gh pr list -R "$slug" --head "$b" --state merged \
+      --limit 1 --json state,headRefOid \
+      --jq '.[0] // empty | "\(.state) \(.headRefOid)"' 2>/dev/null) || return 1
+  [ "$state" = "MERGED" ] || return 1
+  tip="$(git -C "$main" rev-parse "$b" 2>/dev/null)" || return 1
+  [ -n "$head" ] && [ "$head" = "$tip" ] || return 1
+  git -C "$main" branch -D "$b" >/dev/null 2>&1
+}
+
 hook_field() { # hook_field <json> <key>… — first key present in the payload
   # Key names drift across Claude Code versions (docs say worktree_name/base_path;
   # 2.1.x sends name/cwd) — accept either, first hit wins.
@@ -115,10 +152,11 @@ cmd_remove() { # [WorktreeRemove hook] JSON on stdin — retire without losing w
   fi
   git -C "$main" worktree remove "$dir" 2>/dev/null \
     || git -C "$main" worktree remove --force "$dir"
-  # The branch is how unmerged work survives; only reap it once merged (-d refuses
-  # otherwise — the safety that lets unmerged work persist). Keep the registry
-  # line in lockstep: gone when merged, kept while still resumable.
-  if [ -n "$branch" ] && git -C "$main" branch -d "$branch" >/dev/null 2>&1; then
+  # The branch is how unmerged work survives; only reap it once merged. Ancestry
+  # merges reap offline (branch -d); squash/rebase merges are recognized via the
+  # branch's merged PR, guarded so post-merge work is never dropped (reap_branch).
+  # Keep the registry line in lockstep: gone when reaped, kept while resumable.
+  if [ -n "$branch" ] && reap_branch "$main" "$branch"; then
     reg_del "$dir"
   fi
 }
