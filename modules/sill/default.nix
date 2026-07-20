@@ -4,8 +4,10 @@
 #
 # The workspace pills are data-driven: WORKSPACES / LAUNCHER_KEYS / ws_icon are
 # generated from nebelhaus.prowl.apps (the shared app roster) so the bar can't
-# drift from AeroSpace's launcher. Two personal items (elgato, harvest) are
-# gated behind nebelhaus.sill.plugins and off by default.
+# drift from AeroSpace's launcher. Every right-side pill is individually
+# toggleable via nebelhaus.sill.items (one bool per pill): the core
+# clock/weather/media/battery/wifi default on, the extras cpu/memory/volume/
+# calendar plus the personal agents/elgato/harvest default off.
 {
   config,
   lib,
@@ -80,8 +82,8 @@ let
         --subscribe hush mouse.clicked hush_change system_woke
   '';
 
-  # The two gated personal items, emitted only when nebelhaus.sill.plugins lists
-  # them. They reference $SURFACE0 (from colors.sh) and $HOME, both live when
+  # The opt-in pills, emitted only for the ones nebelhaus.sill.items switches on.
+  # They reference $SURFACE0 (from colors.sh) and $HOME, both live when
   # sketchybarrc sources this file.
   optionalPluginBlocks = {
     # Agent-pane status. The refresh is push, not poll: agents-hook.sh invokes
@@ -109,6 +111,67 @@ let
               click_script="$HOME/.config/sketchybar/plugins/agents.sh" \
           --subscribe agents mouse.clicked system_woke
     '';
+    # System readouts. Each pill's colour comes from the --set here (the palette
+    # vars are live via colors.sh, sourced by sketchybarrc before this file); the
+    # plugin script only refreshes icon+label on its update_freq tick.
+    cpu = ''
+      sketchybar --add item cpu right \
+          --set cpu \
+              update_freq=5 \
+              icon.color=$PEACH \
+              background.color=$SURFACE0 \
+              background.padding_left=8 \
+              background.padding_right=8 \
+              script="$HOME/.config/sketchybar/plugins/cpu.sh"
+    '';
+    memory = ''
+      sketchybar --add item memory right \
+          --set memory \
+              update_freq=15 \
+              icon.color=$GREEN \
+              background.color=$SURFACE0 \
+              background.padding_left=8 \
+              background.padding_right=8 \
+              script="$HOME/.config/sketchybar/plugins/memory.sh"
+    '';
+    volume = ''
+      sketchybar --add item volume right \
+          --set volume \
+              update_freq=5 \
+              icon.color=$SKY \
+              background.color=$SURFACE0 \
+              background.padding_left=8 \
+              background.padding_right=8 \
+              script="$HOME/.config/sketchybar/plugins/volume.sh" \
+              click_script="open -a 'System Settings' 'x-apple.systempreferences:com.apple.Sound-Settings.extension'"
+    '';
+    # Next timed event + a click-popup of the next five. calendar.sh fills the
+    # popup children (calendar.event.1..5) added below; the toggle uses the literal
+    # item name so no $NAME has to survive add-time expansion.
+    calendar = ''
+      sketchybar --add item calendar right \
+          --set calendar \
+              update_freq=60 \
+              icon="󰃭" \
+              icon.color=$MAUVE \
+              background.color=$SURFACE0 \
+              popup.background.border_width=2 \
+              popup.background.corner_radius=10 \
+              popup.background.border_color=$SURFACE0 \
+              popup.background.color=$MANTLE \
+              script="$HOME/.config/sketchybar/plugins/calendar.sh" \
+              click_script="sketchybar --set calendar popup.drawing=toggle" \
+          --subscribe calendar mouse.clicked system_woke
+      for i in 1 2 3 4 5; do
+          sketchybar --add item calendar.event.$i popup.calendar \
+              --set calendar.event.$i \
+                  icon.color=$MAUVE \
+                  label.color=$TEXT \
+                  icon.padding_left=10 \
+                  label.padding_right=10 \
+                  drawing=off
+      done
+    '';
     elgato = ''
       sketchybar --add item elgato right \
           --set elgato \
@@ -129,14 +192,49 @@ let
           --subscribe harvest mouse.clicked harvest_update system_woke
     '';
   };
+  # The opt-in pills sit in an attrset (no inherent order), so emission follows
+  # this fixed left-to-right order — only the ones sill.items switches on are drawn.
+  extraOrder = [
+    "agents"
+    "cpu"
+    "memory"
+    "volume"
+    "calendar"
+    "elgato"
+    "harvest"
+  ];
+  enabledExtras = lib.filter (name: config.nebelhaus.sill.items.${name}) extraOrder;
+
+  # The always-on core pills; a false in sill.items hides one.
+  coreItems = [
+    "clock"
+    "weather"
+    "media"
+    "battery"
+    "wifi"
+  ];
+  hiddenCore = lib.filter (name: !config.nebelhaus.sill.items.${name}) coreItems;
+
   optionalItemsSh =
     ''
       #!/bin/bash
-      # GENERATED from nebelhaus.hush.enable + nebelhaus.sill.plugins by
+      # GENERATED from nebelhaus.hush.enable + nebelhaus.sill.items by
       # modules/sill/default.nix — do not edit.
     ''
     + lib.optionalString config.nebelhaus.hush.enable hushBlock
-    + lib.concatMapStrings (name: optionalPluginBlocks.${name}) config.nebelhaus.sill.plugins;
+    + lib.concatMapStrings (name: optionalPluginBlocks.${name}) enabledExtras;
+
+  # Which core pills the user turned off (a false in nebelhaus.sill.items). Sourced
+  # by sketchybarrc BEFORE the core `--add`s so each can guard on sill_hidden and
+  # simply not create the item — cleaner than adding-then-hiding (media.sh flips
+  # its own drawing on when a track plays, so a post-hoc drawing=off wouldn't
+  # stick). bash 3.2 (macOS) has no associative arrays, hence the substring match.
+  hiddenItemsSh = ''
+    #!/bin/bash
+    # GENERATED from nebelhaus.sill.items by modules/sill/default.nix — do not edit.
+    SILL_HIDDEN="${lib.concatStringsSep " " hiddenCore}"
+    sill_hidden() { case " $SILL_HIDDEN " in *" $1 "*) return 0 ;; *) return 1 ;; esac ; }
+  '';
 
   # The haus-tour pill (plugins/tour.sh) — the first-run tutor. It must live on
   # the RIGHT (launch mode replaces the LEFT side of the bar exactly when the
@@ -177,7 +275,11 @@ lib.mkIf config.nebelhaus.sill.enable {
   # SketchyBar (brew) + its tap. sketchybar-app-font renders the workspace pill
   # glyphs (an icon ligature font: `:ghostty:` → that app's logo).
   homebrew.taps = [ "FelixKratz/formulae" ];
-  homebrew.brews = [ "FelixKratz/formulae/sketchybar" ];
+  # ical-buddy backs the opt-in `calendar` pill (plugins/calendar.sh shells out to
+  # it); pulled in only when that plugin is enabled so a default bar stays lean.
+  homebrew.brews =
+    [ "FelixKratz/formulae/sketchybar" ]
+    ++ lib.optional config.nebelhaus.sill.items.calendar "ical-buddy";
   fonts.packages = [ pkgs.sketchybar-app-font ];
 
   launchd.user.agents.sketchybar = {
@@ -238,6 +340,7 @@ lib.mkIf config.nebelhaus.sill.enable {
         ".config/sketchybar/colors.sh".text = colorsSh;
         ".config/sketchybar/workspaces.sh".text = workspacesSh;
         ".config/sketchybar/optional_items.sh".text = optionalItemsSh;
+        ".config/sketchybar/hidden_items.sh".text = hiddenItemsSh;
         ".config/sketchybar/tour_item.sh".text = tourItemSh;
         ".config/sketchybar/tour_config.sh".text = tourConfigSh;
         ".config/sketchybar/sketchybarrc".source = ./sketchybar/sketchybarrc;

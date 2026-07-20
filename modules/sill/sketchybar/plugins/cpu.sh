@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/bash
 
 # Get CPU usage percentage
 CPU_USAGE=$(ps -A -o %cpu | awk '{s+=$1} END {printf "%.0f", s}')
