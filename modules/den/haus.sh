@@ -69,16 +69,49 @@ host_name() { # the darwinConfiguration to build — the one host in your flake
     || { scutil --get LocalHostName 2>/dev/null || hostname -s; }
 }
 
+# Nix's lazy-tree fetcher occasionally leaves a *partial* tree in its cache: the
+# commit→tree mapping gets recorded, but a blob never finishes landing (an
+# interrupted fetch, a laptop that slept mid-build, two nix runs racing the same
+# cache). Every later eval that needs that blob then dies with the cryptic libgit2
+# message "object not found - no match for id …", and nothing but clearing the
+# cache fixes it. The tarball-/fetcher-caches are pure and regenerable, so on that
+# exact signature we wipe them and retry once — a one-time re-fetch, not a rebuild.
+NIX_CACHE_CORRUPT_SIG='no match for id'
+
+nix_cache_wipe() { # drop the regenerable fetch caches for both the user and root nix stores
+  warn "corrupt nix fetch cache — clearing it and retrying once (a one-time re-fetch) …"
+  rm -rf "${XDG_CACHE_HOME:-$HOME/.cache}"/nix/tarball-cache* \
+         "${XDG_CACHE_HOME:-$HOME/.cache}"/nix/fetcher-cache*.sqlite 2>/dev/null || true
+  # `darwin-rebuild switch` evaluates as root, so its cache is a separate store
+  # under /var/root — needs sudo to clear (creds are usually still warm from the
+  # switch we just ran; worst case it's one password prompt on the recovery path).
+  sudo rm -rf /var/root/.cache/nix/tarball-cache* \
+              /var/root/.cache/nix/fetcher-cache*.sqlite 2>/dev/null || true
+}
+
+heal() { # run "$@"; on the cache-corruption signature, wipe the caches and retry once
+  local log rc
+  log="$(mktemp)"
+  if "$@" 2>&1 | tee "$log"; then rc=0; else rc=${PIPESTATUS[0]}; fi
+  if [ "$rc" -ne 0 ] && grep -qF "$NIX_CACHE_CORRUPT_SIG" "$log"; then
+    rm -f "$log"
+    nix_cache_wipe
+    "$@"; return $?
+  fi
+  rm -f "$log"
+  return "$rc"
+}
+
 cmd_rebuild() {
   local host; host="$(host_name)"
   say "building $host from $CONSUMER …"
   # Build first, switch second: a failed build never touches a running system.
-  ( cd "$CONSUMER" && nix build ".#darwinConfigurations.$host.system" ) \
+  ( cd "$CONSUMER" && heal nix build ".#darwinConfigurations.$host.system" ) \
     || die "build failed — nothing was changed."
   say "switching …"
   # Stable /run/current-system path (not ./result): collar's passwordless-sudo
   # rule matches that literal path — sudo no longer follows the command symlink.
-  ( cd "$CONSUMER" && sudo /run/current-system/sw/bin/darwin-rebuild switch --flake ".#$host" )
+  ( cd "$CONSUMER" && heal sudo /run/current-system/sw/bin/darwin-rebuild switch --flake ".#$host" )
   say "the house stands."
 }
 
@@ -86,7 +119,7 @@ cmd_update() {
   local old new owner repo subjects
   old="$(jq -r '.nodes.nebelhaus.locked.rev // ""' "$CONSUMER/flake.lock" 2>/dev/null || true)"
   say "pulling the latest nebelhaus rice …"
-  ( cd "$CONSUMER" && nix flake update nebelhaus )
+  ( cd "$CONSUMER" && heal nix flake update nebelhaus )
   new="$(jq -r '.nodes.nebelhaus.locked.rev // ""' "$CONSUMER/flake.lock" 2>/dev/null || true)"
   if [ -n "$old" ] && [ "$old" = "$new" ]; then
     say "already at the latest rice (${new:0:12}) — rebuilding anyway."
