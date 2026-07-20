@@ -38,7 +38,13 @@ pub fn one_line_ui(
     render_mode_key_indicators(help, max_len, separator, base_mode_is_locked)
         .map(|mode_key_indicators| append(&mode_key_indicators, &mut max_len))
         .and_then(|_| match help.mode {
-            InputMode::Normal | InputMode::Locked => render_secondary_info(help, tab_info, max_len)
+            // Unlocked (Normal): the full mode ribbon on the left already spells
+            // out every submode, so the bottom-right `Super + <c,p,t,y>` launcher
+            // block is just clutter here — leave the right side empty. The hints
+            // still render in Locked, where the ribbon collapses to the lone
+            // unlock key and the reminder earns its space.
+            InputMode::Normal => Some(()),
+            InputMode::Locked => render_secondary_info(help, tab_info, max_len)
                 .map(|secondary_info| append(&secondary_info, &mut max_len)),
             _ => add_keygroup_separator(help, max_len)
                 .map(|key_group_separator| append(&key_group_separator, &mut max_len))
