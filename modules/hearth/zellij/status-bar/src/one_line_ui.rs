@@ -787,16 +787,19 @@ fn should_show_focus_and_resize_shortcuts(tab_info: Option<&TabInfo>) -> bool {
     }
 }
 
-fn secondary_keybinds(help: &ModeInfo, tab_info: Option<&TabInfo>, max_len: usize) -> LinePart {
-    let mut secondary_info = LinePart::default();
+fn secondary_keybinds(help: &ModeInfo, _tab_info: Option<&TabInfo>, max_len: usize) -> LinePart {
     let binds = &help.get_mode_keybinds();
-    let should_show_focus_and_resize_shortcuts = should_show_focus_and_resize_shortcuts(tab_info);
-    // claude --worktree agent (fork): surface its bind (e.g. Super c) alongside
-    // New Pane / New Tab in the bottom-right quick hints.
-    let claude_key_to_display = run_bind_key(binds, "claude", Some("--worktree"));
-    // yazi peek overlay (fork): its bind (e.g. Super y) is rendered LAST.
-    let peek_key_to_display = run_bind_key(binds, "peek.sh", None);
-    // New Pane
+    // Fork: the bottom-right quick hints are condensed to a single flat block —
+    // ` Super + <c,p,t,y> ` — the four launchers only (c = claude --worktree,
+    // p = new pane, t = new tab, y = yazi peek): keys only, no word-labels and
+    // no powerline ribbons. What each key does lives in the web docs /
+    // cheatsheet (nebelhaus.com), not spelled out on the bar. Keys are still
+    // resolved from the live binds (via run_bind_key / action_key), so a rebind
+    // re-letters the block; only the labels and the Floating/Focus/Resize hints
+    // were dropped versus upstream.
+    let claude_key = run_bind_key(binds, "claude", Some("--worktree"));
+    let peek_key = run_bind_key(binds, "peek.sh", None);
+
     let new_pane_action_key = action_key(
         binds,
         &[Action::NewPane {
@@ -805,20 +808,17 @@ fn secondary_keybinds(help: &ModeInfo, tab_info: Option<&TabInfo>, max_len: usiz
             start_suppressed: false,
         }],
     );
-    let mut new_pane_key_to_display = new_pane_action_key
+    let pane_key = new_pane_action_key
         .iter()
         .find(|k| k.is_key_with_alt_modifier(BareKey::Char('n')))
-        .or_else(|| new_pane_action_key.iter().next());
-    let new_pane_key_to_display =
-        if let Some(new_pane_key_to_display) = new_pane_key_to_display.take() {
-            vec![new_pane_key_to_display.clone()]
-        } else {
-            vec![]
-        };
+        .or_else(|| new_pane_action_key.iter().next())
+        .map(|k| vec![k.clone()])
+        .unwrap_or_default();
 
-    // New Tab (fork: upstream's secondary list never surfaces NewTab; added so
-    // a base-mode NewTab bind shows next to "New Pane". action_key matches via
-    // Action::shallow_eq, so a bind with args — cwd, layout — still hits.)
+    // New Tab: Super-t carries the NewTab action (Super-Shift-t is a `Run` —
+    // new-tab-here.sh — not a NewTab, so it never matches here). Prefer the
+    // un-shifted key so the hint reads `t`, never `Shift t` (the old bug: both
+    // t-binds matched NewTab and the shifted one won the `.next()` race).
     let new_tab_action_key = action_key(
         binds,
         &[Action::NewTab {
@@ -833,440 +833,71 @@ fn secondary_keybinds(help: &ModeInfo, tab_info: Option<&TabInfo>, max_len: usiz
             first_pane_unblock_condition: None,
         }],
     );
-    let mut new_tab_key_to_display = new_tab_action_key
+    let tab_key = new_tab_action_key
         .iter()
-        .find(|k| k.is_key_with_alt_modifier(BareKey::Char('t')))
-        .or_else(|| new_tab_action_key.iter().next());
-    let new_tab_key_to_display =
-        if let Some(new_tab_key_to_display) = new_tab_key_to_display.take() {
-            vec![new_tab_key_to_display.clone()]
-        } else {
-            vec![]
-        };
+        .find(|k| k.bare_key == BareKey::Char('t') && !k.key_modifiers.contains(&KeyModifier::Shift))
+        .or_else(|| new_tab_action_key.iter().find(|k| k.bare_key == BareKey::Char('t')))
+        .or_else(|| new_tab_action_key.iter().next())
+        .map(|k| vec![k.clone()])
+        .unwrap_or_default();
 
-    // Resize
-    let resize_increase_action_key = action_key(
-        binds,
-        &[Action::Resize {
-            resize: Resize::Increase,
-            direction: None,
-        }],
-    );
-    let resize_increase_key = resize_increase_action_key
-        .iter()
-        .find(|k| k.bare_key == BareKey::Char('+'))
-        .or_else(|| resize_increase_action_key.iter().next());
-    let resize_decrease_action_key = action_key(
-        binds,
-        &[Action::Resize {
-            resize: Resize::Decrease,
-            direction: None,
-        }],
-    );
-    let resize_decrease_key = resize_decrease_action_key
-        .iter()
-        .find(|k| k.bare_key == BareKey::Char('-'))
-        .or_else(|| resize_increase_action_key.iter().next());
-    let mut resize_shortcuts = vec![];
-    if let Some(resize_increase_key) = resize_increase_key {
-        resize_shortcuts.push(resize_increase_key.clone());
-    }
-    if let Some(resize_decrease_key) = resize_decrease_key {
-        resize_shortcuts.push(resize_decrease_key.clone());
-    }
+    // Order on the bar: c, p, t, y.
+    let ordered: Vec<Vec<KeyWithModifier>> = vec![claude_key, pane_key, tab_key, peek_key];
+    let common_modifiers = get_common_modifiers(ordered.iter().flatten().collect());
 
-    // Move focus
-    let mut move_focus_shortcuts: Vec<KeyWithModifier> = vec![];
+    // One display char per launcher, common modifier stripped so only `c`/`p`/…
+    // shows inside the bracket group.
+    let key_chars: Vec<String> = ordered
+        .iter()
+        .filter_map(|k| {
+            k.first().map(|k| {
+                if common_modifiers.is_empty() {
+                    k.to_string()
+                } else {
+                    k.strip_common_modifiers(&common_modifiers).to_string()
+                }
+            })
+        })
+        .collect();
 
-    // Left
-    let move_focus_left_action_key = action_key(
-        binds,
-        &[Action::MoveFocusOrTab {
-            direction: Direction::Left,
-        }],
-    );
-    let move_focus_left_key = move_focus_left_action_key
-        .iter()
-        .find(|k| k.bare_key == BareKey::Left)
-        .or_else(|| move_focus_left_action_key.iter().next());
-    if let Some(move_focus_left_key) = move_focus_left_key {
-        move_focus_shortcuts.push(move_focus_left_key.clone());
+    if key_chars.is_empty() {
+        return LinePart::default();
     }
-    // Down
-    let move_focus_left_action_key = action_key(
-        binds,
-        &[Action::MoveFocus {
-            direction: Direction::Down,
-        }],
-    );
-    let move_focus_left_key = move_focus_left_action_key
-        .iter()
-        .find(|k| k.bare_key == BareKey::Down)
-        .or_else(|| move_focus_left_action_key.iter().next());
-    if let Some(move_focus_left_key) = move_focus_left_key {
-        move_focus_shortcuts.push(move_focus_left_key.clone());
-    }
-    // Up
-    let move_focus_left_action_key = action_key(
-        binds,
-        &[Action::MoveFocus {
-            direction: Direction::Up,
-        }],
-    );
-    let move_focus_left_key = move_focus_left_action_key
-        .iter()
-        .find(|k| k.bare_key == BareKey::Up)
-        .or_else(|| move_focus_left_action_key.iter().next());
-    if let Some(move_focus_left_key) = move_focus_left_key {
-        move_focus_shortcuts.push(move_focus_left_key.clone());
-    }
-    // Right
-    let move_focus_left_action_key = action_key(
-        binds,
-        &[Action::MoveFocusOrTab {
-            direction: Direction::Right,
-        }],
-    );
-    let move_focus_left_key = move_focus_left_action_key
-        .iter()
-        .find(|k| k.bare_key == BareKey::Right)
-        .or_else(|| move_focus_left_action_key.iter().next());
-    if let Some(move_focus_left_key) = move_focus_left_key {
-        move_focus_shortcuts.push(move_focus_left_key.clone());
-    }
+    let joined = key_chars.join(",");
 
-    let toggle_floating_action_key = action_key(binds, &[Action::ToggleFloatingPanes]);
-    let mut toggle_floating_action_key = toggle_floating_action_key
-        .iter()
-        .find(|k| k.is_key_with_alt_modifier(BareKey::Char('f')))
-        .or_else(|| toggle_floating_action_key.iter().next());
-    let toggle_floating_key_to_display =
-        if let Some(toggle_floating_key_to_display) = toggle_floating_action_key.take() {
-            vec![toggle_floating_key_to_display.clone()]
-        } else {
-            vec![]
-        };
-    let are_floating_panes_visible = tab_info
-        .map(|t| t.are_floating_panes_visible)
-        .unwrap_or(false);
-
-    let common_modifiers = get_common_modifiers(
-        [
-            claude_key_to_display.clone(),
-            new_pane_key_to_display.clone(),
-            new_tab_key_to_display.clone(),
-            move_focus_shortcuts.clone(),
-            resize_shortcuts.clone(),
-            toggle_floating_key_to_display.clone(),
-            peek_key_to_display.clone(),
-        ]
-        .iter()
-        .flatten()
-        .collect(),
-    );
-    let no_common_modifier = common_modifiers.is_empty();
-
-    if no_common_modifier {
-        secondary_info.append(&add_shortcut(
-            help,
-            "claude",
-            &claude_key_to_display,
-            false,
-            Some(0),
-        ));
-        secondary_info.append(&add_shortcut(
-            help,
-            "pane",
-            &new_pane_key_to_display,
-            false,
-            Some(0),
-        ));
-        secondary_info.append(&add_shortcut(
-            help,
-            "tab",
-            &new_tab_key_to_display,
-            false,
-            Some(0),
-        ));
-        if should_show_focus_and_resize_shortcuts {
-            secondary_info.append(&add_shortcut(
-                help,
-                "Change Focus",
-                &move_focus_shortcuts,
-                false,
-                Some(0),
-            ));
-            secondary_info.append(&add_shortcut(
-                help,
-                "Resize",
-                &resize_shortcuts,
-                false,
-                Some(0),
-            ));
-        }
-        secondary_info.append(&add_shortcut(
-            help,
-            "Floating",
-            &toggle_floating_key_to_display,
-            are_floating_panes_visible,
-            Some(0),
-        ));
-        secondary_info.append(&add_shortcut(
-            help,
-            "peek",
-            &peek_key_to_display,
-            false,
-            Some(0),
-        ));
-    } else {
-        let modifier_str = text_as_line_part_with_emphasis(
+    // ` <mods> + <c,p,t,y> ` as one opaque, non-ribbon block; the bracket group
+    // is painted in the emphasis colour (index 0). On a pane too thin for the
+    // modifier prefix, fall back to a bare ` <c,p,t,y> `.
+    let render_block = |with_modifier: bool| -> LinePart {
+        let prefix = if with_modifier && !common_modifiers.is_empty() {
             format!(
-                "{} + ",
+                " {} + ",
                 common_modifiers
                     .iter()
                     .map(|m| m.to_string())
                     .collect::<Vec<_>>()
                     .join("-")
-            ),
-            0,
-        );
-        secondary_info.append(&modifier_str);
-        let new_pane_key_to_display: Vec<KeyWithModifier> = new_pane_key_to_display
-            .iter()
-            .map(|k| k.strip_common_modifiers(&common_modifiers))
-            .collect();
-        let move_focus_shortcuts: Vec<KeyWithModifier> = move_focus_shortcuts
-            .iter()
-            .map(|k| k.strip_common_modifiers(&common_modifiers))
-            .collect();
-        let resize_shortcuts: Vec<KeyWithModifier> = resize_shortcuts
-            .iter()
-            .map(|k| k.strip_common_modifiers(&common_modifiers))
-            .collect();
-        let toggle_floating_key_to_display: Vec<KeyWithModifier> = toggle_floating_key_to_display
-            .iter()
-            .map(|k| k.strip_common_modifiers(&common_modifiers))
-            .collect();
-        let new_tab_key_to_display: Vec<KeyWithModifier> = new_tab_key_to_display
-            .iter()
-            .map(|k| k.strip_common_modifiers(&common_modifiers))
-            .collect();
-        let claude_key_to_display: Vec<KeyWithModifier> = claude_key_to_display
-            .iter()
-            .map(|k| k.strip_common_modifiers(&common_modifiers))
-            .collect();
-        let peek_key_to_display: Vec<KeyWithModifier> = peek_key_to_display
-            .iter()
-            .map(|k| k.strip_common_modifiers(&common_modifiers))
-            .collect();
-        secondary_info.append(&add_shortcut_with_inline_key(
-            help,
-            "claude",
-            claude_key_to_display,
-            false,
-        ));
-        secondary_info.append(&add_shortcut_with_inline_key(
-            help,
-            "pane",
-            new_pane_key_to_display,
-            false,
-        ));
-        secondary_info.append(&add_shortcut_with_inline_key(
-            help,
-            "tab",
-            new_tab_key_to_display,
-            false,
-        ));
-        if should_show_focus_and_resize_shortcuts {
-            secondary_info.append(&add_shortcut_with_inline_key(
-                help,
-                "Change Focus",
-                move_focus_shortcuts,
-                false,
-            ));
-            secondary_info.append(&add_shortcut_with_inline_key(
-                help,
-                "Resize",
-                resize_shortcuts,
-                false,
-            ));
+            )
+        } else {
+            " ".to_string()
+        };
+        let bracket = format!("<{}>", joined);
+        let full = format!("{}{} ", prefix, bracket);
+        let start = prefix.width();
+        let end = start + bracket.width();
+        LinePart {
+            part: serialize_text(&Text::new(&full).color_range(0, start..end).opaque()),
+            len: full.width(),
         }
-        secondary_info.append(&add_shortcut_with_inline_key(
-            help,
-            "Floating",
-            toggle_floating_key_to_display,
-            are_floating_panes_visible,
-        ));
-        secondary_info.append(&add_shortcut_with_inline_key(
-            help,
-            "peek",
-            peek_key_to_display,
-            false,
-        ));
-    }
+    };
 
-    if secondary_info.len <= max_len {
-        secondary_info
+    let full_block = render_block(true);
+    if full_block.len <= max_len {
+        full_block
     } else {
-        let mut short_line = LinePart::default();
-        if no_common_modifier {
-            short_line.append(&add_shortcut(
-                help,
-                "claude",
-                &claude_key_to_display,
-                false,
-                Some(0),
-            ));
-            short_line.append(&add_shortcut(
-                help,
-                "pane",
-                &new_pane_key_to_display,
-                false,
-                Some(0),
-            ));
-            short_line.append(&add_shortcut(
-                help,
-                "tab",
-                &new_tab_key_to_display,
-                false,
-                Some(0),
-            ));
-            if should_show_focus_and_resize_shortcuts {
-                short_line.append(&add_shortcut(
-                    help,
-                    "Focus",
-                    &move_focus_shortcuts,
-                    false,
-                    Some(0),
-                ));
-                short_line.append(&add_shortcut(
-                    help,
-                    "Resize",
-                    &resize_shortcuts,
-                    false,
-                    Some(0),
-                ));
-            }
-            short_line.append(&add_shortcut(
-                help,
-                "Floating",
-                &toggle_floating_key_to_display,
-                are_floating_panes_visible,
-                Some(0),
-            ));
-            short_line.append(&add_shortcut(
-                help,
-                "peek",
-                &peek_key_to_display,
-                false,
-                Some(0),
-            ));
-        } else {
-            let modifier_str = text_as_line_part_with_emphasis(
-                format!(
-                    "{} + ",
-                    common_modifiers
-                        .iter()
-                        .map(|m| m.to_string())
-                        .collect::<Vec<_>>()
-                        .join("-")
-                ),
-                0,
-            );
-            short_line.append(&modifier_str);
-            let new_pane_key_to_display: Vec<KeyWithModifier> = new_pane_key_to_display
-                .iter()
-                .map(|k| k.strip_common_modifiers(&common_modifiers))
-                .collect();
-            let move_focus_shortcuts: Vec<KeyWithModifier> = move_focus_shortcuts
-                .iter()
-                .map(|k| k.strip_common_modifiers(&common_modifiers))
-                .collect();
-            let resize_shortcuts: Vec<KeyWithModifier> = resize_shortcuts
-                .iter()
-                .map(|k| k.strip_common_modifiers(&common_modifiers))
-                .collect();
-            let toggle_floating_key_to_display: Vec<KeyWithModifier> =
-                toggle_floating_key_to_display
-                    .iter()
-                    .map(|k| k.strip_common_modifiers(&common_modifiers))
-                    .collect();
-            let new_tab_key_to_display: Vec<KeyWithModifier> = new_tab_key_to_display
-                .iter()
-                .map(|k| k.strip_common_modifiers(&common_modifiers))
-                .collect();
-            let claude_key_to_display: Vec<KeyWithModifier> = claude_key_to_display
-                .iter()
-                .map(|k| k.strip_common_modifiers(&common_modifiers))
-                .collect();
-            let peek_key_to_display: Vec<KeyWithModifier> = peek_key_to_display
-                .iter()
-                .map(|k| k.strip_common_modifiers(&common_modifiers))
-                .collect();
-            short_line.append(&add_shortcut_with_inline_key(
-                help,
-                "claude",
-                claude_key_to_display,
-                false,
-            ));
-            short_line.append(&add_shortcut_with_inline_key(
-                help,
-                "pane",
-                new_pane_key_to_display,
-                false,
-            ));
-            short_line.append(&add_shortcut_with_inline_key(
-                help,
-                "tab",
-                new_tab_key_to_display,
-                false,
-            ));
-            if should_show_focus_and_resize_shortcuts {
-                short_line.append(&add_shortcut_with_inline_key(
-                    help,
-                    "Focus",
-                    move_focus_shortcuts,
-                    false,
-                ));
-                short_line.append(&add_shortcut_with_inline_key(
-                    help,
-                    "Resize",
-                    resize_shortcuts,
-                    false,
-                ));
-            }
-            short_line.append(&add_shortcut_with_inline_key(
-                help,
-                "Floating",
-                toggle_floating_key_to_display,
-                are_floating_panes_visible,
-            ));
-            short_line.append(&add_shortcut_with_inline_key(
-                help,
-                "peek",
-                peek_key_to_display,
-                false,
-            ));
-        }
-        if short_line.len <= max_len {
-            short_line
-        } else if max_len >= 3 {
-            let part = serialize_text(
-                &Text::new(format!("{:>width$}", "...", width = max_len))
-                    .color_range(0, ..)
-                    .opaque(),
-            );
-            let len = max_len;
-            LinePart { part, len }
-        } else {
-            LinePart {
-                part: "".to_owned(),
-                len: 0,
-            }
-        }
+        render_block(false)
     }
 }
-
 fn text_as_line_part_with_emphasis(text: String, emphases_index: usize) -> LinePart {
     let part = serialize_text(&Text::new(&text).color_range(emphases_index, ..).opaque());
     LinePart {

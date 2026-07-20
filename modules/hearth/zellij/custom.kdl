@@ -9,9 +9,10 @@
 // status-bar normally renders two rows (hotkeys + tips); we constrain it to
 // size=1 so only the hotkey-hints row shows. The bar updates in place when
 // entering chord modes (e.g. Ctrl-t shows tab-mode hints). The bottom bar is
-// our fork of zellij:status-bar (see zellij/status-bar/): identical except the
-// bottom-right quick hints also surface NewTab, so Super-t shows next to
-// Super-p — upstream hardcodes that hint list and never includes NewTab.
+// our fork of zellij:status-bar (see zellij/status-bar/): the bottom-right
+// quick hints are condensed to a single flat "Super + <c,p,t,y>" block (the
+// four launchers — claude / pane / tab / yazi-peek — keys only, no word-labels
+// and no powerline ribbons), where upstream renders a longer labelled strip.
 //
 // The top bar is our fork of zellij:tab-bar (see zellij/tab-bar/), which
 // REPLACED the third-party zjstatus that used to live here. zjstatus had no
