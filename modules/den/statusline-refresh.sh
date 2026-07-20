@@ -8,14 +8,14 @@
 # never in the render path, so the bar is never blocked by git/gh. Safe to run
 # concurrently: a mkdir-lock elects one refresher; the rest exit immediately.
 #
-#   panel.tsv rows:  slug <TAB> name <TAB> ahead <TAB> files <TAB> ins <TAB> del <TAB> prstate <TAB> wtpath
+#   panel.tsv rows:  slug <TAB> name <TAB> ahead <TAB> files <TAB> ins <TAB> del <TAB> prstate <TAB> parent
 #     slug    = owner/repo   (e.g. nebelhaus/pounce)
 #     name    = worktree name (branch minus worktree- prefix)
 #     ahead   = commits on the branch not in its default branch
 #     files/ins/del = uncommitted working-tree delta (live checkouts only)
-#     prstate = "#7 open" | "#7 merged" | "#7 closed" | ""
-#     wtpath  = the worktree's checkout dir (statusline matches this against the
-#               lineage breadcrumbs to show only the CURRENT session's children)
+#     prstate = "#7 open" | "#7 merged" | "#7 closed" | "-"  ("-" = none; see below)
+#     parent  = the cwd this worktree was spawned FROM (registry col 5). The
+#               statusline shows a session only the rows whose parent == its cwd.
 #   Only IN-FLIGHT rows are written (ahead>0, or dirty, or has a PR).
 set -euo pipefail
 PATH="/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:/etc/profiles/per-user/$(id -un 2>/dev/null)/bin:/opt/homebrew/bin:/usr/bin:/bin:${PATH:-}"
@@ -87,7 +87,7 @@ pr_state_for_branch() { # $1=main $2=branch -> "#N open|merged|closed" or ""
 : >"$PANEL.tmp"
 [ -f "$WT_REGISTRY" ] || { mv "$PANEL.tmp" "$PANEL"; exit 0; }
 
-while IFS=$'\t' read -r name main branch wtpath; do
+while IFS=$'\t' read -r name main branch wtpath parent; do
   [ -n "${branch:-}" ] || continue
   git -C "$main" show-ref -q --verify "refs/heads/$branch" 2>/dev/null || continue
   slug=$(repo_slug "$main" || basename "$main")
@@ -110,9 +110,10 @@ while IFS=$'\t' read -r name main branch wtpath; do
   [ "$ahead" -gt 0 ] || [ "$files" -gt 0 ] || [ -n "$pr" ] || continue
 
   # prstate defaults to "-" (never empty): tab is IFS-whitespace, so an empty
-  # field would collapse under `read` and shift every later column left.
+  # MIDDLE field would collapse under `read` and shift later columns left. parent
+  # is the trailing field, so an empty one (old 4-col registry rows) is safe.
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-    "$slug" "${branch#worktree-}" "$ahead" "$files" "$ins" "$del" "${pr:--}" "$wtpath" >>"$PANEL.tmp"
+    "$slug" "${branch#worktree-}" "$ahead" "$files" "$ins" "$del" "${pr:--}" "$parent" >>"$PANEL.tmp"
 done <"$WT_REGISTRY"
 
 mv "$PANEL.tmp" "$PANEL"

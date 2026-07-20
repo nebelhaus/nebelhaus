@@ -6,10 +6,9 @@
 #          `claude --worktree`), across whatever repos they live in — each with
 #          its repo, name, the same status token, and GitHub PR state.
 #
-# Lineage: a worktree session's stdin JSON carries `worktree.original_cwd` = the
-# cwd of the pane that spawned it (its parent). Each render drops a breadcrumb
-# (lineage/<session_id> = parent<TAB>self<TAB>name); a session then lists only
-# the worktrees whose parent == its own cwd. No `wt` change needed.
+# Lineage: `wt create` records each worktree's parent (the cwd it was spawned
+# from) in its registry; the refresher carries that into panel.tsv, and a
+# session lists only the rows whose parent == its own cwd.
 #
 # The status token is a single mutually-exclusive slot:
 #     ⏏  (orange)   branch is merged/landed → `wt` reaps it on pane close
@@ -24,7 +23,6 @@ PATH="/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:/etc/profiles
 
 CACHE_DIR="${CLAUDE_STATUSLINE_CACHE:-$HOME/.cache/claude-statusline}"
 PANEL="$CACHE_DIR/panel.tsv"
-LINEAGE="$CACHE_DIR/lineage"
 # Refresher: the rice ships it on PATH as `claude-statusline-refresh`; fall back
 # to the sibling script when running straight out of ~/.claude (pre-rebuild).
 REFRESHER="$(command -v claude-statusline-refresh 2>/dev/null || echo "$HOME/.claude/statusline-refresh.sh")"
@@ -64,18 +62,10 @@ plain() { printf '%s' "$1" | sed 's/\x1b\[[0-9;]*m//g'; }   # strip ANSI for wid
 in=$(cat)
 j() { printf '%s' "$in" | jq -r "$1 // empty"; }
 cwd=$(j '.workspace.current_dir // .cwd'); [ -z "$cwd" ] && cwd="$PWD"
-sid=$(j '.session_id')
-orig=$(j '.worktree.original_cwd')
 wt_name=$(j '.worktree.name // .workspace.git_worktree')
 ctx=$(j '.context_window.used_percentage')
 cost=$(j '.cost.total_cost_usd')
 COLS=${COLUMNS:-120}
-
-# --- drop this session's lineage breadcrumb (parent <TAB> self <TAB> name) -----
-if [ -n "$orig" ]; then
-  mkdir -p "$LINEAGE"
-  printf '%s\t%s\t%s\n' "$orig" "$cwd" "${wt_name:-$sid}" >"$LINEAGE/${sid:-self}" 2>/dev/null || true
-fi
 
 g() { git -C "$cwd" --no-optional-locks "$@" 2>/dev/null; }
 branch=$(g branch --show-current)
@@ -110,27 +100,10 @@ else
 fi
 [ -n "$st" ] && row1="$row1  $st"
 tailseg=""
-[ -n "$ctx" ]  && tailseg="${DIM}${ctx}%ctx${R}"
+[ -n "$ctx" ]  && tailseg="${DIM}${ctx}%${R}"
 [ -n "$cost" ] && [ "$cost" != "0" ] && tailseg="${tailseg:+$tailseg }${DIM}\$$(printf '%.2f' "$cost" 2>/dev/null)${R}"
 [ -n "$tailseg" ] && row1="$row1   $tailseg"
 printf '%b\n' "$row1"
-
-# --- children set: worktrees this session spawned (parent == my cwd) -----------
-# Match is by checkout path, so PARKED children (pane closed, branch survives)
-# still list. Only reap a breadcrumb once its session has been dead ~30d (its
-# live session rewrites it every render, so a fresh mtime == still relevant).
-declare -A CHILD=()
-if [ -d "$LINEAGE" ]; then
-  now=$(date +%s)
-  for f in "$LINEAGE"/*; do
-    [ -e "$f" ] || continue
-    if [ $(( now - $(stat -f %m "$f" 2>/dev/null || echo "$now") )) -gt 2592000 ]; then
-      rm -f "$f" 2>/dev/null; continue
-    fi
-    IFS=$'\t' read -r p_orig p_cwd _p_name <"$f" 2>/dev/null || continue
-    [ "$p_orig" = "$cwd" ] && CHILD["$p_cwd"]=1
-  done
-fi
 
 # --- refresh the (shared) panel cache if stale, detached --------------------
 stale=1
@@ -140,14 +113,13 @@ if [ -f "$PANEL" ]; then
 fi
 [ "$stale" = 1 ] && [ -x "$REFRESHER" ] && { nohup "$REFRESHER" >/dev/null 2>&1 & disown 2>/dev/null || true; }
 
-# --- ROW 2+ : only MY children, from the panel cache ---------------------------
+# --- ROW 2+ : only the worktrees THIS session spawned (panel parent == cwd) ----
 [ -f "$PANEL" ] || exit 0
-[ "${#CHILD[@]}" -eq 0 ] && exit 0
 shown=0; extra=0
-while IFS=$'\t' read -r pslug pname pahead pfiles pins pdel ppr pwt; do
+while IFS=$'\t' read -r pslug pname pahead pfiles pins pdel ppr pparent; do
   [ -n "$pname" ] || continue
   [ "$ppr" = "-" ] && ppr=""                    # decode empty-prstate sentinel
-  [ -n "$pwt" ] && [ -n "${CHILD[$pwt]:-}" ] || continue   # only worktrees I spawned
+  [ "$pparent" = "$cwd" ] || continue           # only worktrees I spawned
   if [ "$shown" -ge "$MAX_ROWS" ]; then extra=$((extra+1)); continue; fi
   pst=$(render_status "$pahead" "$pfiles" "$pins" "$pdel" "$ppr" 0 1)
   repo="${pslug##*/}"

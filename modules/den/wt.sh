@@ -32,15 +32,21 @@ WT_REGISTRY="$WT_BASE/registry.tsv"
 say() { printf '\033[38;5;103m🌫  %s\033[0m\n' "$*" >&2; }
 die() { printf '\033[38;5;167m✗  %s\033[0m\n' "$*" >&2; exit 1; }
 
-reg_put() { # reg_put <name> <main> <branch> <wt_path> — upsert, keyed on wt_path
+reg_put() { # reg_put <name> <main> <branch> <wt_path> [parent] — upsert, keyed on wt_path
+  # The optional 5th field is the cwd the worktree was spawned FROM (its parent
+  # pane) — recorded at create so the statusline can show a session only the
+  # worktrees IT spawned. When omitted (e.g. resume, which doesn't know the
+  # original spawner), the existing parent is preserved, never blanked.
   mkdir -p "$WT_BASE"
+  local parent="${5:-}"
   local tmp="$WT_REGISTRY.$$"
   if [ -f "$WT_REGISTRY" ]; then
+    [ -z "$parent" ] && parent="$(awk -F'\t' -v p="$4" '$4==p{print $5; exit}' "$WT_REGISTRY")"
     awk -F'\t' -v p="$4" '$4 != p' "$WT_REGISTRY" >"$tmp"
   else
     : >"$tmp"
   fi
-  printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" >>"$tmp"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "$parent" >>"$tmp"
   mv "$tmp" "$WT_REGISTRY"
 }
 
@@ -85,7 +91,9 @@ cmd_create() { # [WorktreeCreate hook] JSON on stdin; ONLY the new path on stdou
   git -C "$base" worktree add -b "worktree-$name" "$dir" HEAD >&2
   # Record it so `wt` can rebuild + reopen this worktree later — even after the
   # checkout is removed, and even for repos it has never otherwise heard of.
-  reg_put "$name" "$(git_main "$base")" "worktree-$name" "$dir" || true
+  # `$base` (the spawning pane's cwd) is stored as the parent so the statusline
+  # can list a session only the worktrees it spawned.
+  reg_put "$name" "$(git_main "$base")" "worktree-$name" "$dir" "$base" || true
   echo "$dir"
 }
 
