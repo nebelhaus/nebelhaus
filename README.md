@@ -94,7 +94,7 @@ haus rollback       # go back a generation (haus generations lists them)
 haus generations    # list past generations (the rollback targets)
 haus status         # current generation + how old your pinned rice is
 haus edit           # open your host config in $EDITOR
-haus doctor         # check Nix, the CLT, and the GUI agents
+haus doctor         # check Nix, the CLT, the GUI agents, and Homebrew cask drift
 haus btm            # on macOS Tahoe+, diagnose Background Task Management blocks on nix login items
 haus tour           # a guided lap of the four moves, right in the bar
 ```
