@@ -898,6 +898,12 @@ in
       #     relaunches; seeding it makes fullscreen the default on every new
       #     machine. Highlight-to-copy through zellij still works, so there's no
       #     tradeoff to the classic inline renderer.
+      #   disableAgentView = true  — turn off the built-in agent-manager view
+      #     (`claude agents`, `--bg`, /background, its on-demand daemon) and the
+      #     "← for agents" toolbar hint that advertises it. Undocumented key,
+      #     equivalent to CLAUDE_CODE_DISABLE_AGENT_VIEW=1. Parallel Claude
+      #     sessions here go through `wt` + zellij panes (den/hearth), not the
+      #     in-app view, so the hint is pure noise — kill it at the rice level.
       # Claude owns settings.json (it rewrites the file as plugins/statusline/
       # permission grants change), so we merge our keys in at activation and
       # never own it — every other key it holds must survive. jq is pinned from
@@ -908,7 +914,7 @@ in
           mkdir -p "''${settings%/*}"
           tmp="$settings.hm-seed"
           if [ -s "$settings" ]; then base="$settings"; else base="$tmp.base"; printf "{}" > "$base"; fi
-          ${pkgs.jq}/bin/jq ".permissions.defaultMode = \"auto\" | .tui = \"fullscreen\"" "$base" > "$tmp"
+          ${pkgs.jq}/bin/jq ".permissions.defaultMode = \"auto\" | .tui = \"fullscreen\" | .disableAgentView = true" "$base" > "$tmp"
           mv "$tmp" "$settings"
           rm -f "$tmp.base"
         ' "$HOME/.claude/settings.json"
