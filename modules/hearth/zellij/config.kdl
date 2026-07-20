@@ -111,24 +111,31 @@ keybinds {
                 x "5%"; y "5%"; width "90%"; height "90%"
             }
         }
-        // Super t — New tab, inheriting the focused pane's cwd — with the SAME
-        //            worktree hop as Super p: a fresh shell born inside
-        //            ~/.cache/claude-worktrees hops to the repo's main checkout
-        //            (hearth's zshrc, keyed off $ZELLIJ). Bare NewTab is what
-        //            inherits cwd here; a `cwd` arg is silently ignored under a
-        //            custom default_tab_template, and the shell hook does the
-        //            hop, so no layout clone is needed for this bind. The
-        //            status-bar fork renders the "Super + t New Tab" hint from
-        //            this NewTab action.
-        bind "Super t" { NewTab; }
-        // Super Shift t — New tab always at $HOME, wherever the focused pane
-        //            lives. Tab-level cwd is the only form zellij honors under a
-        //            custom default_tab_template, so this opens home.kdl:
-        //            custom.kdl with the content tab pinned cwd=$HOME, rendered
-        //            next to it by hearth. (The old browse-and-pick picker that
-        //            lived here now lives in the yazi peek overlay — Super y,
-        //            Enter on a directory.)
-        bind "Super Shift t" { NewTab { layout "@HOME@/.config/zellij/layouts/home.kdl"; }; }
+        // Super t — New tab at $HOME, wherever the focused pane lives: the
+        //            plain "give me a fresh tab" bind. Tab-level cwd is the only
+        //            form zellij honors under a custom default_tab_template, so
+        //            this opens home.kdl (custom.kdl with the content tab pinned
+        //            cwd=$HOME, rendered next to it by hearth). It's this NewTab
+        //            action the status-bar fork surfaces as the `t` in the
+        //            "Super + <c,p,t,y>" hint block.
+        bind "Super t" { NewTab { layout "@HOME@/.config/zellij/layouts/home.kdl"; }; }
+        // Super Shift t — New tab cwd'd at the FOCUSED pane's directory (the
+        //            "open a tab right here" sibling of Super t's "…at home").
+        //            Runs new-tab-here.sh as a throwaway 1%-corner floating pane,
+        //            which inherits the focused pane's cwd as $PWD, then clones
+        //            the active layout with a tab-level cwd injected (a bare
+        //            `new-tab --cwd` is ignored under the custom
+        //            default_tab_template — the same layout trick peek-run.sh and
+        //            the link-handler use). Reaches zellij because ghostty/config
+        //            unbinds cmd+shift+t.
+        bind "Super Shift t" {
+            Run "@HOME@/.config/zellij/new-tab-here.sh" {
+                floating true
+                close_on_exit true
+                name "new-tab"
+                x "100%"; y "100%"; width "1%"; height "1%"
+            }
+        }
         // Ctrl (Shift) Tab — walk tabs in most-recently-used order via the
         // tab-history plugin (see load_plugins above), NOT by position:
         // Ctrl Tab goes "back" toward older/previously-focused tabs, Ctrl

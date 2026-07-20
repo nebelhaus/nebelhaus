@@ -219,8 +219,9 @@ in
 
             # Auto-name the current zellij tab after the repo whenever you cd.
             if [[ -n "$ZELLIJ" ]]; then
-              # New panes/tabs inherit the focused pane's cwd (Super p / Super t)
-              # — which, next to a claude --worktree pane, is the agent's
+              # New panes inherit the focused pane's cwd (Super p), as do the
+              # cwd-injecting new-tab spawns (Super Shift t, the peek Enter-on-dir
+              # tab) — which, next to a claude --worktree pane, is the agent's
               # throwaway checkout under ~/.cache/claude-worktrees. A fresh
               # interactive shell has no business starting there: hop to the repo
               # the worktree belongs to (the parent of the shared .git).
@@ -377,8 +378,9 @@ in
             };
           };
           # peek-open: Enter inside the Super-y peek overlay. On a directory it
-          # spawns a new zellij tab cwd'd there (the folded-in Super-Shift-t
-          # picker); on a file it pages as normal. Gated on PEEK=1 (set only by
+          # spawns a new zellij tab cwd'd there (the old browse-and-pick tab
+          # picker, folded in here); on a file it pages as normal. Gated on
+          # PEEK=1 (set only by
           # peek-run.sh), so in a plain `yy` session it's a no-op passthrough to
           # yazi's default Enter. See yazi/plugins/peek-open.yazi.
           peek-open.package = ./yazi/plugins/peek-open.yazi;
@@ -711,11 +713,12 @@ in
         # Custom layout, rendered from the in-repo template (see zellijLayout
         # in the let above).
         ".config/zellij/layouts/custom.kdl".text = zellijLayout;
-        # The same layout with the content tab pinned to $HOME — the
-        # Super-Shift-t NewTab bind opens tabs from this file, so a new tab
-        # always starts at ~ no matter where the focused pane lives. Tab-level
-        # cwd is the only form zellij honors under a default_tab_template
-        # (peek-run.sh pulls the same trick per-pick); the assert trips at eval
+        # The same layout with the content tab pinned to $HOME — the Super-t
+        # NewTab bind opens tabs from this file, so a plain new tab always starts
+        # at ~ no matter where the focused pane lives (Super-Shift-t is the "…at
+        # the focused dir" variant — new-tab-here.sh). Tab-level cwd is the only
+        # form zellij honors under a default_tab_template (peek-run.sh and
+        # new-tab-here.sh pull the same trick per-pick); the assert trips at eval
         # time if custom.kdl's
         # content-tab line ever changes shape, instead of silently shipping a
         # layout that no-ops back to cwd inheritance.
@@ -733,9 +736,10 @@ in
         # back/forward) instead of by position. Loaded via config.kdl's
         # load_plugins; grants seeded below. Wasm vendored by its build.sh.
         ".config/zellij/plugins/tab-history.wasm".source = ./zellij/plugins/zellij_tab_history.wasm;
-        # Our status-bar fork (see zellij/status-bar/): identical to the
-        # built-in except the bottom-right quick hints also surface NewTab,
-        # so Super-t shows next to Super-p. Wasm vendored by its build.sh.
+        # Our status-bar fork (see zellij/status-bar/): the bottom-right quick
+        # hints are condensed to one flat "Super + <c,p,t,y>" block (claude,
+        # pane, tab, yazi-peek — keys only, no labels/ribbons). Wasm vendored by
+        # its build.sh.
         ".config/zellij/plugins/status-bar.wasm".source = ./zellij/plugins/zellij_status_bar.wasm;
         # Our tab-bar fork (see zellij/tab-bar/): the top bar, replacing the
         # third-party zjstatus that used to sit here. Same active-anchored tab
@@ -758,6 +762,12 @@ in
         };
         ".config/zellij/peek-run.sh" = {
           source = ./zellij/peek-run.sh;
+          executable = true;
+        };
+        # Super-Shift-t: open a new tab cwd'd at the focused pane's dir (clones
+        # the active layout + injects a tab-level cwd). See config.kdl's bind.
+        ".config/zellij/new-tab-here.sh" = {
+          source = ./zellij/new-tab-here.sh;
           executable = true;
         };
         # The one floating-Ghostty helper (geom + spawn); peek.sh, the Rebuild
