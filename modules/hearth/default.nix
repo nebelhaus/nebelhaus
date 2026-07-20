@@ -904,6 +904,15 @@ in
       #     equivalent to CLAUDE_CODE_DISABLE_AGENT_VIEW=1. Parallel Claude
       #     sessions here go through `wt` + zellij panes (den/hearth), not the
       #     in-app view, so the hint is pure noise — kill it at the rice level.
+      #   statusLine  — point Claude Code's status bar at `claude-statusline`
+      #     (den ships it on PATH). It renders THIS session's `wt` worktree +
+      #     the sister worktrees in flight across every repo — the agent-worktree
+      #     HUD the built-in bar can't give. refreshInterval keeps the sister
+      #     list current while the main session sits idle watching other panes.
+      #   spinnerTipsEnabled = false  — drop the rotating "Tip:" line under the
+      #     spinner; the status bar already carries the context that matters.
+      #     (The built-in mode/`esc to interrupt` footer badge has no such knob
+      #     in Claude Code — statusLine renders above it and can't replace it.)
       # Claude owns settings.json (it rewrites the file as plugins/statusline/
       # permission grants change), so we merge our keys in at activation and
       # never own it — every other key it holds must survive. jq is pinned from
@@ -914,7 +923,12 @@ in
           mkdir -p "''${settings%/*}"
           tmp="$settings.hm-seed"
           if [ -s "$settings" ]; then base="$settings"; else base="$tmp.base"; printf "{}" > "$base"; fi
-          ${pkgs.jq}/bin/jq ".permissions.defaultMode = \"auto\" | .tui = \"fullscreen\" | .disableAgentView = true" "$base" > "$tmp"
+          ${pkgs.jq}/bin/jq ".permissions.defaultMode = \"auto\"
+            | .tui = \"fullscreen\"
+            | .disableAgentView = true
+            | .spinnerTipsEnabled = false
+            | .statusLine = {type: \"command\", command: \"/run/current-system/sw/bin/claude-statusline\", refreshInterval: 12}" \
+            "$base" > "$tmp"
           mv "$tmp" "$settings"
           rm -f "$tmp.base"
         ' "$HOME/.claude/settings.json"

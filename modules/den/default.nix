@@ -54,6 +54,17 @@ in
     # worktree keybinds; the WorktreeCreate/WorktreeRemove hooks (wired in your
     # host's settings.json) point at this. Self-contained — no repo/flake/bench.
     (writeShellScriptBin "wt" (builtins.readFile ./wt.sh))
+
+    # `claude-statusline` — the agent-worktree HUD for Claude Code's status bar
+    # (hearth's claudeCodeSettings points the `statusLine` key here). Row 1 is
+    # THIS session's worktree name + one status token (⏏ purge / N^ commits /
+    # +A -D uncommitted); rows below list sister `wt` worktrees in flight across
+    # ALL repos, with GitHub PR state. Cheap local git runs in the render path;
+    # the cross-repo + `gh` enumeration is done detached by the companion
+    # `claude-statusline-refresh` and cached (stale-while-revalidate), so the bar
+    # never blocks. Reads `wt`'s registry — same agent-worktree flow, same home.
+    (writeShellScriptBin "claude-statusline" (builtins.readFile ./statusline.sh))
+    (writeShellScriptBin "claude-statusline-refresh" (builtins.readFile ./statusline-refresh.sh))
   ];
 
   # ---- Homebrew framework ---------------------------------------------------
