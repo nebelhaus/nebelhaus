@@ -11,6 +11,22 @@ command = @HOME@/.config/zellij/launch.sh
 macos-titlebar-style = hidden
 macos-option-as-alt = true
 
+# Make zellij's bottom status bar sit flush along the window's bottom edge at
+# EVERY font size. The ghostty window is tiled at a fixed pixel height (prowl /
+# AeroSpace), so when a font size doesn't divide the height evenly, ghostty
+# leaves the leftover pixels as padding on the BOTTOM (and right) edge —
+# window-padding-balance defaults to false. That's why the top tab-bar always
+# looks flush but the bottom status-bar floats above a background-coloured gap,
+# and why only a few zoom levels (font-size 19 out of the box) happen to divide
+# evenly. `extend` paints that leftover padding with the nearest grid cell's
+# background instead of the window background — so the bottom row (the zellij
+# status bar) bleeds its own colour down to the window edge and reads as flush
+# at any zoom level. The "don't extend" heuristics (prompt rows, powerline
+# glyphs, default-bg cells) only apply to PRIMARY-screen apps, so zellij (an
+# alternate-screen TUI) always extends, while the plain-zsh fallback correctly
+# keeps a background-coloured gap under its prompt.
+window-padding-color = extend
+
 quit-after-last-window-closed = true
 window-save-state = never
 confirm-close-surface = false
