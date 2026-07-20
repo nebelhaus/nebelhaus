@@ -29,6 +29,7 @@ warn() { printf '\033[38;5;179m⚠  %s\033[0m\n' "$*"; }
 die()  { printf '\033[38;5;167m✗  %s\033[0m\n' "$*" >&2; exit 1; }
 ok()   { printf '  \033[38;5;108m✓\033[0m %s\n' "$*"; }
 bad()  { printf '  \033[38;5;167m✗\033[0m %s\n' "$*"; }
+info() { printf '  \033[38;5;103mⓘ\033[0m %s\n' "$*"; }
 
 [ -e "$CONSUMER/flake.nix" ] || die "no config flake at $CONSUMER — set HAUS_CONSUMER, or run the bootstrap first."
 
@@ -226,13 +227,38 @@ cmd_doctor() {
     fi
   fi
 
-  # Homebrew casks aren't tracked by Nix generations, so a rollback can't rewind
-  # them and undeclared casks linger. Flag the drift so it isn't a silent gap.
+  # Homebrew casks are declared in nix (homebrew.casks) but live OUTSIDE Nix
+  # generations: `haus rollback` swaps the system profile without re-running
+  # `brew bundle`, so casks never rewind with the generation — that's a
+  # permanent, by-design caveat, not a fault (hence a plain note). The real
+  # fault worth a ⚠ is drift: a cask installed but NOT in the declared Brewfile
+  # (only possible when cleanup ≠ "zap"), which no rebuild will manage. Detect
+  # it by diffing `brew list --cask` against the current system's Brewfile —
+  # the one nix-darwin's activate script feeds to `brew bundle --file=`.
   if command -v brew >/dev/null 2>&1; then
     echo
     say "Homebrew"
-    ok "brew on PATH ($(brew list --cask 2>/dev/null | grep -c . ) casks installed)"
-    warn "casks aren't in Nix generations — 'haus rollback' won't rewind them (brew uninstall --zap <cask>)"
+    local installed brewfile declared undeclared count
+    installed="$(brew list --cask 2>/dev/null || true)"
+    count="$(printf '%s\n' "$installed" | grep -c . || true)"
+    brewfile="$(grep -oE "brew bundle --file='[^']+'" /run/current-system/activate 2>/dev/null | sed "s/.*--file='//;s/'\$//" || true)"
+    if [ -n "$brewfile" ] && [ -f "$brewfile" ]; then
+      # Declared cask tokens, minus any tap prefix (pear-devs/pear/foo → foo),
+      # so they line up with the bare names `brew list --cask` prints.
+      declared="$(sed -nE 's/^cask "([^"]+)".*/\1/p' "$brewfile" | sed -E 's#.*/##')"
+      undeclared="$(comm -13 <(printf '%s\n' "$declared" | sort -u) <(printf '%s\n' "$installed" | sort -u) | grep . || true)"
+      if [ -z "$undeclared" ]; then
+        ok "brew on PATH ($count casks, all declared)"
+      else
+        ok "brew on PATH ($count casks installed)"
+        warn "$(printf '%s' "$undeclared" | grep -c .) undeclared cask(s) no rebuild will manage: $(printf '%s' "$undeclared" | paste -sd, - ) — declare them or 'brew uninstall --zap <cask>'"
+      fi
+    else
+      # No readable Brewfile (unswitched machine, or path moved) — can't diff, so
+      # just report the count without claiming everything is or isn't declared.
+      ok "brew on PATH ($count casks installed)"
+    fi
+    info "casks live outside Nix generations — 'haus rollback' won't rewind them (that's by design)"
   fi
 
   # Secrets — the declaration (secretspec.toml) rebuilds with Nix, but the
