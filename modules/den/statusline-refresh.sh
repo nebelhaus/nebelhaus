@@ -8,12 +8,14 @@
 # never in the render path, so the bar is never blocked by git/gh. Safe to run
 # concurrently: a mkdir-lock elects one refresher; the rest exit immediately.
 #
-#   panel.tsv rows:  slug <TAB> name <TAB> ahead <TAB> files <TAB> ins <TAB> del <TAB> prstate
+#   panel.tsv rows:  slug <TAB> name <TAB> ahead <TAB> files <TAB> ins <TAB> del <TAB> prstate <TAB> wtpath
 #     slug    = owner/repo   (e.g. nebelhaus/pounce)
 #     name    = worktree name (branch minus worktree- prefix)
 #     ahead   = commits on the branch not in its default branch
 #     files/ins/del = uncommitted working-tree delta (live checkouts only)
 #     prstate = "#7 open" | "#7 merged" | "#7 closed" | ""
+#     wtpath  = the worktree's checkout dir (statusline matches this against the
+#               lineage breadcrumbs to show only the CURRENT session's children)
 #   Only IN-FLIGHT rows are written (ahead>0, or dirty, or has a PR).
 set -euo pipefail
 PATH="/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:/etc/profiles/per-user/$(id -un 2>/dev/null)/bin:/opt/homebrew/bin:/usr/bin:/bin:${PATH:-}"
@@ -107,8 +109,10 @@ while IFS=$'\t' read -r name main branch wtpath; do
   # in-flight only: unmerged commits, uncommitted edits, or a PR
   [ "$ahead" -gt 0 ] || [ "$files" -gt 0 ] || [ -n "$pr" ] || continue
 
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-    "$slug" "${branch#worktree-}" "$ahead" "$files" "$ins" "$del" "${pr:-}" >>"$PANEL.tmp"
+  # prstate defaults to "-" (never empty): tab is IFS-whitespace, so an empty
+  # field would collapse under `read` and shift every later column left.
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$slug" "${branch#worktree-}" "$ahead" "$files" "$ins" "$del" "${pr:--}" "$wtpath" >>"$PANEL.tmp"
 done <"$WT_REGISTRY"
 
 mv "$PANEL.tmp" "$PANEL"

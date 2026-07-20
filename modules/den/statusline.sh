@@ -2,8 +2,14 @@
 # statusline.sh — nebelhaus agent-worktree statusline for Claude Code.
 #
 # Row 1  : THIS session's worktree name + ONE status token (see render_status).
-# Row 2+ : sister agent worktrees with in-flight work across ALL repos, each with
-#          its "org/repo", name, and the same one status token (+ PR number).
+# Row 2+ : the worktrees THIS session spawned (its direct children via ⌘C /
+#          `claude --worktree`), across whatever repos they live in — each with
+#          its repo, name, the same status token, and GitHub PR state.
+#
+# Lineage: a worktree session's stdin JSON carries `worktree.original_cwd` = the
+# cwd of the pane that spawned it (its parent). Each render drops a breadcrumb
+# (lineage/<session_id> = parent<TAB>self<TAB>name); a session then lists only
+# the worktrees whose parent == its own cwd. No `wt` change needed.
 #
 # The status token is a single mutually-exclusive slot:
 #     ⏏  (orange)   branch is merged/landed → `wt` reaps it on pane close
@@ -18,11 +24,12 @@ PATH="/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:/etc/profiles
 
 CACHE_DIR="${CLAUDE_STATUSLINE_CACHE:-$HOME/.cache/claude-statusline}"
 PANEL="$CACHE_DIR/panel.tsv"
+LINEAGE="$CACHE_DIR/lineage"
 # Refresher: the rice ships it on PATH as `claude-statusline-refresh`; fall back
 # to the sibling script when running straight out of ~/.claude (pre-rebuild).
 REFRESHER="$(command -v claude-statusline-refresh 2>/dev/null || echo "$HOME/.claude/statusline-refresh.sh")"
 TTL=15          # seconds before the sister-repo panel is considered stale
-MAX_ROWS=6      # cap sister rows; extras collapse into a "+N more" line
+MAX_ROWS=8      # cap child rows; extras collapse into a "+N more" line
 
 # 256-colour palette — muted, rice-consistent (cf. `wt`: 103 gray, 167 red).
 c() { printf '\033[38;5;%sm' "$1"; }
@@ -52,13 +59,23 @@ render_status() {
   fi
   printf '%s' "$st"
 }
+plain() { printf '%s' "$1" | sed 's/\x1b\[[0-9;]*m//g'; }   # strip ANSI for width
 
 in=$(cat)
-cwd=$(printf '%s' "$in" | jq -r '.workspace.current_dir // .cwd // empty')
-wt_name=$(printf '%s' "$in" | jq -r '.worktree.name // .workspace.git_worktree // empty')
-ctx=$(printf '%s' "$in" | jq -r '.context_window.used_percentage // empty')
-cost=$(printf '%s' "$in" | jq -r '.cost.total_cost_usd // empty')
-[ -z "$cwd" ] && cwd="$PWD"
+j() { printf '%s' "$in" | jq -r "$1 // empty"; }
+cwd=$(j '.workspace.current_dir // .cwd'); [ -z "$cwd" ] && cwd="$PWD"
+sid=$(j '.session_id')
+orig=$(j '.worktree.original_cwd')
+wt_name=$(j '.worktree.name // .workspace.git_worktree')
+ctx=$(j '.context_window.used_percentage')
+cost=$(j '.cost.total_cost_usd')
+COLS=${COLUMNS:-120}
+
+# --- drop this session's lineage breadcrumb (parent <TAB> self <TAB> name) -----
+if [ -n "$orig" ]; then
+  mkdir -p "$LINEAGE"
+  printf '%s\t%s\t%s\n' "$orig" "$cwd" "${wt_name:-$sid}" >"$LINEAGE/${sid:-self}" 2>/dev/null || true
+fi
 
 g() { git -C "$cwd" --no-optional-locks "$@" 2>/dev/null; }
 branch=$(g branch --show-current)
@@ -77,7 +94,6 @@ if [ "${files:-0}" -gt 0 ]; then
   read -r ins del < <(g diff HEAD --shortstat | awk '{i=0;d=0;for(k=1;k<=NF;k++){if($k~/insertion/)i=$(k-1);if($k~/deletion/)d=$(k-1)}print i" "d}')
   ins=${ins:-0}; del=${del:-0}
 fi
-# purge (worktree only): clean tree AND branch merged into main => `wt` reaps it.
 purge=0
 if [ "$is_wt" = 1 ] && [ "${files:-0}" -eq 0 ] && g merge-base --is-ancestor HEAD "$def" 2>/dev/null; then
   purge=1
@@ -93,13 +109,30 @@ else
   row1="${DIM}$(basename "$cwd")${R}"
 fi
 [ -n "$st" ] && row1="$row1  $st"
-tail=""
-[ -n "$ctx" ]  && tail="${DIM}${ctx}%ctx${R}"
-[ -n "$cost" ] && [ "$cost" != "0" ] && tail="${tail:+$tail }${DIM}\$$(printf '%.2f' "$cost" 2>/dev/null)${R}"
-[ -n "$tail" ] && row1="$row1   $tail"
+tailseg=""
+[ -n "$ctx" ]  && tailseg="${DIM}${ctx}%ctx${R}"
+[ -n "$cost" ] && [ "$cost" != "0" ] && tailseg="${tailseg:+$tailseg }${DIM}\$$(printf '%.2f' "$cost" 2>/dev/null)${R}"
+[ -n "$tailseg" ] && row1="$row1   $tailseg"
 printf '%b\n' "$row1"
 
-# --- ROW 2+ : sister worktree panel (cache; refresh detached if stale) ---------
+# --- children set: worktrees this session spawned (parent == my cwd) -----------
+# Match is by checkout path, so PARKED children (pane closed, branch survives)
+# still list. Only reap a breadcrumb once its session has been dead ~30d (its
+# live session rewrites it every render, so a fresh mtime == still relevant).
+declare -A CHILD=()
+if [ -d "$LINEAGE" ]; then
+  now=$(date +%s)
+  for f in "$LINEAGE"/*; do
+    [ -e "$f" ] || continue
+    if [ $(( now - $(stat -f %m "$f" 2>/dev/null || echo "$now") )) -gt 2592000 ]; then
+      rm -f "$f" 2>/dev/null; continue
+    fi
+    IFS=$'\t' read -r p_orig p_cwd _p_name <"$f" 2>/dev/null || continue
+    [ "$p_orig" = "$cwd" ] && CHILD["$p_cwd"]=1
+  done
+fi
+
+# --- refresh the (shared) panel cache if stale, detached --------------------
 stale=1
 if [ -f "$PANEL" ]; then
   age=$(( $(date +%s) - $(stat -f %m "$PANEL" 2>/dev/null || echo 0) ))
@@ -107,17 +140,24 @@ if [ -f "$PANEL" ]; then
 fi
 [ "$stale" = 1 ] && [ -x "$REFRESHER" ] && { nohup "$REFRESHER" >/dev/null 2>&1 & disown 2>/dev/null || true; }
 
+# --- ROW 2+ : only MY children, from the panel cache ---------------------------
 [ -f "$PANEL" ] || exit 0
-cur_slug=$(g remote get-url origin 2>/dev/null | sed -E 's@\.git$@@; s@^.*[:/]([^/]+/[^/]+)$@\1@')
+[ "${#CHILD[@]}" -eq 0 ] && exit 0
 shown=0; extra=0
-while IFS=$'\t' read -r pslug pname pahead pfiles pins pdel ppr; do
+while IFS=$'\t' read -r pslug pname pahead pfiles pins pdel ppr pwt; do
   [ -n "$pname" ] || continue
-  [ "$pslug" = "$cur_slug" ] && [ "$pname" = "$wt_name" ] && continue   # skip self
+  [ "$ppr" = "-" ] && ppr=""                    # decode empty-prstate sentinel
+  [ -n "$pwt" ] && [ -n "${CHILD[$pwt]:-}" ] || continue   # only worktrees I spawned
   if [ "$shown" -ge "$MAX_ROWS" ]; then extra=$((extra+1)); continue; fi
   pst=$(render_status "$pahead" "$pfiles" "$pins" "$pdel" "$ppr" 0 1)
-  owner="${pslug%%/*}"; rname="${pslug##*/}"
-  disp="$pname"; [ ${#disp} -gt 22 ] && disp="${disp:0:21}…"
-  printf '%b\n' "  ${GRAY}○${R} ${DIM}${owner}/${R}${rname} ${disp}${pst:+  $pst}"
+  repo="${pslug##*/}"
+  # width-aware truncation: only clip the name if the row would exceed COLS
+  stplain=$(plain "$pst"); stlen=${#stplain}
+  budget=$(( COLS - 4 - ${#repo} - 1 - stlen - 4 ))
+  [ "$budget" -lt 8 ] && budget=8
+  disp="$pname"
+  [ ${#disp} -gt "$budget" ] && disp="${disp:0:budget-1}…"
+  printf '%b\n' "  ${GRAY}○${R} ${DIM}${repo}${R} ${disp}${pst:+  $pst}"
   shown=$((shown+1))
 done <"$PANEL"
 [ "$extra" -gt 0 ] && printf '%b\n' "  ${DIM}+${extra} more${R}"
