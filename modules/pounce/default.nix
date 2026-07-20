@@ -6,8 +6,9 @@
 # losing any grant keyed to it. The nix sandbox can't reach the login keychain,
 # so when you provide `nebelhaus.pounce.signingIdentity` we sign impurely here in
 # the Aqua session: copy Pounce.app to a fixed writable path, codesign it with
-# your Apple Development identity (stable designated requirement → grant
-# persists), and exec the daemon from that copy. A marker records which store
+# that identity (a Developer ID cert by name gives the most durable designated
+# requirement → grant persists across rebuilds and cert renewals), and exec the
+# daemon from that copy. A marker records which store
 # path the copy was signed from, so we only re-sign when pounce actually changed.
 {
   config,

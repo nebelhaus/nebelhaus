@@ -491,12 +491,25 @@
     pounce.signingIdentity = lib.mkOption {
       type = lib.types.str;
       default = "";
-      example = "DE2FB6DF7E66864C5F254DACF0AFC1B00685BA5D";
+      example = "Developer ID Application: Jane Doe (ABCDE12345)";
       description = ''
-        SHA-1 of an Apple Development code-signing identity in your login
-        keychain. The pounce daemon is re-signed with it so a macOS
-        Accessibility (TCC) grant survives rebuilds. Find yours with:
+        A code-signing identity in your login keychain — either its SHA-1 or
+        (preferred) its full common name. The pounce daemon is re-signed with
+        it so a macOS Accessibility (TCC) grant survives rebuilds. List yours:
           security find-identity -v -p codesigning
+
+        Prefer a "Developer ID Application" identity passed BY NAME (e.g.
+        "Developer ID Application: Jane Doe (TEAMID)"): its designated
+        requirement anchors on the stable team OU, so the grant survives even
+        a certificate renewal (the renewed cert keeps the same name/team but
+        gets a new SHA — a hardcoded SHA would silently fall back to unsigned).
+        This is also the identity the Homebrew build is signed with, so both
+        install paths share one identity. An "Apple Development" cert works too
+        but expires yearly and pins the specific cert, so it's less durable.
+
+        Changing this once invalidates the existing grant (the requirement
+        changes) — re-approve pounce in Accessibility a single time after.
+
         Leave empty to run pounce unsigned (the palette works, but auto-paste
         and other Accessibility-gated features stay off).
       '';
