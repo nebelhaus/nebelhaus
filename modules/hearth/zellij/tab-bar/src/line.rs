@@ -246,7 +246,7 @@ pub fn tab_line(
     mode_info: &ModeInfo,
     hide_swap_layout_indicator: bool,
     background: &PaletteColor,
-) -> Vec<LinePart> {
+) -> (Vec<LinePart>, PaletteColor) {
     let mut tabs_after_active = all_tabs.split_off(active_tab_index);
     let mut tabs_before_active = all_tabs;
     let active_tab = if !tabs_after_active.is_empty() {
@@ -321,6 +321,26 @@ pub fn tab_line(
         + swap_layout_indicator.as_ref().map(|p| p.len).unwrap_or(0);
     let non_tab_len = prefix_len + right_len;
 
+    // main.rs hands us `cols - 1` and then erases the final column to end-of-line
+    // (upstream's wrap-guard: writing the last cell can bump the bar onto a second
+    // row). That erase paints the reserved column with the bar background — a dark
+    // one-cell gutter that's invisible against the rest of the dark bar, EXCEPT to
+    // the right of the yellow layout pill, where it reads as a gap between the pill
+    // and the window edge (and ghostty's `window-padding-color = extend-always`
+    // then bleeds that dark cell into the right padding). When the pill survives as
+    // the rightmost widget, report its colour so render() erases that last column
+    // to match, letting the pill sit flush against the edge.
+    let edge_fill = match &swap_layout_indicator {
+        Some(_) => {
+            if tab_info.map(|t| t.is_swap_layout_dirty).unwrap_or(false) {
+                palette.ribbon_unselected.background // grey, a hand-modified layout
+            } else {
+                palette.text_unselected.emphasis_2 // yellow, matches layout_indicator_pill
+            }
+        },
+        None => *background,
+    };
+
     let mut tabs_to_render = vec![active_tab];
 
     populate_tabs_in_tab_line(
@@ -368,7 +388,7 @@ pub fn tab_line(
         }
     }
 
-    prefix
+    (prefix, edge_fill)
 }
 
 fn swap_layout_status(
