@@ -557,6 +557,23 @@ fn render_mode_key_indicators(
                     if modifier_prefix.len + shortened_shortcut_list.len <= max_len {
                         line_part_to_render.append(&modifier_prefix);
                         line_part_to_render.append(&shortened_shortcut_list);
+                    } else if modifier_prefix.len < max_len {
+                        // Fork: even the single-char-per-mode shortened list
+                        // overflows. Rather than blank the whole left side — the
+                        // old all-or-nothing behaviour, where the bar just
+                        // vanished past a certain thinness — keep the " Ctrl +"
+                        // prefix and as many of the 1-char keys as still fit,
+                        // dropping the rest off the right. The hints degrade
+                        // gracefully instead of snapping to empty.
+                        let truncated = truncated_inline_keys_modes_shortcut_list(
+                            &keys_without_common_modifiers,
+                            help,
+                            max_len - modifier_prefix.len,
+                        );
+                        if truncated.len > 0 {
+                            line_part_to_render.append(&modifier_prefix);
+                            line_part_to_render.append(&truncated);
+                        }
                     }
                 }
             }
@@ -623,6 +640,35 @@ fn shortened_inline_keys_modes_shortcut_list(
         shortened_shortcut_list.append(&shortcut);
     }
     shortened_shortcut_list
+}
+
+// Fork: like shortened_inline_keys_modes_shortcut_list, but stops appending
+// once the running width would exceed `budget`, so the 1-char key list drops
+// keys off the RIGHT as the pane narrows instead of the whole list vanishing at
+// once. See the call site in render_mode_key_indicators.
+fn truncated_inline_keys_modes_shortcut_list(
+    keys_without_common_modifiers: &Vec<KeyShortcut>,
+    help: &ModeInfo,
+    budget: usize,
+) -> LinePart {
+    let mut list = LinePart::default();
+    for key in keys_without_common_modifiers {
+        let keys = key
+            .key
+            .as_ref()
+            .map(|k| vec![k.clone()])
+            .unwrap_or_else(|| vec![]);
+        let shortcut = if is_selected_lock(key) {
+            add_locked_shortcut_with_key_only(help, keys)
+        } else {
+            add_shortcut_with_key_only(help, keys, key.is_selected())
+        };
+        if list.len + shortcut.len > budget {
+            break;
+        }
+        list.append(&shortcut);
+    }
+    list
 }
 
 fn full_modes_shortcut_list(default_keys: &Vec<KeyShortcut>, help: &ModeInfo) -> LinePart {
