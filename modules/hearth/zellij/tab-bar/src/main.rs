@@ -170,7 +170,11 @@ impl ZellijPlugin for State {
 
         let background = self.mode_info.style.colors.text_unselected.background;
 
-        self.tab_line = tab_line(
+        // The layout pill hugs the right edge, so the reserved final column (see
+        // below) must be erased in the pill's colour, not the bar background, to
+        // read flush. tab_line reports which colour that last column wants.
+        let edge_fill;
+        (self.tab_line, edge_fill) = tab_line(
             &self.username,
             all_tabs,
             active_tab_index,
@@ -188,7 +192,7 @@ impl ZellijPlugin for State {
             .iter()
             .fold(String::new(), |output, part| output + &part.part);
 
-        match background {
+        match edge_fill {
             PaletteColor::Rgb((r, g, b)) => {
                 print!("{}\u{1b}[48;2;{};{};{}m\u{1b}[0K", output, r, g, b);
             },
