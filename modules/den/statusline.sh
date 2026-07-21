@@ -3,8 +3,9 @@
 #
 # Row 1  : THIS session's worktree name + ONE status token (see render_status).
 # Row 2+ : the worktrees THIS session spawned (its direct children via ⌘C /
-#          `claude --worktree`), across whatever repos they live in — each with
-#          its repo, name, the same status token, and GitHub PR state.
+#          `claude --worktree`), across whatever repos they live in — each as
+#          repo, PR number (left of the name, colored by PR state), name, and
+#          the same status token as row 1.
 #
 # Lineage: `wt create` records each worktree's parent (the cwd it was spawned
 # from) in its registry; the refresher carries that into panel.tsv, and a
@@ -36,11 +37,13 @@ AHEAD=$(c 75); ADD=$(c 71); DEL=$(c 167); PURGE=$(c 173)
 PR_OPEN=$(c 71); PR_MERGED=$(c 139); PR_CLOSED=$(c 167)
 R=$'\033[0m'
 
-# render_status <ahead> <files> <ins> <del> <prstate> <purge> <want_pr>
+# render_status <ahead> <files> <ins> <del> <prstate> <purge>
 # Emits the single status token. purge=1 => branch would be reaped (row-1 only).
+# prstate only feeds the merged→⏏ check; the PR number itself is rendered by
+# render_pr as its own segment, left of the worktree name.
 render_status() {
-  local ahead=${1:-0} files=${2:-0} ins=${3:-0} del=${4:-0} pr="$5" purge=${6:-0} want_pr=${7:-0}
-  local st="" state="${pr##* }" num="${pr%% *}"
+  local ahead=${1:-0} files=${2:-0} ins=${3:-0} del=${4:-0} pr="$5" purge=${6:-0}
+  local st="" state="${pr##* }"
   local done=0; { [ "$purge" = 1 ] || [ "$state" = merged ]; } && done=1
   if [ "$done" = 1 ]; then
     st="${PURGE}⏏${R}"
@@ -50,12 +53,15 @@ render_status() {
     [ "${ins:-0}" -gt 0 ] && st="${ADD}+${ins}${R}"
     [ "${del:-0}" -gt 0 ] && st="${st:+$st }${DEL}-${del}${R}"
   fi
-  if [ "$want_pr" = 1 ] && [ -n "$pr" ]; then
-    local col="$DIM"
-    case "$state" in open) col="$PR_OPEN";; merged) col="$PR_MERGED";; closed) col="$PR_CLOSED";; esac
-    st="${st:+$st }${col}${num}${R}"
-  fi
   printf '%s' "$st"
+}
+
+# render_pr <prstate> — "#N" colored by PR state, or nothing when there's no PR.
+render_pr() {
+  local pr="$1" state="${1##* }" col="$DIM"
+  [ -n "$pr" ] || return 0
+  case "$state" in open) col="$PR_OPEN";; merged) col="$PR_MERGED";; closed) col="$PR_CLOSED";; esac
+  printf '%s' "${col}${pr%% *}${R}"
 }
 plain() { printf '%s' "$1" | sed 's/\x1b\[[0-9;]*m//g'; }   # strip ANSI for width
 
@@ -125,8 +131,8 @@ fi
 # (purge). But a squash/rebase merge lands the work under a NEW commit, so the
 # branch is never an ancestor of main even though its PR merged. The detached
 # refresher already cached this branch's PR state in the panel; read our own row
-# (gh-free in the render path) so a merged PR lights the ⏏ too. want_pr stays 0,
-# so row 1 gets the icon without the PR number.
+# (gh-free in the render path) so a merged PR lights the ⏏ too; row 1 shows the
+# icon without the PR number.
 own_pr=""
 if [ "$is_wt" = 1 ] && [ "$purge" = 0 ] && [ -f "$PANEL" ]; then
   # Match our own panel row by (slug, name). slug is the remote-derived owner/name
@@ -142,7 +148,7 @@ if [ "$is_wt" = 1 ] && [ "$purge" = 0 ] && [ -f "$PANEL" ]; then
 fi
 
 # --- ROW 1 : name + one status token (no repo name, no "clean") ----------------
-st=$(render_status "$ahead" "$files" "$ins" "$del" "$own_pr" "$purge" 0)
+st=$(render_status "$ahead" "$files" "$ins" "$del" "$own_pr" "$purge")
 if [ "$is_wt" = 1 ]; then
   row1="${BULLET} ${NAME}${wt_name}${R}"
 elif [ -n "$branch" ]; then
@@ -173,15 +179,18 @@ while IFS=$'\t' read -r pslug pname pahead pfiles pins pdel ppr pparent; do
   [ "$ppr" = "-" ] && ppr=""                    # decode empty-prstate sentinel
   [ "$pparent" = "$cwd" ] || continue           # only worktrees I spawned
   if [ "$shown" -ge "$MAX_ROWS" ]; then extra=$((extra+1)); continue; fi
-  pst=$(render_status "$pahead" "$pfiles" "$pins" "$pdel" "$ppr" 0 1)
+  pst=$(render_status "$pahead" "$pfiles" "$pins" "$pdel" "$ppr" 0)
+  prseg=$(render_pr "$ppr")
   repo="${pslug##*/}"
   # width-aware truncation: only clip the name if the row would exceed COLS
   stplain=$(plain "$pst"); stlen=${#stplain}
-  budget=$(( COLS - 4 - ${#repo} - 1 - stlen - 4 ))
+  prplain=$(plain "$prseg"); prlen=${#prplain}
+  [ "$prlen" -gt 0 ] && prlen=$((prlen+1))    # trailing space after "#N"
+  budget=$(( COLS - 4 - ${#repo} - 1 - prlen - stlen - 4 ))
   [ "$budget" -lt 8 ] && budget=8
   disp="$pname"
   [ ${#disp} -gt "$budget" ] && disp="${disp:0:budget-1}…"
-  printf '%b\n' "  ${GRAY}○${R} ${DIM}${repo}${R} ${disp}${pst:+  $pst}"
+  printf '%b\n' "  ${GRAY}○${R} ${DIM}${repo}${R} ${prseg:+$prseg }${disp}${pst:+  $pst}"
   shown=$((shown+1))
 done <"$PANEL"
 [ "$extra" -gt 0 ] && printf '%b\n' "  ${DIM}+${extra} more${R}"
