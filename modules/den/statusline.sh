@@ -87,16 +87,19 @@ mode=""
     grep -o '"permissionMode": *"[a-zA-Z]*"' | tail -1 | grep -o '[a-zA-Z]*"$')
 mode=${mode%\"}
 
-# Model tier indicator, zero-width: the row-1 bullet turns into a ✦ when the
-# session runs a Mythos-class model (fable/mythos in model.id). ANSI magenta —
-# slot 5, not a fixed 256 index — so it renders through the terminal theme
-# (nebelung maps it to pink #f2c4e5). Per-pane by design: model is per-SESSION
-# (each ⌘C pane is its own session; --model / mid-session /model switches), so
-# any global surface — like a rewritten custom-theme file — would lie in a
-# mixed-model fleet. Tried and reverted; the bullet is the indicator.
-BULLET="${DOT}●${R}"
+# Model tier indicator: a ✦ ONLY when the session runs a Mythos-class model
+# (fable/mythos in model.id), nothing otherwise — a pure "special model" flag,
+# blank at the baseline like the mode icon. ANSI magenta — slot 5, not a fixed
+# 256 index — so it renders through the terminal theme (nebelung maps it to pink
+# #f2c4e5). It rides the RIGHT-edge tail group (ctx% · cost · mode), NOT the
+# row-1 bullet: model is per-SESSION (each ⌘C pane is its own session; --model /
+# mid-session /model switches), a per-pane constant that pairs naturally with
+# the other per-pane chips — and it frees the bullet to carry the worktree's git
+# status. Per-pane by design: any global surface (a rewritten custom-theme file)
+# would lie in a mixed-model fleet. Tried, reverted.
+MODEL=""
 case "$(j '.model.id')" in
-  *fable*|*mythos*) BULLET=$'\033[35m'"✦${R}";;
+  *fable*|*mythos*) MODEL=$'\033[35m'"✦${R}";;
 esac
 
 g() { git -C "$cwd" --no-optional-locks "$@" 2>/dev/null; }
@@ -141,16 +144,21 @@ if [ "$is_wt" = 1 ] && [ "$purge" = 0 ] && [ -f "$PANEL" ]; then
   fi
 fi
 
-# --- ROW 1 : name + one status token (no repo name, no "clean") ----------------
+# --- ROW 1 : status-as-bullet + name (no repo name, no "clean") ----------------
+# The git-status token IS the leading glyph: ⏏ landed / N^ ahead / +A -D dirty,
+# colored by state. A worktree almost always has one (a fresh checkout at main
+# is already ⏏); when nothing differs the token is empty, so fall back to a
+# muted ● (clean / at-main). The model glyph used to sit here — it moved to the
+# tail (per-pane, next to ctx%/cost/mode).
 st=$(render_status "$ahead" "$files" "$ins" "$del" "$own_pr" "$purge")
+lead="$st"; [ -z "$lead" ] && lead="${DOT}●${R}"
 if [ "$is_wt" = 1 ]; then
-  row1="${BULLET} ${NAME}${wt_name}${R}"
+  row1="${lead} ${NAME}${wt_name}${R}"
 elif [ -n "$branch" ]; then
-  row1="${BULLET} ${NAME}${branch}${R}"
+  row1="${lead} ${NAME}${branch}${R}"
 else
-  row1="${BULLET} ${DIM}$(basename "$cwd")${R}"
+  row1="${lead} ${DIM}$(basename "$cwd")${R}"
 fi
-[ -n "$st" ] && row1="$row1  $st"
 
 # Mode icon: Claude Code's own glyph language (⏸ plan, ⏵⏵ armed), our palette.
 # default/unknown stays blank — quiet is the baseline, the icon marks the
@@ -165,16 +173,18 @@ case "$mode" in
   bypassPermissions) mseg="${DEL}⏵⏵${R}";;     # red    — no gates at all
 esac
 
-# Tail group (ctx% · cost · mode icon) sits flush RIGHT, next to Claude Code's
-# own right-edge chips (/rc); RESERVE leaves them room. Narrow pane → fall back
-# to the old inline append. wc -m under a UTF-8 locale counts the wide glyphs
-# as characters (≈ columns), not bytes.
+# Tail group (ctx% · cost · mode icon · model) sits flush RIGHT, next to Claude
+# Code's own right-edge chips (/rc); RESERVE leaves them room. Narrow pane →
+# fall back to the old inline append. wc -m under a UTF-8 locale counts the wide
+# glyphs as characters (≈ columns), not bytes. The model glyph, when present
+# (Fable/Mythos only), is last — nearest /rc.
 vlen() { plain "$1" | LC_ALL=en_US.UTF-8 wc -m | tr -d ' '; }
 RESERVE=8
 tailseg=""
 [ -n "$ctx" ]  && tailseg="${DIM}${ctx}%${R}"
 [ -n "$cost" ] && [ "$cost" != "0" ] && tailseg="${tailseg:+$tailseg }${DIM}\$$(printf '%.2f' "$cost" 2>/dev/null)${R}"
 [ -n "$mseg" ] && tailseg="${tailseg:+$tailseg }$mseg"
+[ -n "$MODEL" ] && tailseg="${tailseg:+$tailseg }$MODEL"
 if [ -n "$tailseg" ]; then
   pad=$(( COLS - RESERVE - $(vlen "$row1") - $(vlen "$tailseg") ))
   if [ "$pad" -ge 3 ]; then
