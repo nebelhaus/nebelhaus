@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # statusline.sh — nebelhaus agent-worktree statusline for Claude Code.
 #
-# Row 1  : THIS session's worktree name + ONE status token (see render_status),
-#          then flush right: ctx% · cost · permission-mode icon (⏸ plan, ⏵⏵
-#          auto/accept/bypass, ⊘ dontAsk — read from the transcript tail).
+# Row 1  : THIS session's git-status token as the leading glyph (⏏/N^/+A-D, or a
+#          muted ● when clean) + its own PR number (left of the name, colored by
+#          PR state, same as the children) + worktree name, then flush right:
+#          ctx% · cost · permission-mode icon (⏸ plan, ⏵⏵ auto/accept/bypass, ⊘
+#          dontAsk) · model glyph (✦ Fable/Mythos) — read from the transcript tail.
 # Row 2+ : the worktrees THIS session spawned (its direct children via ⌘C /
 #          `claude --worktree`), across whatever repos they live in — each as
 #          repo, PR number (left of the name, colored by PR state), name, and
@@ -124,14 +126,14 @@ if [ "$is_wt" = 1 ] && [ "${files:-0}" -eq 0 ] && g merge-base --is-ancestor HEA
   purge=1
 fi
 
-# Row 1's ⏏ ("landed → wt reaps on close") normally comes from local ancestry
-# (purge). But a squash/rebase merge lands the work under a NEW commit, so the
-# branch is never an ancestor of main even though its PR merged. The detached
-# refresher already cached this branch's PR state in the panel; read our own row
-# (gh-free in the render path) so a merged PR lights the ⏏ too; row 1 shows the
-# icon without the PR number.
+# Row 1's own PR: the detached refresher already cached this branch's PR state in
+# the panel, so read our own row (gh-free in the render path) and render it just
+# like the children — a "#N" pill left of the name, colored by PR state. It also
+# lights the ⏏: purge catches an ancestor-merged branch locally, but a
+# squash/rebase merge lands the work under a NEW commit that's never an ancestor,
+# so the panel's merged state is the only signal for those.
 own_pr=""
-if [ "$is_wt" = 1 ] && [ "$purge" = 0 ] && [ -f "$PANEL" ]; then
+if [ "$is_wt" = 1 ] && [ -f "$PANEL" ]; then
   # Match our own panel row by (slug, name). slug is the remote-derived owner/name
   # (same parse the refresher uses) — NOT the local dir name, which can differ
   # (e.g. dir "nebelhaus" but slug "nebelhaus/workshop").
@@ -144,16 +146,18 @@ if [ "$is_wt" = 1 ] && [ "$purge" = 0 ] && [ -f "$PANEL" ]; then
   fi
 fi
 
-# --- ROW 1 : status-as-bullet + name (no repo name, no "clean") ----------------
+# --- ROW 1 : status-as-bullet + PR pill + name (no repo name, no "clean") -------
 # The git-status token IS the leading glyph: ⏏ landed / N^ ahead / +A -D dirty,
 # colored by state. A worktree almost always has one (a fresh checkout at main
 # is already ⏏); when nothing differs the token is empty, so fall back to a
 # muted ● (clean / at-main). The model glyph used to sit here — it moved to the
-# tail (per-pane, next to ctx%/cost/mode).
+# tail (per-pane, next to ctx%/cost/mode). The PR "#N" pill follows the lead,
+# left of the name, same as the children.
 st=$(render_status "$ahead" "$files" "$ins" "$del" "$own_pr" "$purge")
 lead="$st"; [ -z "$lead" ] && lead="${DOT}●${R}"
+prseg=$(render_pr "$own_pr")   # "#N" left of the name, mirroring the children
 if [ "$is_wt" = 1 ]; then
-  row1="${lead} ${NAME}${wt_name}${R}"
+  row1="${lead} ${prseg:+$prseg }${NAME}${wt_name}${R}"
 elif [ -n "$branch" ]; then
   row1="${lead} ${NAME}${branch}${R}"
 else
