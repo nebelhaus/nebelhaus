@@ -18,14 +18,21 @@ macos-option-as-alt = true
 # window-padding-balance defaults to false. That's why the top tab-bar always
 # looks flush but the bottom status-bar floats above a background-coloured gap,
 # and why only a few zoom levels (font-size 19 out of the box) happen to divide
-# evenly. `extend` paints that leftover padding with the nearest grid cell's
-# background instead of the window background — so the bottom row (the zellij
-# status bar) bleeds its own colour down to the window edge and reads as flush
-# at any zoom level. The "don't extend" heuristics (prompt rows, powerline
-# glyphs, default-bg cells) only apply to PRIMARY-screen apps, so zellij (an
-# alternate-screen TUI) always extends, while the plain-zsh fallback correctly
-# keeps a background-coloured gap under its prompt.
-window-padding-color = extend
+# evenly. Painting that leftover padding with the nearest grid cell's background
+# (the zellij status-bar row) makes the bar bleed its own colour down to the
+# window edge, so it reads as flush at any zoom level.
+#
+# This MUST be `extend-always`, not plain `extend`. `extend` applies heuristics
+# that disable extension row-by-row, and the zellij bar row trips two of them:
+# it contains powerline separator glyphs () and its right end has default-
+# background cells — both of which ghostty's `extend` refuses to paint (it
+# assumes powerline ribbons and default-bg gaps look wrong extended). An earlier
+# attempt with plain `extend` shipped on the theory that these heuristics only
+# apply to primary-screen apps and zellij (alt-screen) is exempt; that was
+# wrong — the gap persisted in a fresh ghostty. `extend-always` forces the
+# extension unconditionally, ignoring every heuristic, which is exactly what a
+# uniform full-width status bar wants.
+window-padding-color = extend-always
 
 quit-after-last-window-closed = true
 window-save-state = never
