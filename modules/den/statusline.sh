@@ -67,6 +67,13 @@ ctx=$(j '.context_window.used_percentage')
 cost=$(j '.cost.total_cost_usd')
 COLS=${COLUMNS:-120}
 
+# Model tier indicator, zero-width: the row-1 bullet turns into a purple ✦ when
+# the session runs a Mythos-class model (fable/mythos in model.id).
+BULLET="${DOT}●${R}"
+case "$(j '.model.id')" in
+  *fable*|*mythos*) BULLET="$(c 176)✦${R}";;
+esac
+
 g() { git -C "$cwd" --no-optional-locks "$@" 2>/dev/null; }
 branch=$(g branch --show-current)
 is_wt=0
@@ -112,11 +119,11 @@ fi
 # --- ROW 1 : name + one status token (no repo name, no "clean") ----------------
 st=$(render_status "$ahead" "$files" "$ins" "$del" "$own_pr" "$purge" 0)
 if [ "$is_wt" = 1 ]; then
-  row1="${DOT}●${R} ${NAME}${wt_name}${R}"
+  row1="${BULLET} ${NAME}${wt_name}${R}"
 elif [ -n "$branch" ]; then
-  row1="${DOT}●${R} ${NAME}${branch}${R}"
+  row1="${BULLET} ${NAME}${branch}${R}"
 else
-  row1="${DIM}$(basename "$cwd")${R}"
+  row1="${BULLET} ${DIM}$(basename "$cwd")${R}"
 fi
 [ -n "$st" ] && row1="$row1  $st"
 tailseg=""
