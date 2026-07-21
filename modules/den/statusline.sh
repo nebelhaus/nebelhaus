@@ -67,12 +67,14 @@ ctx=$(j '.context_window.used_percentage')
 cost=$(j '.cost.total_cost_usd')
 COLS=${COLUMNS:-120}
 
-# Model tier indicator, zero-width: the row-1 bullet turns into a purple ✦ when
-# the session runs a Mythos-class model (fable/mythos in model.id).
+# Model tier indicator, zero-width: the row-1 bullet turns into a ✦ when the
+# session runs a Mythos-class model (fable/mythos in model.id). ANSI magenta —
+# slot 5, not a fixed 256 index — so it renders through the terminal theme
+# (nebelung maps it to pink #f2c4e5).
 model=$(j '.model.id')
 BULLET="${DOT}●${R}"
 case "$model" in
-  *fable*|*mythos*) BULLET="$(c 176)✦${R}";;
+  *fable*|*mythos*) BULLET=$'\033[35m'"✦${R}";;
 esac
 
 # --- model-reactive theme (whole-UI tint, opt-in) ----------------------------
@@ -80,8 +82,9 @@ esac
 # so rewriting a theme file retints every running session's chrome — accent,
 # spinner, prompt border — within a second, no restart. This render loop is the
 # only hook that sees model.id continuously, so it doubles as the switcher: on
-# a Mythos-class model the overrides go orchid (same 176 as the ✦), otherwise
-# plain base-dark. Opt in once with
+# a Mythos-class model the overrides go ANSI magenta (same slot as the ✦, so
+# the terminal theme supplies the actual color — nebelung: pink #f2c4e5),
+# otherwise plain base-dark. Opt in once with
 #     mkdir -p ~/.claude/themes && claude config set -g theme custom:model-tint
 # and delete the themes dir (or switch themes) to opt out. Caveat: the file is
 # GLOBAL — parallel panes on different models are last-writer-wins, so the tint
@@ -90,7 +93,7 @@ THEME_FILE="$HOME/.claude/themes/model-tint.json"
 if [ -d "${THEME_FILE%/*}" ]; then
   ov='{}'
   case "$model" in
-    *fable*|*mythos*) ov='{"claude":"#d787d7","claudeShimmer":"#eeb4ee","promptBorder":"#d787d7","promptBorderShimmer":"#eeb4ee"}';;
+    *fable*|*mythos*) ov='{"claude":"ansi:magenta","claudeShimmer":"ansi:magentaBright","promptBorder":"ansi:magenta","promptBorderShimmer":"ansi:magentaBright"}';;
   esac
   theme_json="{\"name\":\"model-tint\",\"base\":\"dark\",\"overrides\":$ov}"
   [ "$(/bin/cat "$THEME_FILE" 2>/dev/null)" = "$theme_json" ] || printf '%s' "$theme_json" >"$THEME_FILE"
