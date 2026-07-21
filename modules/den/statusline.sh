@@ -87,16 +87,17 @@ mode=""
     grep -o '"permissionMode": *"[a-zA-Z]*"' | tail -1 | grep -o '[a-zA-Z]*"$')
 mode=${mode%\"}
 
-# Model tier indicator: a ✦ when the session runs a Mythos-class model
-# (fable/mythos in model.id), a dim ● at rest otherwise. ANSI magenta — slot 5,
-# not a fixed 256 index — so it renders through the terminal theme (nebelung
-# maps it to pink #f2c4e5). It rides the RIGHT-edge tail group (ctx% · cost ·
-# mode), NOT the row-1 bullet: model is per-SESSION (each ⌘C pane is its own
-# session; --model / mid-session /model switches), a per-pane constant that
-# pairs naturally with the other per-pane chips — and it frees the bullet to
-# carry the worktree's git status. Per-pane by design: any global surface (a
-# rewritten custom-theme file) would lie in a mixed-model fleet. Tried, reverted.
-MODEL="${DIM}●${R}"
+# Model tier indicator: a ✦ ONLY when the session runs a Mythos-class model
+# (fable/mythos in model.id), nothing otherwise — a pure "special model" flag,
+# blank at the baseline like the mode icon. ANSI magenta — slot 5, not a fixed
+# 256 index — so it renders through the terminal theme (nebelung maps it to pink
+# #f2c4e5). It rides the RIGHT-edge tail group (ctx% · cost · mode), NOT the
+# row-1 bullet: model is per-SESSION (each ⌘C pane is its own session; --model /
+# mid-session /model switches), a per-pane constant that pairs naturally with
+# the other per-pane chips — and it frees the bullet to carry the worktree's git
+# status. Per-pane by design: any global surface (a rewritten custom-theme file)
+# would lie in a mixed-model fleet. Tried, reverted.
+MODEL=""
 case "$(j '.model.id')" in
   *fable*|*mythos*) MODEL=$'\033[35m'"✦${R}";;
 esac
@@ -175,15 +176,15 @@ esac
 # Tail group (ctx% · cost · mode icon · model) sits flush RIGHT, next to Claude
 # Code's own right-edge chips (/rc); RESERVE leaves them room. Narrow pane →
 # fall back to the old inline append. wc -m under a UTF-8 locale counts the wide
-# glyphs as characters (≈ columns), not bytes. The model glyph is last (nearest
-# /rc) and always present, so row 1 always carries a right-side segment.
+# glyphs as characters (≈ columns), not bytes. The model glyph, when present
+# (Fable/Mythos only), is last — nearest /rc.
 vlen() { plain "$1" | LC_ALL=en_US.UTF-8 wc -m | tr -d ' '; }
 RESERVE=8
 tailseg=""
 [ -n "$ctx" ]  && tailseg="${DIM}${ctx}%${R}"
 [ -n "$cost" ] && [ "$cost" != "0" ] && tailseg="${tailseg:+$tailseg }${DIM}\$$(printf '%.2f' "$cost" 2>/dev/null)${R}"
 [ -n "$mseg" ] && tailseg="${tailseg:+$tailseg }$mseg"
-tailseg="${tailseg:+$tailseg }$MODEL"
+[ -n "$MODEL" ] && tailseg="${tailseg:+$tailseg }$MODEL"
 if [ -n "$tailseg" ]; then
   pad=$(( COLS - RESERVE - $(vlen "$row1") - $(vlen "$tailseg") ))
   if [ "$pad" -ge 3 ]; then
