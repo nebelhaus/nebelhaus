@@ -264,7 +264,7 @@ impl State {
         let out: Vec<String> = src
             .lines()
             .map(|line| {
-                if !done && line == "    tab {" {
+                if !done && line == "    tab name=\"~\" {" {
                     done = true;
                     format!("    tab cwd=\"{}\" name=\"{}\" {{", cwd_escaped, name_escaped)
                 } else {

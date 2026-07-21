@@ -237,10 +237,16 @@ in
               fi
               unset ZJ_STAY
 
+              # "~" is what fresh tabs are born as (custom.kdl) — cd-ing back
+              # to ~ returns the tab to that name instead of the login name.
               _zj_name_tab() {
                 local root name
-                root=$(git rev-parse --show-toplevel 2>/dev/null)
-                name=''${''${root:-$PWD}:t}
+                if [[ "$PWD" == "$HOME" ]]; then
+                  name="~"
+                else
+                  root=$(git rev-parse --show-toplevel 2>/dev/null)
+                  name=''${''${root:-$PWD}:t}
+                fi
                 command zellij action rename-tab "$name" 2>/dev/null
               }
               autoload -Uz add-zsh-hook
@@ -725,7 +731,9 @@ in
         ".config/zellij/layouts/home.kdl".text =
           let
             pinned =
-              builtins.replaceStrings [ "\n    tab {\n" ] [ "\n    tab cwd=\"${config.home.homeDirectory}\" {\n" ]
+              builtins.replaceStrings
+                [ "\n    tab name=\"~\" {\n" ]
+                [ "\n    tab cwd=\"${config.home.homeDirectory}\" name=\"~\" {\n" ]
                 zellijLayout;
           in
           assert pinned != zellijLayout;

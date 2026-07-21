@@ -12,14 +12,26 @@
 # dir basename), matching the auto-rename the shell does on cd.
 #
 # Note: if the focused pane sits in an agent worktree (~/.cache/claude-worktrees),
-# the new tab's fresh shell hops to the repo's main checkout, same as any other
-# new shell (hearth's zshrc) — the "stay in the worktree" spawns are Super-Shift-p
-# and the peek Enter-on-dir tab, which set $ZJ_STAY; this one deliberately does not.
+# the tab is aimed at the repo's MAIN checkout — cwd and name both. The new
+# tab's fresh shell would hop there anyway (hearth's zshrc), but the name is
+# stamped from here before that shell exists, so without the pre-hop the tab
+# kept the agent's throwaway checkout name while its shell sat in the main
+# repo. The "stay in the worktree" spawns are Super-Shift-p and the peek
+# Enter-on-dir tab, which set $ZJ_STAY; this one deliberately does not.
 set -u
 export PATH="/etc/profiles/per-user/$USER/bin:/run/current-system/sw/bin:$PATH"
 
 dir="$PWD"
 [ -d "$dir" ] || dir="$HOME"
+
+case "$dir" in
+    "$HOME/.cache/claude-worktrees/"*)
+        # Same detection as the zshrc hop: the shared .git lives in the main
+        # checkout, so its parent is the repo this worktree belongs to.
+        common="$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
+        [ -n "$common" ] && dir="$(dirname "$common")"
+        ;;
+esac
 
 name="$(basename "$dir")"
 root="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)"
@@ -33,7 +45,7 @@ if [ -f "$layout_src" ]; then
     # Reused/overwritten each invocation — no per-call temp to race cleanup.
     gen="${TMPDIR:-/tmp}/zellij-new-tab-here-$USER.kdl"
     awk -v cwd="$esc" '
-        /^    tab \{$/ && !done { print "    tab cwd=\"" cwd "\" {"; done=1; next }
+        /^    tab name="~" \{$/ && !done { print "    tab cwd=\"" cwd "\" {"; done=1; next }
         { print }
     ' "$layout_src" > "$gen"
     grep -q '^    tab cwd=' "$gen" || gen=""
