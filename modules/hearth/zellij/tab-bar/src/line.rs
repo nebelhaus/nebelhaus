@@ -254,13 +254,11 @@ pub fn tab_line(
     } else {
         tabs_before_active.pop().unwrap()
     };
-    let supports_arrow_fonts = !capabilities.arrow_fonts;
-
     let mut prefix = tab_line_prefix(username, palette, capabilities, cols);
     let mut prefix_len = get_current_title_len(&prefix);
 
     // Right-side widgets: the Ctrl+Tab reminder, then the swap-layout indicator
-    // (Alt <[]> keys + the active layout ribbon). Same order the old zjstatus
+    // (Alt <[]> keys + the active layout pill). Same order the old zjstatus
     // `format_right` used.
     let mut reminder = Some(ctrl_tab_reminder(palette));
     let mut swap_layout_indicator = if hide_swap_layout_indicator {
@@ -271,25 +269,46 @@ pub fn tab_line(
                 &tab_info.active_swap_layout_name,
                 tab_info.is_swap_layout_dirty,
                 mode_info,
-                supports_arrow_fonts,
+                palette,
             )
         })
     };
 
+    // How much horizontal space the tabs really want: the active tab (never
+    // dropped) plus, when tabs spill off either edge, room for the `← +N` /
+    // `+N →` collapsed-count pills — the "arrows" that reveal there are more
+    // tabs. Reserving for those here is what makes the right-side widgets yield
+    // to them, instead of an arrow silently vanishing while a widget still sits
+    // in space the arrow could have used.
+    let sep = tab_separator(capabilities);
+    let left_pill_len = if tabs_before_active.is_empty() {
+        0
+    } else {
+        left_more_message(tabs_before_active.len(), palette, sep, 0).len
+    };
+    let right_pill_len = if tabs_after_active.is_empty() {
+        0
+    } else {
+        right_more_message(tabs_after_active.len(), palette, sep, 0).len
+    };
+    let desired_tab_len = active_tab.len + left_pill_len + right_pill_len;
+
     // Reserve space for the right side, shedding it by priority when the pane is
-    // too thin: swap ribbon goes first, then the reminder, then (last resort) the
-    // username prefix — the active tab is NEVER dropped, so you always know where
-    // you are. This is what stops the "tabs run under the widgets and clip" bug.
+    // too thin. The Ctrl+Tab reminder goes FIRST — it's the least essential slot,
+    // a hint for a shortcut you either know or you don't — then the swap-layout
+    // indicator, then (last resort) the username prefix. The active tab and its
+    // scroll arrows are NEVER sacrificed to a widget, so you always know where
+    // you are and that there are more tabs off-screen.
     loop {
         let right_len = reminder.as_ref().map(|p| p.len).unwrap_or(0)
             + swap_layout_indicator.as_ref().map(|p| p.len).unwrap_or(0);
-        if prefix_len + active_tab.len + right_len <= cols {
+        if prefix_len + desired_tab_len + right_len <= cols {
             break;
         }
-        if swap_layout_indicator.is_some() {
-            swap_layout_indicator = None;
-        } else if reminder.is_some() {
+        if reminder.is_some() {
             reminder = None;
+        } else if swap_layout_indicator.is_some() {
+            swap_layout_indicator = None;
         } else if prefix_len > 0 {
             prefix = vec![];
             prefix_len = 0;
@@ -356,7 +375,7 @@ fn swap_layout_status(
     swap_layout_name: &Option<String>,
     is_swap_layout_dirty: bool,
     mode_info: &ModeInfo,
-    supports_arrow_fonts: bool,
+    palette: Styling,
 ) -> Option<LinePart> {
     match swap_layout_name {
         Some(swap_layout_name) => {
@@ -366,10 +385,10 @@ fn swap_layout_status(
                 &[&[Action::PreviousSwapLayout], &[Action::NextSwapLayout]],
             );
             let mut text = style_key_with_modifier(&prev_next_keys, Some(0));
-            text.append(&ribbon_as_line_part(
+            text.append(&layout_indicator_pill(
                 &swap_layout_name.to_uppercase(),
-                !is_swap_layout_dirty,
-                supports_arrow_fonts,
+                is_swap_layout_dirty,
+                palette,
             ));
             Some(text)
         },
@@ -377,20 +396,24 @@ fn swap_layout_status(
     }
 }
 
-pub fn ribbon_as_line_part(text: &str, is_selected: bool, supports_arrow_fonts: bool) -> LinePart {
-    let ribbon_text = if is_selected {
-        Text::new(text).selected()
+// Fork: the swap-layout indicator (GRID / SPIRAL / …) as a FLAT rectangle that
+// hugs the right edge, styled like the tabs on the left rather than upstream's
+// powerline ribbon. `serialize_ribbon` draws arrow caps and paints the pill in
+// the theme's green `ribbon_selected` colour; here we hand-paint a plain block
+// so it reads as one clean rectangle flush to the window edge. Yellow fill when
+// the layout is pristine, greyed (like an inactive tab) when it's been
+// hand-modified (dirty), dark text on both.
+fn layout_indicator_pill(text: &str, is_dirty: bool, palette: Styling) -> LinePart {
+    let fg = palette.text_unselected.background; // near-black, same as tab text bg
+    let bg = if is_dirty {
+        palette.ribbon_unselected.background // grey, matches an inactive tab
     } else {
-        Text::new(text)
+        palette.text_unselected.emphasis_2 // yellow (#f7e2b5)
     };
-    let part = serialize_ribbon(&ribbon_text);
-    let mut len = text.width() + 2;
-    if supports_arrow_fonts {
-        len += 2;
-    };
+    let content = format!(" {} ", text);
     LinePart {
-        part,
-        len,
+        part: style!(fg, bg).bold().paint(content.clone()).to_string(),
+        len: content.width(),
         tab_index: None,
     }
 }

@@ -528,12 +528,18 @@ fn render_mode_key_indicators(
                         KeyShortcut::new(mode, action, key)
                     })
                     .collect();
-                // Fork: render the " Ctrl +" prefix into a scratch LinePart and
+                // Fork: render the " ctrl +" prefix into a scratch LinePart and
                 // only commit it TOGETHER with a shortcut list that fits. The
                 // upstream code appended the prefix unconditionally, so in a thin
                 // pane where neither the full nor the shortened list fits you got
                 // a dangling " Ctrl +" with nothing after it — the "broken bar"
                 // look. Now that case renders nothing on the left instead.
+                //
+                // We render the prefix twice: the normal lowercase form ("ctrl +")
+                // and a compact caret form ("^ +"). The caret is a SHRINK STEP —
+                // preferred over dropping any keys — so the degradation ladder is:
+                //   ctrl + <full labels>  →  ctrl + <1-char keys>
+                //   →  ^ + <1-char keys>  →  ^ + <1-char keys, truncated>
                 let mut modifier_prefix = LinePart::default();
                 render_common_modifiers(
                     &colored_elements,
@@ -541,6 +547,16 @@ fn render_mode_key_indicators(
                     &modifiers,
                     &mut modifier_prefix,
                     separator,
+                    false,
+                );
+                let mut compact_prefix = LinePart::default();
+                render_common_modifiers(
+                    &colored_elements,
+                    help,
+                    &modifiers,
+                    &mut compact_prefix,
+                    separator,
+                    true,
                 );
 
                 let full_shortcut_list =
@@ -555,8 +571,30 @@ fn render_mode_key_indicators(
                         help,
                     );
                     if modifier_prefix.len + shortened_shortcut_list.len <= max_len {
+                        // ctrl + <1-char keys>
                         line_part_to_render.append(&modifier_prefix);
                         line_part_to_render.append(&shortened_shortcut_list);
+                    } else if compact_prefix.len + shortened_shortcut_list.len <= max_len {
+                        // ^ + <1-char keys> — swap the modifier to a caret before
+                        // sacrificing any key.
+                        line_part_to_render.append(&compact_prefix);
+                        line_part_to_render.append(&shortened_shortcut_list);
+                    } else if compact_prefix.len < max_len {
+                        // ^ + <1-char keys, truncated>. Rather than blank the whole
+                        // left side — the old all-or-nothing behaviour, where the
+                        // bar just vanished past a certain thinness — keep the
+                        // caret prefix and as many 1-char keys as still fit,
+                        // dropping the rest off the right. Hints degrade gracefully
+                        // instead of snapping to empty.
+                        let truncated = truncated_inline_keys_modes_shortcut_list(
+                            &keys_without_common_modifiers,
+                            help,
+                            max_len - compact_prefix.len,
+                        );
+                        if truncated.len > 0 {
+                            line_part_to_render.append(&compact_prefix);
+                            line_part_to_render.append(&truncated);
+                        }
                     }
                 }
             }
@@ -623,6 +661,35 @@ fn shortened_inline_keys_modes_shortcut_list(
         shortened_shortcut_list.append(&shortcut);
     }
     shortened_shortcut_list
+}
+
+// Fork: like shortened_inline_keys_modes_shortcut_list, but stops appending
+// once the running width would exceed `budget`, so the 1-char key list drops
+// keys off the RIGHT as the pane narrows instead of the whole list vanishing at
+// once. See the call site in render_mode_key_indicators.
+fn truncated_inline_keys_modes_shortcut_list(
+    keys_without_common_modifiers: &Vec<KeyShortcut>,
+    help: &ModeInfo,
+    budget: usize,
+) -> LinePart {
+    let mut list = LinePart::default();
+    for key in keys_without_common_modifiers {
+        let keys = key
+            .key
+            .as_ref()
+            .map(|k| vec![k.clone()])
+            .unwrap_or_else(|| vec![]);
+        let shortcut = if is_selected_lock(key) {
+            add_locked_shortcut_with_key_only(help, keys)
+        } else {
+            add_shortcut_with_key_only(help, keys, key.is_selected())
+        };
+        if list.len + shortcut.len > budget {
+            break;
+        }
+        list.append(&shortcut);
+    }
+    list
 }
 
 fn full_modes_shortcut_list(default_keys: &Vec<KeyShortcut>, help: &ModeInfo) -> LinePart {
@@ -717,32 +784,40 @@ fn common_modifiers_in_all_modes(
     Some(common_modifiers.into_iter().collect())
 }
 
+// Fork: how a common modifier renders in the bottom-left prefix. Normally
+// lowercase ("ctrl +") — house style, and it reads calmer than upstream's
+// "Ctrl". When `compact` is set (a shrink step chosen by the caller once the
+// list won't otherwise fit), Ctrl collapses to the classic caret "^", buying
+// back three columns to keep more of the key list on screen before any key
+// gets dropped.
+fn modifier_label(m: &KeyModifier, compact: bool) -> String {
+    if compact {
+        match m {
+            KeyModifier::Ctrl => return "^".to_string(),
+            _ => {},
+        }
+    }
+    m.to_string().to_lowercase()
+}
+
 fn render_common_modifiers(
     palette: &ColoredElements,
     mode_info: &ModeInfo,
     common_modifiers: &Vec<KeyModifier>,
     line_part_to_render: &mut LinePart,
     separator: &str,
+    compact: bool,
 ) {
+    let joined = common_modifiers
+        .iter()
+        .map(|m| modifier_label(m, compact))
+        .collect::<Vec<_>>()
+        .join("-");
     let prefix_text = if mode_info.capabilities.arrow_fonts {
         // Add extra space in simplified ui
-        format!(
-            " {} + ",
-            common_modifiers
-                .iter()
-                .map(|m| m.to_string())
-                .collect::<Vec<_>>()
-                .join("-")
-        )
+        format!(" {} + ", joined)
     } else {
-        format!(
-            " {} +",
-            common_modifiers
-                .iter()
-                .map(|m| m.to_string())
-                .collect::<Vec<_>>()
-                .join("-")
-        )
+        format!(" {} +", joined)
     };
 
     let suffix_separator = palette.superkey_suffix_separator.paint(separator);
