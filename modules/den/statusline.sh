@@ -70,34 +70,14 @@ COLS=${COLUMNS:-120}
 # Model tier indicator, zero-width: the row-1 bullet turns into a ✦ when the
 # session runs a Mythos-class model (fable/mythos in model.id). ANSI magenta —
 # slot 5, not a fixed 256 index — so it renders through the terminal theme
-# (nebelung maps it to pink #f2c4e5).
-model=$(j '.model.id')
+# (nebelung maps it to pink #f2c4e5). Per-pane by design: model is per-SESSION
+# (each ⌘C pane is its own session; --model / mid-session /model switches), so
+# any global surface — like a rewritten custom-theme file — would lie in a
+# mixed-model fleet. Tried and reverted; the bullet is the indicator.
 BULLET="${DOT}●${R}"
-case "$model" in
+case "$(j '.model.id')" in
   *fable*|*mythos*) BULLET=$'\033[35m'"✦${R}";;
 esac
-
-# --- model-reactive theme (whole-UI tint, opt-in) ----------------------------
-# Claude Code live-watches ~/.claude/themes/*.json (custom themes, v2.1.118+),
-# so rewriting a theme file retints every running session's chrome — accent,
-# spinner, prompt border — within a second, no restart. This render loop is the
-# only hook that sees model.id continuously, so it doubles as the switcher: on
-# a Mythos-class model the overrides go ANSI magenta (same slot as the ✦, so
-# the terminal theme supplies the actual color — nebelung: pink #f2c4e5),
-# otherwise plain base-dark. Opt in once with
-#     mkdir -p ~/.claude/themes && claude config set -g theme custom:model-tint
-# and delete the themes dir (or switch themes) to opt out. Caveat: the file is
-# GLOBAL — parallel panes on different models are last-writer-wins, so the tint
-# says "a Fable pane rendered most recently", while the ✦ stays per-pane truth.
-THEME_FILE="$HOME/.claude/themes/model-tint.json"
-if [ -d "${THEME_FILE%/*}" ]; then
-  ov='{}'
-  case "$model" in
-    *fable*|*mythos*) ov='{"claude":"ansi:magenta","claudeShimmer":"ansi:magentaBright","promptBorder":"ansi:magenta","promptBorderShimmer":"ansi:magentaBright"}';;
-  esac
-  theme_json="{\"name\":\"model-tint\",\"base\":\"dark\",\"overrides\":$ov}"
-  [ "$(/bin/cat "$THEME_FILE" 2>/dev/null)" = "$theme_json" ] || printf '%s' "$theme_json" >"$THEME_FILE"
-fi
 
 g() { git -C "$cwd" --no-optional-locks "$@" 2>/dev/null; }
 branch=$(g branch --show-current)
