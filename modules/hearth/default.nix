@@ -745,9 +745,9 @@ in
         # load_plugins; grants seeded below. Wasm vendored by its build.sh.
         ".config/zellij/plugins/tab-history.wasm".source = ./zellij/plugins/zellij_tab_history.wasm;
         # Our status-bar fork (see zellij/status-bar/): the bottom-right quick
-        # hints are condensed to one flat "Super + <c,p,t,y>" block (claude,
-        # pane, tab, yazi-peek — keys only, no labels/ribbons). Wasm vendored by
-        # its build.sh.
+        # hints are condensed to one flat "Super + <c,p,t,y,f>" block (claude,
+        # pane, tab, yazi-peek, fullscreen — keys only, no labels/ribbons).
+        # Wasm vendored by its build.sh.
         ".config/zellij/plugins/status-bar.wasm".source = ./zellij/plugins/zellij_status_bar.wasm;
         # Our tab-bar fork (see zellij/tab-bar/): the top bar, replacing the
         # third-party zjstatus that used to sit here. Same active-anchored tab

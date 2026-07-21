@@ -39,7 +39,7 @@ pub fn one_line_ui(
         .map(|mode_key_indicators| append(&mode_key_indicators, &mut max_len))
         .and_then(|_| match help.mode {
             // Unlocked (Normal): the full mode ribbon on the left already spells
-            // out every submode, so the bottom-right `Super + <c,p,t,y>` launcher
+            // out every submode, so the bottom-right `Super + <c,p,t,y,f>` launcher
             // block is just clutter here — leave the right side empty. The hints
             // still render in Locked, where the ribbon collapses to the lone
             // unlock key and the reminder earns its space.
@@ -871,15 +871,24 @@ fn should_show_focus_and_resize_shortcuts(tab_info: Option<&TabInfo>) -> bool {
 fn secondary_keybinds(help: &ModeInfo, _tab_info: Option<&TabInfo>, max_len: usize) -> LinePart {
     let binds = &help.get_mode_keybinds();
     // Fork: the bottom-right quick hints are condensed to a single flat block —
-    // ` Super + <c,p,t,y> ` — the four launchers only (c = claude --worktree,
-    // p = new pane, t = new tab, y = yazi peek): keys only, no word-labels and
-    // no powerline ribbons. What each key does lives in the web docs /
-    // cheatsheet (nebelhaus.com), not spelled out on the bar. Keys are still
-    // resolved from the live binds (via run_bind_key / action_key), so a rebind
-    // re-letters the block; only the labels and the Floating/Focus/Resize hints
-    // were dropped versus upstream.
+    // ` Super + <c,p,t,y,f> ` — the launchers plus fullscreen (c = claude
+    // --worktree, p = new pane, t = new tab, y = yazi peek, f = fullscreen
+    // toggle): keys only, no word-labels and no powerline ribbons. What each
+    // key does lives in the web docs / cheatsheet (nebelhaus.com), not spelled
+    // out on the bar. Keys are still resolved from the live binds (via
+    // run_bind_key / action_key), so a rebind re-letters the block; only the
+    // labels and the Floating/Focus/Resize hints were dropped versus upstream.
     let claude_key = run_bind_key(binds, "claude", Some("--worktree"));
     let peek_key = run_bind_key(binds, "peek.sh", None);
+
+    // Fullscreen: the single-action ToggleFocusFullscreen bind (Super f).
+    // action_key demands an exact-length action match, so Super l's
+    // [ToggleFocusFullscreen, ToggleFocusFullscreen, Write 12] redraw kick
+    // never matches this one-element pattern.
+    let fullscreen_key = action_key(binds, &[Action::ToggleFocusFullscreen])
+        .first()
+        .map(|k| vec![k.clone()])
+        .unwrap_or_default();
 
     let new_pane_action_key = action_key(
         binds,
@@ -922,8 +931,9 @@ fn secondary_keybinds(help: &ModeInfo, _tab_info: Option<&TabInfo>, max_len: usi
         .map(|k| vec![k.clone()])
         .unwrap_or_default();
 
-    // Order on the bar: c, p, t, y.
-    let ordered: Vec<Vec<KeyWithModifier>> = vec![claude_key, pane_key, tab_key, peek_key];
+    // Order on the bar: c, p, t, y, f.
+    let ordered: Vec<Vec<KeyWithModifier>> =
+        vec![claude_key, pane_key, tab_key, peek_key, fullscreen_key];
     let common_modifiers = get_common_modifiers(ordered.iter().flatten().collect());
 
     // One display char per launcher, common modifier stripped so only `c`/`p`/…
@@ -946,9 +956,9 @@ fn secondary_keybinds(help: &ModeInfo, _tab_info: Option<&TabInfo>, max_len: usi
     }
     let joined = key_chars.join(",");
 
-    // ` <mods> + <c,p,t,y> ` as one opaque, non-ribbon block; the bracket group
-    // is painted in the emphasis colour (index 0). On a pane too thin for the
-    // modifier prefix, fall back to a bare ` <c,p,t,y> `.
+    // ` <mods> + <c,p,t,y,f> ` as one opaque, non-ribbon block; the bracket
+    // group is painted in the emphasis colour (index 0). On a pane too thin for
+    // the modifier prefix, fall back to a bare ` <c,p,t,y,f> `.
     let render_block = |with_modifier: bool| -> LinePart {
         let prefix = if with_modifier && !common_modifiers.is_empty() {
             format!(
