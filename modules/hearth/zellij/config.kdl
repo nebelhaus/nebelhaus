@@ -166,4 +166,15 @@ keybinds {
             }
         }
     }
+
+    // Tab-mode n (Ctrl-t n) — zellij's native "new tab", the one tab-creating
+    // path that isn't one of our binds/scripts. Route it through home.kdl like
+    // Super t so even this tab is born "den" (custom.kdl) instead of "Tab #N";
+    // the SwitchToMode mirrors the default bind it shadows.
+    tab {
+        bind "n" {
+            NewTab { layout "@HOME@/.config/zellij/layouts/home.kdl"; }
+            SwitchToMode "Normal"
+        }
+    }
 }
