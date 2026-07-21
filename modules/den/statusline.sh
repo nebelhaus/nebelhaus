@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # statusline.sh — nebelhaus agent-worktree statusline for Claude Code.
 #
-# Row 1  : THIS session's worktree name + ONE status token (see render_status).
+# Row 1  : THIS session's worktree name + ONE status token (see render_status),
+#          then flush right: ctx% · cost · permission-mode icon (⏸ plan, ⏵⏵
+#          auto/accept/bypass, ⊘ dontAsk — read from the transcript tail).
 # Row 2+ : the worktrees THIS session spawned (its direct children via ⌘C /
 #          `claude --worktree`), across whatever repos they live in — each as
 #          repo, PR number (left of the name, colored by PR state), name, and
@@ -71,7 +73,19 @@ cwd=$(j '.workspace.current_dir // .cwd'); [ -z "$cwd" ] && cwd="$PWD"
 wt_name=$(j '.worktree.name // .workspace.git_worktree')
 ctx=$(j '.context_window.used_percentage')
 cost=$(j '.cost.total_cost_usd')
+transcript=$(j '.transcript_path')
 COLS=${COLUMNS:-120}
+
+# Permission mode: NOT in the statusline stdin, but Claude Code appends a
+# {"type":"permission-mode","permissionMode":"…"} record to the transcript on
+# every mode change (and stamps user records too), and re-runs the statusline
+# when the mode flips — so the last occurrence in the transcript tail IS the
+# live mode, no hook or stash file needed. 64KB of tail keeps this O(1).
+mode=""
+[ -n "$transcript" ] && [ -f "$transcript" ] &&
+  mode=$(tail -c 65536 "$transcript" 2>/dev/null |
+    grep -o '"permissionMode": *"[a-zA-Z]*"' | tail -1 | grep -o '[a-zA-Z]*"$')
+mode=${mode%\"}
 
 # Model tier indicator, zero-width: the row-1 bullet turns into a ✦ when the
 # session runs a Mythos-class model (fable/mythos in model.id). ANSI magenta —
@@ -137,10 +151,38 @@ else
   row1="${BULLET} ${DIM}$(basename "$cwd")${R}"
 fi
 [ -n "$st" ] && row1="$row1  $st"
+
+# Mode icon: Claude Code's own glyph language (⏸ plan, ⏵⏵ armed), our palette.
+# default/unknown stays blank — quiet is the baseline, the icon marks the
+# armed/special modes. Pairs with the rice's de-footered claude build (the
+# stock "⏵⏵ auto mode on (shift+tab to cycle)" row is patched out).
+mseg=""
+case "$mode" in
+  auto)              mseg="$(c 179)⏵⏵${R}";;   # yellow — asks via classifier
+  acceptEdits)       mseg="${ADD}⏵⏵${R}";;     # green  — edits sail through
+  plan)              mseg="${AHEAD}⏸${R}";;    # blue   — paused to plan
+  dontAsk)           mseg="${DEL}⊘${R}";;      # red    — deny-if-not-allowed
+  bypassPermissions) mseg="${DEL}⏵⏵${R}";;     # red    — no gates at all
+esac
+
+# Tail group (ctx% · cost · mode icon) sits flush RIGHT, next to Claude Code's
+# own right-edge chips (/rc); RESERVE leaves them room. Narrow pane → fall back
+# to the old inline append. wc -m under a UTF-8 locale counts the wide glyphs
+# as characters (≈ columns), not bytes.
+vlen() { plain "$1" | LC_ALL=en_US.UTF-8 wc -m | tr -d ' '; }
+RESERVE=8
 tailseg=""
 [ -n "$ctx" ]  && tailseg="${DIM}${ctx}%${R}"
 [ -n "$cost" ] && [ "$cost" != "0" ] && tailseg="${tailseg:+$tailseg }${DIM}\$$(printf '%.2f' "$cost" 2>/dev/null)${R}"
-[ -n "$tailseg" ] && row1="$row1   $tailseg"
+[ -n "$mseg" ] && tailseg="${tailseg:+$tailseg }$mseg"
+if [ -n "$tailseg" ]; then
+  pad=$(( COLS - RESERVE - $(vlen "$row1") - $(vlen "$tailseg") ))
+  if [ "$pad" -ge 3 ]; then
+    row1="$row1$(printf '%*s' "$pad" '')$tailseg"
+  else
+    row1="$row1   $tailseg"
+  fi
+fi
 printf '%b\n' "$row1"
 
 # --- refresh the (shared) panel cache if stale, detached --------------------
