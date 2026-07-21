@@ -45,7 +45,7 @@ if [ -f "$layout_src" ]; then
     # Reused/overwritten each invocation — no per-call temp to race cleanup.
     gen="${TMPDIR:-/tmp}/zellij-new-tab-here-$USER.kdl"
     awk -v cwd="$esc" '
-        /^    tab name="den" \{$/ && !done { print "    tab cwd=\"" cwd "\" {"; done=1; next }
+        /^    tab name="~" \{$/ && !done { print "    tab cwd=\"" cwd "\" {"; done=1; next }
         { print }
     ' "$layout_src" > "$gen"
     grep -q '^    tab cwd=' "$gen" || gen=""

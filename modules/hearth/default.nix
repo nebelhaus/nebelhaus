@@ -237,12 +237,12 @@ in
               fi
               unset ZJ_STAY
 
-              # "den" is what fresh tabs are born as (custom.kdl) — cd-ing back
+              # "~" is what fresh tabs are born as (custom.kdl) — cd-ing back
               # to ~ returns the tab to that name instead of the login name.
               _zj_name_tab() {
                 local root name
                 if [[ "$PWD" == "$HOME" ]]; then
-                  name="den"
+                  name="~"
                 else
                   root=$(git rev-parse --show-toplevel 2>/dev/null)
                   name=''${''${root:-$PWD}:t}
@@ -732,8 +732,8 @@ in
           let
             pinned =
               builtins.replaceStrings
-                [ "\n    tab name=\"den\" {\n" ]
-                [ "\n    tab cwd=\"${config.home.homeDirectory}\" name=\"den\" {\n" ]
+                [ "\n    tab name=\"~\" {\n" ]
+                [ "\n    tab cwd=\"${config.home.homeDirectory}\" name=\"~\" {\n" ]
                 zellijLayout;
           in
           assert pinned != zellijLayout;

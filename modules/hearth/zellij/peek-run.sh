@@ -87,7 +87,7 @@ spawn_tab() {
         # Reused/overwritten each pick — no per-invocation temp to race cleanup.
         gen="${TMPDIR:-/tmp}/zellij-peek-tab-$USER.kdl"
         awk -v cwd="$esc" '
-            /^    tab name="den" \{$/ && !done { print "    tab cwd=\"" cwd "\" {"; done=1; next }
+            /^    tab name="~" \{$/ && !done { print "    tab cwd=\"" cwd "\" {"; done=1; next }
             { print }
         ' "$layout_src" > "$gen"
         grep -q '^    tab cwd=' "$gen" || gen=""
