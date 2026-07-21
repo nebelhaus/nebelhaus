@@ -69,10 +69,32 @@ COLS=${COLUMNS:-120}
 
 # Model tier indicator, zero-width: the row-1 bullet turns into a purple ✦ when
 # the session runs a Mythos-class model (fable/mythos in model.id).
+model=$(j '.model.id')
 BULLET="${DOT}●${R}"
-case "$(j '.model.id')" in
+case "$model" in
   *fable*|*mythos*) BULLET="$(c 176)✦${R}";;
 esac
+
+# --- model-reactive theme (whole-UI tint, opt-in) ----------------------------
+# Claude Code live-watches ~/.claude/themes/*.json (custom themes, v2.1.118+),
+# so rewriting a theme file retints every running session's chrome — accent,
+# spinner, prompt border — within a second, no restart. This render loop is the
+# only hook that sees model.id continuously, so it doubles as the switcher: on
+# a Mythos-class model the overrides go orchid (same 176 as the ✦), otherwise
+# plain base-dark. Opt in once with
+#     mkdir -p ~/.claude/themes && claude config set -g theme custom:model-tint
+# and delete the themes dir (or switch themes) to opt out. Caveat: the file is
+# GLOBAL — parallel panes on different models are last-writer-wins, so the tint
+# says "a Fable pane rendered most recently", while the ✦ stays per-pane truth.
+THEME_FILE="$HOME/.claude/themes/model-tint.json"
+if [ -d "${THEME_FILE%/*}" ]; then
+  ov='{}'
+  case "$model" in
+    *fable*|*mythos*) ov='{"claude":"#d787d7","claudeShimmer":"#eeb4ee","promptBorder":"#d787d7","promptBorderShimmer":"#eeb4ee"}';;
+  esac
+  theme_json="{\"name\":\"model-tint\",\"base\":\"dark\",\"overrides\":$ov}"
+  [ "$(/bin/cat "$THEME_FILE" 2>/dev/null)" = "$theme_json" ] || printf '%s' "$theme_json" >"$THEME_FILE"
+fi
 
 g() { git -C "$cwd" --no-optional-locks "$@" 2>/dev/null; }
 branch=$(g branch --show-current)
