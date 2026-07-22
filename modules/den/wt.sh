@@ -10,6 +10,10 @@
 #   wt                list every parked/live agent worktree, across ALL repos
 #   wt <name>         resume one: rebuild its checkout + reopen its Claude chat
 #   wt resume <name>  (the same thing, spelled out)
+#   wt child <repo>   make a worktree of ANOTHER repo as a child of THIS pane —
+#                     for cross-repo work (a workshop pane editing a sub-repo).
+#                     Registers it so its PR shows in the statusline; prints the
+#                     new checkout path, so: cd "$(wt child ~/code/…/rice)"
 #   wt create         [hook] make a worktree for the current repo (JSON on stdin)
 #   wt remove         [hook] retire one WITHOUT losing work (JSON on stdin)
 #
@@ -134,6 +138,49 @@ cmd_create() { # [WorktreeCreate hook] JSON on stdin; ONLY the new path on stdou
   echo "$dir"
 }
 
+cmd_child() { # wt child <repo-path> [name] — worktree of ANOTHER repo, as a child
+  # The cross-repo escape hatch. A workshop pane whose task belongs to a sub-repo
+  # would otherwise reach for a raw `git worktree add` — which never touches the
+  # registry, so the refresher never learns to ask THAT repo's GitHub for the
+  # branch's PR, and the statusline stays blind to it. This does the same
+  # worktree add but REGISTERS it with this pane's cwd as the parent, so the PR
+  # surfaces as a child row under the session that spawned it.
+  local target="${1:-}" name="${2:-}"
+  [ -n "$target" ] || die "usage: wt child <repo-path> [name]"
+  [ -d "$target" ] || die "no such directory: $target"
+  local tmain
+  tmain="$(git_main "$target")" || die "'$target' isn't inside a git repo"
+  [ -d "$tmain/.git" ] || die "'$target' resolves to $tmain, which isn't a main checkout"
+  # Default the child's name to THIS pane's worktree name, so a sub-worktree
+  # shares the session's identity (…-sparkle in both repos). Fall back to the
+  # cwd's basename when the pane isn't itself on a worktree-* branch.
+  if [ -z "$name" ]; then
+    local b; b="$(git -C "$PWD" branch --show-current 2>/dev/null || true)"
+    case "$b" in worktree-*) name="${b#worktree-}" ;; *) name="$(basename "$PWD")" ;; esac
+  fi
+  # Bucket dir = target repo basename, EXCEPT when that would collide with the
+  # spawning pane's own repo basename (the nested case: workshop `nebelhaus` vs
+  # rice `nebelhaus/nebelhaus`) — then key it by the full owner-repo slug so the
+  # child never lands on the parent's own checkout path. Buckets are cosmetic:
+  # resume_rows re-derives each worktree's main from its checkout, not the dir.
+  local bucket cur
+  bucket="$(basename "$tmain")"
+  cur="$(basename "$(git_main "$PWD" 2>/dev/null || echo "$PWD")")"
+  [ "$bucket" = "$cur" ] && bucket="$(repo_slug "$tmain" 2>/dev/null | tr '/' '-')"
+  [ -n "$bucket" ] || bucket="$(basename "$tmain")"
+  local dir="$WT_BASE/$bucket/$name"
+  [ -e "$dir" ] && die "a worktree already exists at $dir — pass another name: wt child $target <name>"
+  git -C "$tmain" show-ref -q --verify "refs/heads/worktree-$name" 2>/dev/null \
+    && die "branch worktree-$name already exists in $(basename "$tmain") — pass another name: wt child $target <name>"
+  git -C "$tmain" worktree add -b "worktree-$name" "$dir" HEAD >&2
+  # Register with THIS pane's cwd ($PWD) as parent — the same field cmd_create
+  # stores — so the statusline lists the child under the session that spawned it,
+  # and the refresher queries the CHILD repo's GitHub for its PR state.
+  reg_put "$name" "$tmain" "worktree-$name" "$dir" "$PWD" || true
+  say "created $(basename "$tmain") worktree '$name' → $dir"
+  echo "$dir"   # ONLY the path on stdout, so callers can: cd "$(wt child …)"
+}
+
 cmd_remove() { # [WorktreeRemove hook] JSON on stdin — retire without losing work
   local json dir main branch
   json="$(cat)"
@@ -250,8 +297,9 @@ cmd_resume() { # cmd_resume <name|repo/name>
 case "${1:-}" in
 create) cmd_create ;;
 remove) cmd_remove ;;
+child) cmd_child "${2:-}" "${3:-}" ;;
 resume) cmd_resume "${2:-}" ;;
 list | ls) cmd_list ;;
-"" | -h | --help | help) [ "${1:-}" = "" ] && cmd_list || sed -n '2,20p' "$0" | sed '/^#!/d; s/^# \{0,1\}//' ;;
+"" | -h | --help | help) [ "${1:-}" = "" ] && cmd_list || sed -n '2,22p' "$0" | sed '/^#!/d; s/^# \{0,1\}//' ;;
 *) cmd_resume "$1" ;; # bare token → treat as a worktree name to resume
 esac
