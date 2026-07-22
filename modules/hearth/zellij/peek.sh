@@ -7,43 +7,34 @@
 # only render chafa block art. Against raw Ghostty, yazi gets the real kitty
 # graphics protocol — crisp side-pane previews — and image-preview.sh (the
 # Enter opener for images) upgrades itself to full-res kitty rendering too.
+# (Ghostty already speaks kitty graphics, so there's nothing to gain from
+# dragging a heavier terminal like kitty into the rice just for this.)
 #
-# Why the window PERSISTS (peek-run.sh keeps it alive after yazi quits):
-# every smooth-spawn avenue is a dead end — ghostty's --window-position/
-# --window-width CLI configs are silently ignored on macOS (the window
-# inherits an AppKit saved-state frame instead), and a macOS-hidden app
-# exposes zero AX windows, so a window can't be positioned before it's first
-# shown. Any fresh spawn therefore visibly pops somewhere wrong and then
-# jumps. So the spawn + center dance runs ONCE (cold path); afterwards the
-# window is a panel in all but name: --macos-hidden=always removes it from
-# the dock and cmd+tab, q teleports it offscreen (no minimize animation, no
-# dock tile), and summoning teleports it back already painted. Aerospace
-# floats every runtime ghostty window at detection (see prowl/aerospace.toml)
-# so even the cold spawn never tiles or reflows the workspace.
+# Spawn model: this fires ONE fresh, centered Ghostty instance per summon via
+# the shared float-term helper — the same "spawn → PID-diff → AppleScript
+# settle → aerospace-float" dance the Rebuild System pounce command uses. yazi
+# runs inside it; when yazi quits (q/Esc), peek-run.sh exits, and Ghostty
+# closes the window (wait-after-command defaults off). No background window,
+# no fifo, no offscreen parking — the panel exists only while it's on screen.
+#
+# Trade-off vs the old persistent-window design: each summon pays a cold spawn
+# (a new Ghostty instance launch) instead of teleporting a parked one, so the
+# panel appears a touch slower and may briefly flash at its saved frame before
+# the AppleScript settle re-centers it — identical to how Rebuild System pops
+# in. In exchange there's no lingering hidden instance to babysit.
 
 set -u
 export PATH="/opt/homebrew/bin:/etc/profiles/per-user/$USER/bin:/run/current-system/sw/bin:$PATH"
 
-FIFO="$HOME/.cache/peek.fifo"
-PIDFILE="$HOME/.cache/peek.pid"
-RETURNFILE="$HOME/.cache/peek.return"
-SESSIONFILE="$HOME/.cache/peek.session"
+FLOAT_TERM="$HOME/.config/zellij/float-term.sh"
 WINDOW_TITLE="quick-terminal-peek"
-
-# Record where to hand focus back on dismiss (the app the user is in now).
-osascript -l JavaScript -e 'ObjC.import("AppKit"); String($.NSWorkspace.sharedWorkspace.frontmostApplication.processIdentifier)' 2>/dev/null > "$RETURNFILE"
-
-# Record which zellij session summoned us, so peek-run.sh (a separate ghostty
-# instance, no $ZELLIJ of its own) knows where to open a tab when Enter picks a
-# directory. This script runs as a zellij floating pane, so it still has it.
-printf '%s\n' "${ZELLIJ_SESSION_NAME:-}" > "$SESSIONFILE"
 
 # Root peek at the REAL repo, not a throwaway worktree checkout: if the
 # summoning pane sits inside a linked git worktree (its per-worktree gitdir
 # differs from the shared common dir), start yazi at the repo's MAIN worktree —
 # the first entry of `git worktree list` — so peek always opens you in the
 # canonical repo. A normal checkout (gitdir == common dir) or a non-repo cwd
-# falls through to $PWD unchanged. Used everywhere below in place of $PWD.
+# falls through to $PWD unchanged.
 START="$PWD"
 _gd="$(git -C "$PWD" rev-parse --path-format=absolute --git-dir 2>/dev/null)"
 _gcd="$(git -C "$PWD" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
@@ -52,80 +43,15 @@ if [ -n "$_gd" ] && [ "$_gd" != "$_gcd" ]; then
     [ -n "$_main" ] && [ -d "$_main" ] && START="$_main"
 fi
 
-# The target frame: 85% of the visible frame of the screen the cursor is on,
-# centered. Recomputed on every summon (via the shared float-term helper, which
-# owns the cursor-screen / visibleFrame centering math) so the panel follows
-# the user across displays and survives monitor changes.
-read -r POS_X POS_Y WIN_W WIN_H <<< "$("$HOME/.config/zellij/float-term.sh" geom --pct 85)"
-
-# ---- warm path: the peek instance is alive — teleport it in ----------------
-if [ -s "$PIDFILE" ]; then
-    read -r GPID RPID < "$PIDFILE"
-    # GPID may be 0 if the runner failed to identify its instance — and
-    # `kill -0 0` would "succeed" (it signals our own process group), so
-    # guard the range explicitly.
-    if [ "${GPID:-0}" -gt 1 ] 2>/dev/null && kill -0 "$GPID" 2>/dev/null; then
-        if ! pgrep -P "$RPID" -x yazi >/dev/null 2>&1; then
-            # Runner is parked on the fifo: hand it the cwd, then give yazi a
-            # beat to start and paint while the window is still offscreen, so
-            # it teleports in already-drawn. The write is backgrounded +
-            # reaped so a wedged fifo can never hang the keybind.
-            printf '%s\n' "$START" > "$FIFO" &
-            WRITER=$!
-            sleep 0.15
-            kill "$WRITER" 2>/dev/null
-        fi
-        osascript >/dev/null 2>&1 <<APPLESCRIPT
-tell application "System Events"
-    tell (first process whose unix id is $GPID)
-        set position of window 1 to {$POS_X, $POS_Y}
-        set size of window 1 to {$WIN_W, $WIN_H}
-    end tell
-end tell
-APPLESCRIPT
-        osascript >/dev/null 2>&1 -l JavaScript -e "ObjC.import('AppKit'); \$.NSRunningApplication.runningApplicationWithProcessIdentifier($GPID).activateWithOptions(\$.NSApplicationActivateIgnoringOtherApps);"
-        exit 0
-    fi
-fi
-
-# ---- cold path: spawn the instance and center it (once per boot) ------------
-
-# Reap any stale runner (e.g. its window was closed but the orphan lived on)
-# before spawning fresh state.
-pkill -f "zellij/peek-run.sh" 2>/dev/null
-rm -f "$PIDFILE" "$FIFO"
-
-# `open` hands the instance launchd's minimal PATH; peek-run.sh re-adds the
-# nix profile dirs itself. cwd rides in via --working-directory.
-open -na Ghostty.app --args \
-    --title="$WINDOW_TITLE" \
-    --macos-hidden=always \
-    --working-directory="$START" \
-    --command="/bin/bash $HOME/.config/zellij/peek-run.sh"
-
-# peek-run.sh writes the instance pid the moment it starts.
-GPID=""
-for _ in $(seq 1 150); do
-    [ -s "$PIDFILE" ] && { read -r GPID _ < "$PIDFILE"; break; }
-    sleep 0.02
-done
-[ -n "$GPID" ] || exit 0
-
-# Frame the window as soon as AX exposes it. Aerospace already floated it at
-# detection, so this is the only geometry event — one quick settle, once.
-osascript >/dev/null 2>&1 <<APPLESCRIPT
-tell application "System Events"
-    tell (first process whose unix id is $GPID)
-        repeat 150 times
-            try
-                if (count windows) > 0 then
-                    set position of window 1 to {$POS_X, $POS_Y}
-                    set size of window 1 to {$WIN_W, $WIN_H}
-                    exit repeat
-                end if
-            end try
-            delay 0.02
-        end repeat
-    end tell
-end tell
-APPLESCRIPT
+# Spawn a centered Ghostty running peek-run.sh. Bigger than Rebuild System's
+# 750×400 popup (peek is a file browser with image previews) — 80% of the
+# cursor's screen. --pin lands it on the current workspace and force-floats it.
+# cwd rides in on --working-directory (an EXTRA ghostty flag after `--`); the
+# summoning zellij session leaks through `open`'s env-forward, which peek-run.sh
+# captures for its Enter-opens-a-tab handoff before scrubbing $ZELLIJ.
+"$FLOAT_TERM" spawn \
+    --title "$WINDOW_TITLE" \
+    --pct 80 \
+    --pin \
+    --command "/bin/bash $HOME/.config/zellij/peek-run.sh" \
+    -- --working-directory="$START" >/dev/null
