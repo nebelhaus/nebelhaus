@@ -10,13 +10,16 @@
 // size=1 so only the hotkey-hints row shows. The bar updates in place when
 // entering chord modes (e.g. Ctrl-t shows tab-mode hints). The bottom bar is
 // our fork of zellij:status-bar (see zellij/status-bar/): it renders NO
-// powerline arrows and NO background pills anywhere — every segment is
+// powerline arrows and NO distinct background pills anywhere — every segment is
 // hand-rolled "flat text" (a ` key label ` run sitting directly on the bar's
-// own background, no fill and no divider between chips; chips are separated by
+// own background, no box and no divider between chips; chips are separated by
 // whitespace and told apart by colour — a yellow key accent throughout, and a
 // label colour that carries the mode's state: light grey inactive, green
-// active, red locked). That's even cheaper than the arrow-capped ribbons it
-// replaced, so more hints fit.
+// active, red locked). Each cell is painted explicitly on the bar's line
+// background (not left transparent — a transparent cell falls through to the
+// pane's default background, a shade off, and that gap reads as a seam), so the
+// whole row is one uniform colour. That's even cheaper than the arrow-capped
+// ribbons it replaced, so more hints fit.
 // The hotkey always keeps its name: a hint list (the mode ribbon, or a
 // submode's keybinds) degrades in ONE step — named text, and the moment they
 // outgrow the pane it windows them with `‹N` / `N›` overflow counts
