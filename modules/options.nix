@@ -56,6 +56,20 @@
       '';
     };
 
+    hearth.zellijStartLocked = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        When true (the default), zellij boots into Locked input mode instead of
+        Normal — its single-key submode leaders (pane, tab, resize, …) stay
+        inert until you unlock with Ctrl-g, so a stray keystroke can't jump you
+        into a submode. The `Super`-prefixed launchers (claude / pane / tab /
+        yazi-peek / fullscreen) are bound in `shared` and keep working while
+        locked; the bar's bottom-right quick-hint block only shows in Locked
+        mode. Set false to start in Normal mode (zellij's own default).
+      '';
+    };
+
     claude.globalMd = lib.mkOption {
       type = lib.types.lines;
       default = "";
