@@ -9,12 +9,18 @@
 // status-bar normally renders two rows (hotkeys + tips); we constrain it to
 // size=1 so only the hotkey-hints row shows. The bar updates in place when
 // entering chord modes (e.g. Ctrl-t shows tab-mode hints). The bottom bar is
-// our fork of zellij:status-bar (see zellij/status-bar/): the bottom-right
-// quick hints are condensed to a single flat "Super + <c,p,t,y>" block (the
-// four launchers — claude / pane / tab / yazi-peek — keys only, no word-labels
-// and no powerline ribbons), where upstream renders a longer labelled strip.
-// That block only shows in Locked mode; once unlocked (Normal) the left ribbon
-// already lists every submode, so the right side is left empty.
+// our fork of zellij:status-bar (see zellij/status-bar/): it renders NO
+// powerline arrows anywhere — every segment is a hand-rolled "flat pill" (a
+// blunt-edged ` key label ` on a background colour), which is ~2 cols cheaper
+// than upstream's arrow-capped ribbons, so more hints fit. When a hint list
+// (the mode ribbon, or a submode's keybinds) outgrows the pane it degrades:
+// full labels → short labels → keys-only, and past that it windows the keys
+// with `‹N` / `N›` overflow counts (mouse-scroll over the bar pages them),
+// never vanishing outright. The bottom-right quick hints are a single flat
+// "Super + <c,p,t,y,f>" block (the launchers + fullscreen — claude / pane /
+// tab / yazi-peek / fullscreen, keys only, no word-labels). That block only
+// shows in Locked mode; once unlocked (Normal) the left ribbon already lists
+// every submode, so the right side is left empty.
 //
 // The top bar is our fork of zellij:tab-bar (see zellij/tab-bar/), which
 // REPLACED the third-party zjstatus that used to live here. zjstatus had no
