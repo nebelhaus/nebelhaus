@@ -34,6 +34,17 @@ macos-option-as-alt = true
 # uniform full-width status bar wants.
 window-padding-color = extend-always
 
+# extend-always alone still dumps 100% of the non-divisible leftover on the
+# BOTTOM edge (balance defaults to false), so at zoom levels where the remainder
+# is large the extended status-bar background reads as a fat slab of dead space
+# below the last row — "flush" but bottom-heavy. Balancing splits the remainder
+# evenly top/bottom (and left/right): the visible bottom band halves, and its
+# other half moves to the TOP, where extend-always paints it with the tab-bar
+# row's background (the dark terminal bg) so it blends into the surrounding black
+# and stays invisible. Worst-case band is thus ~half a cell height, not a full
+# one, at every zoom.
+window-padding-balance = true
+
 quit-after-last-window-closed = true
 window-save-state = never
 confirm-close-surface = false
