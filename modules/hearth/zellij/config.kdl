@@ -1,4 +1,9 @@
 default_layout "custom"
+// Startup input mode — baked from nebelhaus.hearth.zellijStartLocked (hearth
+// fills the placeholder below with "locked" or "normal"). Locked keeps the
+// submode leaders inert until Ctrl-g; the Super launchers (bound in `shared`)
+// still fire.
+default_mode "@DEFAULT_MODE@"
 pane_frames false
 scroll_buffer_size 50000
 serialize_pane_viewport true

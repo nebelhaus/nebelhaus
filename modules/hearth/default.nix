@@ -712,9 +712,14 @@ in
         # zellij
         # config.kdl bakes absolute script paths (zellij doesn't expand $HOME in
         # copy_command / Run / layout), so render @HOME@ → the user's home.
-        ".config/zellij/config.kdl".text = builtins.replaceStrings [ "@HOME@" ] [
-          config.home.homeDirectory
-        ] (builtins.readFile ./zellij/config.kdl);
+        ".config/zellij/config.kdl".text =
+          builtins.replaceStrings
+            [ "@HOME@" "@DEFAULT_MODE@" ]
+            [
+              config.home.homeDirectory
+              (if hearthCfg.zellijStartLocked then "locked" else "normal")
+            ]
+            (builtins.readFile ./zellij/config.kdl);
         ".config/zellij/themes/nebelung.kdl".source = "${nebelung.themes}/zellij/themes/nebelung.kdl";
         # Custom layout, rendered from the in-repo template (see zellijLayout
         # in the let above).
