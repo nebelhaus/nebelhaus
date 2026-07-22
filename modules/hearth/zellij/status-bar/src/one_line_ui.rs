@@ -575,18 +575,18 @@ fn render_mode_key_indicators(
                         KeyShortcut::new(mode, action, key)
                     })
                     .collect();
-                // Fork: render the " ctrl +" prefix into a scratch LinePart and
-                // only commit it TOGETHER with a shortcut list that fits. The
-                // upstream code appended the prefix unconditionally, so in a thin
-                // pane where neither the full nor the shortened list fits you got
-                // a dangling " Ctrl +" with nothing after it — the "broken bar"
-                // look. Now that case renders nothing on the left instead.
+                // Fork: the mode ribbon degrades in ONE step. It shows named
+                // pills (` p PANE `, ` t TAB `, …) — the hotkey always keeps its
+                // name — and the moment they overflow the pane, it windows them
+                // with `‹N` / `N›` count pills (mouse-scroll pages the window),
+                // exactly like the submode hints below. There is no keys-only
+                // rung and no long-label rung: the ladder is just named → paged.
                 //
-                // We render the prefix twice: the normal lowercase form ("ctrl +")
-                // and a compact caret form ("^ +"). The caret is a SHRINK STEP —
-                // preferred over dropping any keys — so the degradation ladder is:
-                //   ctrl + <full labels>  →  ctrl + <1-char keys>
-                //   →  ^ + <1-char keys>  →  ^ + <1-char keys, truncated>
+                // The ` ctrl +` prefix is rendered into a scratch LinePart and
+                // only committed together with something to its right, so a thin
+                // pane never shows a dangling " ctrl +" with nothing after it.
+                // We keep a compact caret form (` ^ +`) as the last-ditch prefix
+                // for a pane so narrow the full prefix alone won't fit.
                 let mut modifier_prefix = LinePart::default();
                 render_common_modifiers(
                     &colored_elements,
@@ -606,61 +606,21 @@ fn render_mode_key_indicators(
                     true,
                 );
 
-                let full_shortcut_list =
-                    full_inline_keys_modes_shortcut_list(&keys_without_common_modifiers, help);
-
-                if modifier_prefix.len + full_shortcut_list.len <= max_len {
-                    line_part_to_render.append(&modifier_prefix);
-                    line_part_to_render.append(&full_shortcut_list);
+                let segments = named_mode_segments(&keys_without_common_modifiers, help);
+                // Prefer the full ` ctrl +` prefix; fall back to the caret only
+                // when the full prefix would leave no room at all.
+                let (prefix, budget) = if modifier_prefix.len < max_len {
+                    (&modifier_prefix, max_len - modifier_prefix.len)
                 } else {
-                    let shortened_shortcut_list = shortened_inline_keys_modes_shortcut_list(
-                        &keys_without_common_modifiers,
-                        help,
-                    );
-                    if modifier_prefix.len + shortened_shortcut_list.len <= max_len {
-                        // ctrl + <1-char keys>
-                        line_part_to_render.append(&modifier_prefix);
-                        line_part_to_render.append(&shortened_shortcut_list);
-                    } else if compact_prefix.len + shortened_shortcut_list.len <= max_len {
-                        // ^ + <1-char keys> — swap the modifier to a caret before
-                        // sacrificing any key.
-                        line_part_to_render.append(&compact_prefix);
-                        line_part_to_render.append(&shortened_shortcut_list);
-                    } else if compact_prefix.len < max_len {
-                        // ^ + <1-char keys, PAGED>. Rather than blank the whole
-                        // left side — the old all-or-nothing behaviour, where the
-                        // bar just vanished past a certain thinness — keep the
-                        // caret prefix and window the 1-char keys, with `‹N`/`N›`
-                        // count pills at the edges and mouse-scroll to page. Hints
-                        // degrade gracefully instead of snapping to empty.
-                        let segments: Vec<LinePart> = keys_without_common_modifiers
-                            .iter()
-                            .map(|key| {
-                                let keys = key
-                                    .key
-                                    .as_ref()
-                                    .map(|k| vec![k.clone()])
-                                    .unwrap_or_default();
-                                if is_selected_lock(key) {
-                                    add_locked_shortcut_with_key_only(help, keys)
-                                } else {
-                                    add_shortcut_with_key_only(help, keys, key.is_selected())
-                                }
-                            })
-                            .filter(|s| s.len > 0)
-                            .collect();
-                        let paged = paginate_segments(
-                            segments,
-                            max_len - compact_prefix.len,
-                            hint_scroll,
-                            help.style.colors,
-                            paging,
-                        );
-                        if paged.len > 0 {
-                            line_part_to_render.append(&compact_prefix);
-                            line_part_to_render.append(&paged);
-                        }
-                    }
+                    (&compact_prefix, max_len.saturating_sub(compact_prefix.len))
+                };
+                // paginate_segments renders the plain list when it fits (no
+                // indicators) and a windowed `‹N …  N›` slice when it doesn't.
+                let paged =
+                    paginate_segments(segments, budget, hint_scroll, help.style.colors, paging);
+                if paged.len > 0 {
+                    line_part_to_render.append(prefix);
+                    line_part_to_render.append(&paged);
                 }
             }
         },
@@ -686,46 +646,30 @@ fn render_mode_key_indicators(
     }
 }
 
-fn full_inline_keys_modes_shortcut_list(
+// One named flat pill per mode indicator (` p PANE `, ` t TAB `, the red lock
+// pill, …), as a Vec so `paginate_segments` can window it. This is the ONLY form
+// the mode ribbon renders now — the hotkey stays named at every width; overflow
+// is handled by paging, never by dropping to bare keys.
+fn named_mode_segments(
     keys_without_common_modifiers: &Vec<KeyShortcut>,
     help: &ModeInfo,
-) -> LinePart {
-    let mut full_shortcut_list = LinePart::default();
-    for key in keys_without_common_modifiers {
-        let keys = key
-            .key
-            .as_ref()
-            .map(|k| vec![k.clone()])
-            .unwrap_or_else(|| vec![]);
-        let shortcut = if is_selected_lock(key) {
-            add_locked_shortcut_with_inline_key(help, &key.full_text(), keys)
-        } else {
-            add_shortcut_with_inline_key(help, &key.full_text(), keys, key.is_selected())
-        };
-        full_shortcut_list.append(&shortcut);
-    }
-    full_shortcut_list
-}
-
-fn shortened_inline_keys_modes_shortcut_list(
-    keys_without_common_modifiers: &Vec<KeyShortcut>,
-    help: &ModeInfo,
-) -> LinePart {
-    let mut shortened_shortcut_list = LinePart::default();
-    for key in keys_without_common_modifiers {
-        let keys = key
-            .key
-            .as_ref()
-            .map(|k| vec![k.clone()])
-            .unwrap_or_else(|| vec![]);
-        let shortcut = if is_selected_lock(key) {
-            add_locked_shortcut_with_key_only(help, keys)
-        } else {
-            add_shortcut_with_key_only(help, keys, key.is_selected())
-        };
-        shortened_shortcut_list.append(&shortcut);
-    }
-    shortened_shortcut_list
+) -> Vec<LinePart> {
+    keys_without_common_modifiers
+        .iter()
+        .map(|key| {
+            let keys = key
+                .key
+                .as_ref()
+                .map(|k| vec![k.clone()])
+                .unwrap_or_else(|| vec![]);
+            if is_selected_lock(key) {
+                add_locked_shortcut_with_inline_key(help, &key.full_text(), keys)
+            } else {
+                add_shortcut_with_inline_key(help, &key.full_text(), keys, key.is_selected())
+            }
+        })
+        .filter(|s| s.len > 0)
+        .collect()
 }
 
 fn full_modes_shortcut_list(default_keys: &Vec<KeyShortcut>, help: &ModeInfo) -> LinePart {
@@ -1064,19 +1008,29 @@ fn pill_colors(palette: Styling, selected: bool) -> (PaletteColor, PaletteColor,
     }
 }
 
-// ` key label ` — accented key, base-coloured label, on one background. Either
-// side may be empty: key-only yields ` key `, label-only yields ` label `.
+// ` key label▏` — accented key, base-coloured label, on one background, capped
+// by a one-column "seam" in `seam_bg` (a right border). Either text side may be
+// empty: key-only yields ` key▏`, label-only yields ` label▏`.
+//
+// The seam is the pill's own trailing padding recoloured, NOT an extra column —
+// so it separates abutting same-colour pills (the all-grey submode hint list,
+// where nothing else marks a boundary) at zero width cost. Pass `seam_bg` =
+// the bar's line background for a thin dark gap between chips.
 fn flat_pill(
     key: &str,
     label: &str,
     bg: PaletteColor,
     key_fg: PaletteColor,
     label_fg: PaletteColor,
+    seam_bg: PaletteColor,
 ) -> LinePart {
     let bg = palette_match!(bg);
     let key_fg = palette_match!(key_fg);
     let label_fg = palette_match!(label_fg);
-    let (bits, len): (Vec<ANSIString>, usize) = match (key.is_empty(), label.is_empty()) {
+    let seam = palette_match!(seam_bg);
+    // Content WITHOUT its trailing space (that column becomes the seam below), so
+    // total width is identical to a plain ` key label ` pill.
+    let (mut bits, len): (Vec<ANSIString>, usize) = match (key.is_empty(), label.is_empty()) {
         (false, false) => (
             vec![
                 Style::new().fg(key_fg).on(bg).bold().paint(format!(" {}", key)),
@@ -1084,16 +1038,12 @@ fn flat_pill(
                     .fg(label_fg)
                     .on(bg)
                     .bold()
-                    .paint(format!(" {} ", label)),
+                    .paint(format!(" {}", label)),
             ],
             key.width() + label.width() + 3,
         ),
         (false, true) => (
-            vec![Style::new()
-                .fg(key_fg)
-                .on(bg)
-                .bold()
-                .paint(format!(" {} ", key))],
+            vec![Style::new().fg(key_fg).on(bg).bold().paint(format!(" {}", key))],
             key.width() + 2,
         ),
         _ => (
@@ -1101,10 +1051,12 @@ fn flat_pill(
                 .fg(label_fg)
                 .on(bg)
                 .bold()
-                .paint(format!(" {} ", label))],
+                .paint(format!(" {}", label))],
             label.width() + 2,
         ),
     };
+    // The zero-cost right border: the pill's trailing padding cell, recoloured.
+    bits.push(Style::new().on(seam).paint(" "));
     LinePart {
         part: ANSIStrings(&bits).to_string(),
         len,
@@ -1231,36 +1183,34 @@ fn paginate_segments(
     out
 }
 
-// Stage-2 hints collapsed to one key per action (the first bound key), each a
-// tiny flat pill — the keys-only rung of the ladder, paged when even it spills.
-fn keys_only_segments(help: &ModeInfo) -> Vec<LinePart> {
-    let (bg, _label_fg, key_fg) = pill_colors(help.style.colors, false);
+// One named flat pill per submode hint, using the SHORT label (` n New `,
+// ` f Floating `, …) — never the long "Toggle Fullscreen"-style label, which is
+// gone. Returned as a Vec so `paginate_segments` can window it.
+fn short_named_segments(help: &ModeInfo) -> Vec<LinePart> {
     get_keys_and_hints(help)
         .into_iter()
-        .filter_map(|(_long, _short, keys)| {
-            let first = keys.into_iter().next()?;
-            Some(flat_pill(&first.to_string(), "", bg, key_fg, key_fg))
+        .filter_map(|(_long, short, keys)| {
+            if keys.is_empty() {
+                return None;
+            }
+            let pill = add_shortcut(help, &short, &keys.to_vec(), false, None);
+            (pill.len > 0).then_some(pill)
         })
         .collect()
 }
 
+// Fork: the submode hint list degrades in ONE step, matching the mode ribbon:
+// short-labelled named pills, and the moment they overflow, `paginate_segments`
+// windows them with `‹N` / `N›` counts (mouse-scroll pages). No long-label rung
+// (never used except at absurd widths) and no keys-only rung (the hotkey stays
+// named): the ladder is just short → paged.
 fn keybinds(
     help: &ModeInfo,
     max_width: usize,
     hint_scroll: usize,
     paging: &mut PagingOut,
 ) -> Option<LinePart> {
-    let full_shortcut_list = full_shortcut_list(help);
-    if full_shortcut_list.len <= max_width {
-        return Some(full_shortcut_list);
-    }
-    let shortened_shortcut_list = shortened_shortcut_list(help);
-    if shortened_shortcut_list.len <= max_width {
-        return Some(shortened_shortcut_list);
-    }
-    // Keys-only rung: collapse each hint to just its key (like the mode ribbon),
-    // then paginate with `‹N`/`N›` counts so the hints never vanish outright.
-    let segments = keys_only_segments(help);
+    let segments = short_named_segments(help);
     Some(paginate_segments(
         segments,
         max_width,
@@ -1281,7 +1231,8 @@ fn add_shortcut(
         return LinePart::default();
     }
     let (bg, label_fg, key_fg) = pill_colors(help.style.colors, selected);
-    flat_pill(&key_group_string(keys), text, bg, key_fg, label_fg)
+    let seam = help.style.colors.text_unselected.background;
+    flat_pill(&key_group_string(keys), text, bg, key_fg, label_fg, seam)
 }
 
 fn add_shortcut_with_inline_key(
@@ -1294,7 +1245,8 @@ fn add_shortcut_with_inline_key(
         return LinePart::default();
     }
     let (bg, label_fg, key_fg) = pill_colors(help.style.colors, is_selected);
-    flat_pill(&key_group_string(&key), text, bg, key_fg, label_fg)
+    let seam = help.style.colors.text_unselected.background;
+    flat_pill(&key_group_string(&key), text, bg, key_fg, label_fg, seam)
 }
 
 // Fork: find the key bound to a `Run` command, so the bottom-right hints can
@@ -1332,23 +1284,6 @@ fn run_bind_key(
             })
         })
         .unwrap_or_default()
-}
-
-fn add_shortcut_with_key_only(
-    help: &ModeInfo,
-    key: Vec<KeyWithModifier>,
-    is_selected: bool,
-) -> LinePart {
-    if key.is_empty() {
-        return LinePart::default();
-    }
-    let key_string = key
-        .iter()
-        .map(|k| k.to_string())
-        .collect::<Vec<_>>()
-        .join("-");
-    let (bg, _label_fg, key_fg) = pill_colors(help.style.colors, is_selected);
-    flat_pill(&key_string, "", bg, key_fg, key_fg)
 }
 
 // Fork: the "locked" mode indicator (`<g> LOCK` / `<g> UNLOCK`) reads as a
@@ -1402,28 +1337,6 @@ fn add_locked_shortcut_with_inline_key(
     }
 }
 
-// Red counterpart of `add_shortcut_with_key_only` — just ` g ` in a red pill.
-fn add_locked_shortcut_with_key_only(help: &ModeInfo, key: Vec<KeyWithModifier>) -> LinePart {
-    if key.is_empty() {
-        return LinePart::default();
-    }
-    let (red_bg, _dark_fg, key_fg, _line_bg) = locked_ribbon_colors(help.style.colors);
-    let key_string = key
-        .iter()
-        .map(|k| k.to_string())
-        .collect::<Vec<_>>()
-        .join("-");
-    LinePart {
-        part: Style::new()
-            .fg(key_fg)
-            .on(red_bg)
-            .bold()
-            .paint(format!(" {} ", key_string))
-            .to_string(),
-        len: key_string.width() + 2,
-    }
-}
-
 // Red LOCK label pill, no inline key (the key is styled separately alongside it,
 // as in `add_shortcut`). Used on the no-common-modifier rendering path.
 fn add_locked_label_ribbon(help: &ModeInfo, text: &str) -> LinePart {
@@ -1470,6 +1383,7 @@ fn add_keygroup_separator(help: &ModeInfo, max_len: usize) -> Option<LinePart> {
             palette.text_unselected.emphasis_0,
             palette.ribbon_selected.base,
             palette.ribbon_selected.base,
+            palette.text_unselected.background,
         ));
     }
     // one line-bg space dividing the mode pill from the hint list
@@ -1485,24 +1399,6 @@ fn add_keygroup_separator(help: &ModeInfo, max_len: usize) -> Option<LinePart> {
     } else {
         None
     }
-}
-
-fn full_shortcut_list(help: &ModeInfo) -> LinePart {
-    match help.mode {
-        InputMode::Normal => LinePart::default(),
-        InputMode::Locked => LinePart::default(),
-        _ => full_shortcut_list_nonstandard_mode(help),
-    }
-}
-
-fn full_shortcut_list_nonstandard_mode(help: &ModeInfo) -> LinePart {
-    let mut line_part = LinePart::default();
-    let keys_and_hints = get_keys_and_hints(help);
-
-    for (long, _short, keys) in keys_and_hints.into_iter() {
-        line_part.append(&add_shortcut(help, &long, &keys.to_vec(), false, Some(2)));
-    }
-    line_part
 }
 
 #[rustfmt::skip]
@@ -1693,24 +1589,6 @@ fn get_keys_and_hints(mi: &ModeInfo) -> Vec<(String, String, Vec<KeyWithModifier
     ]} else if matches!(mi.mode, IM::RenamePane | IM::RenameTab) { vec![
         (s("When done"), s("Done"), to_basemode_key),
     ]} else { vec![] }
-}
-
-fn shortened_shortcut_list_nonstandard_mode(help: &ModeInfo) -> LinePart {
-    let mut line_part = LinePart::default();
-    let keys_and_hints = get_keys_and_hints(help);
-
-    for (_, short, keys) in keys_and_hints.into_iter() {
-        line_part.append(&add_shortcut(help, &short, &keys.to_vec(), false, Some(2)));
-    }
-    line_part
-}
-
-fn shortened_shortcut_list(help: &ModeInfo) -> LinePart {
-    match help.mode {
-        InputMode::Normal => LinePart::default(),
-        InputMode::Locked => LinePart::default(),
-        _ => shortened_shortcut_list_nonstandard_mode(help),
-    }
 }
 
 fn single_action_key(
