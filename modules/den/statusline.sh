@@ -60,12 +60,22 @@ render_status() {
   printf '%s' "$st"
 }
 
-# render_pr <prstate> — "#N" colored by PR state, or nothing when there's no PR.
+# render_pr <prstate> [url] — "#N" colored by PR state, or nothing when there's
+# no PR. When a url is given, the "#N" becomes an OSC 8 terminal hyperlink
+# (⌘/ctrl-click to open the PR in a browser) — SGR color survives inside the
+# link. The hyperlink adds ZERO visible width; callers must size the segment
+# from the plain "#N" text, not from this output (plain() strips SGR, not OSC 8).
 render_pr() {
-  local pr="$1" state="${1##* }" col="$DIM"
+  local pr="$1" url="${2:-}" state="${1##* }" col="$DIM" num="${1%% *}"
   [ -n "$pr" ] || return 0
   case "$state" in open) col="$PR_OPEN";; merged) col="$PR_MERGED";; closed) col="$PR_CLOSED";; esac
-  printf '%s' "${col}${pr%% *}${R}"
+  if [ -n "$url" ]; then
+    # OSC 8: ESC ]8;;URL ST  <text>  ESC ]8;; ST   (ST = ESC \, real bytes here —
+    # the child-row printf uses %s so these bytes pass through un-reinterpreted).
+    printf '\033]8;;%s\033\\%s%s%s\033]8;;\033\\' "$url" "$col" "$num" "$R"
+  else
+    printf '%s' "${col}${num}${R}"
+  fi
 }
 plain() { printf '%s' "$1" | sed 's/\x1b\[[0-9;]*m//g'; }   # strip ANSI for width
 
@@ -216,17 +226,24 @@ while IFS=$'\t' read -r pslug pname pahead pfiles pins pdel ppr pparent; do
   [ "$pparent" = "$cwd" ] || continue           # only worktrees I spawned
   if [ "$shown" -ge "$MAX_ROWS" ]; then extra=$((extra+1)); continue; fi
   pst=$(render_status "$pahead" "$pfiles" "$pins" "$pdel" "$ppr" 0)
-  prseg=$(render_pr "$ppr")
+  # Hyperlink the PR number to its GitHub page (OSC 8). The URL is reconstructed
+  # from the slug + number the refresher already cached — no extra gh call.
+  prnum="${ppr%% *}"                            # "#40" (empty when no PR)
+  prurl=""; [ -n "$ppr" ] && prurl="https://github.com/${pslug}/pull/${prnum#\#}"
+  prseg=$(render_pr "$ppr" "$prurl")
   repo="${pslug##*/}"
-  # width-aware truncation: only clip the name if the row would exceed COLS
+  # width-aware truncation: only clip the name if the row would exceed COLS.
+  # Size the PR segment from its VISIBLE text ("#40"), since the OSC 8 hyperlink
+  # in prseg carries the URL as zero-width bytes that plain() can't strip.
   stplain=$(plain "$pst"); stlen=${#stplain}
-  prplain=$(plain "$prseg"); prlen=${#prplain}
-  [ "$prlen" -gt 0 ] && prlen=$((prlen+1))    # trailing space after "#N"
+  prlen=${#prnum}; [ "$prlen" -gt 0 ] && prlen=$((prlen+1))   # +1 for trailing space
   budget=$(( COLS - 4 - ${#repo} - 1 - prlen - stlen - 4 ))
   [ "$budget" -lt 8 ] && budget=8
   disp="$pname"
   [ ${#disp} -gt "$budget" ] && disp="${disp:0:budget-1}…"
-  printf '%b\n' "  ${GRAY}○${R} ${DIM}${repo}${R} ${prseg:+$prseg }${disp}${pst:+  $pst}"
+  # %s (not %b): prseg's OSC 8 bytes include a literal ST backslash that %b would
+  # eat; every color code here is already a materialized ESC byte, so %s is exact.
+  printf '%s\n' "  ${GRAY}○${R} ${DIM}${repo}${R} ${prseg:+$prseg }${disp}${pst:+  $pst}"
   shown=$((shown+1))
 done <"$PANEL"
 [ "$extra" -gt 0 ] && printf '%b\n' "  ${DIM}+${extra} more${R}"
