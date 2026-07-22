@@ -77,7 +77,10 @@ render_pr() {
     printf '%s' "${col}${num}${R}"
   fi
 }
-plain() { printf '%s' "$1" | sed 's/\x1b\[[0-9;]*m//g'; }   # strip ANSI for width
+# strip ANSI SGR *and* OSC 8 hyperlinks so vlen counts only visible columns.
+# (This sed doesn't grok \x1b inside a bracket class, so the URL is matched as
+# "non-backslash" — URLs never contain '\', and the ST terminator's '\' stops it.)
+plain() { printf '%s' "$1" | sed 's/\x1b]8;;[^\\]*\x1b\\//g; s/\x1b\[[0-9;]*m//g'; }
 
 in=$(cat)
 j() { printf '%s' "$in" | jq -r "$1 // empty"; }
@@ -174,6 +177,26 @@ else
   row1="${lead} ${DIM}$(basename "$cwd")${R}"
 fi
 
+# PR-link cluster: bare PR numbers (no '#') for every worktree THIS session
+# spawned, space-separated and pinned to the far LEFT of row 1 — before the lead
+# glyph/name. Each is an OSC 8 hyperlink to its PR, colored by state. Row 1 is
+# the last line a growing input composer clips, so these links stay reachable
+# even when the per-worktree rows below scroll out of view.
+prcluster=""
+if [ -f "$PANEL" ]; then
+  while IFS=$'\t' read -r cslug cname _c3 _c4 _c5 _c6 cpr cparent; do
+    [ -n "$cname" ] || continue
+    [ "$cparent" = "$cwd" ] || continue          # only PRs this session spawned
+    [ -n "$cpr" ] && [ "$cpr" != "-" ] || continue
+    cnum="${cpr%% *}"; cnum="${cnum#\#}"          # bare number, no '#'
+    case "${cpr##* }" in open) ccol="$PR_OPEN";; merged) ccol="$PR_MERGED";; closed) ccol="$PR_CLOSED";; *) ccol="$DIM";; esac
+    clink=$(printf '\033]8;;https://github.com/%s/pull/%s\033\\%s%s%s\033]8;;\033\\' \
+              "$cslug" "$cnum" "$ccol" "$cnum" "$R")
+    prcluster="${prcluster:+$prcluster }$clink"
+  done <"$PANEL"
+  [ -n "$prcluster" ] && row1="$prcluster $row1"
+fi
+
 # Mode icon: Claude Code's own glyph language (⏸ plan, ⏵⏵ armed), our palette.
 # default/unknown stays blank — quiet is the baseline, the icon marks the
 # armed/special modes. Pairs with the rice's de-footered claude build (the
@@ -207,7 +230,7 @@ if [ -n "$tailseg" ]; then
     row1="$row1   $tailseg"
   fi
 fi
-printf '%b\n' "$row1"
+printf '%s\n' "$row1"   # %s: row 1 may carry OSC 8 links whose ST '\' %b would eat
 
 # --- refresh the (shared) panel cache if stale, detached --------------------
 stale=1
