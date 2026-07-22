@@ -803,13 +803,19 @@ fn render_common_modifiers(
     // Fork: no powerline cap after the modifier prefix — a single line-bg space
     // divides ` ctrl +` from the first flat pill. `separator` is left unused here
     // (the two-row classic bar still threads it).
+    //
+    // Paint the prefix with `superkey_prefix` (fg on the bar's line background),
+    // NOT an opaque `Text` — an opaque Text renders on the plugin pane's own
+    // default background, a shade off the bar colour, which reintroduces the
+    // seam the flat pills paint out. `superkey_prefix`/`superkey_suffix_separator`
+    // both sit on `text_unselected.background`, so prefix + separator + pills all
+    // share the one bar background.
     let _ = separator;
+    let prefix = palette.superkey_prefix.paint(prefix_text.as_str());
     let suffix_separator = palette.superkey_suffix_separator.paint(" ");
     line_part_to_render.part = format!(
         "{}{}{}",
-        line_part_to_render.part,
-        serialize_text(&Text::new(&prefix_text).opaque()),
-        suffix_separator
+        line_part_to_render.part, prefix, suffix_separator
     );
     line_part_to_render.len += prefix_text.chars().count() + 1;
 }
@@ -983,14 +989,21 @@ fn text_as_line_part_with_emphasis(text: String, emphases_index: usize) -> LineP
 
 // ── Flat text hints ──────────────────────────────────────────────────────────
 // Fork: the bottom bar dropped zellij's powerline ribbons (`serialize_ribbon`,
-// which the host caps with pointy arrow glyphs) AND, later, the background pills
-// that replaced them — no fills, no dividers. Each hint is now just accented
-// text sitting directly on the bar's own background: ` key label`, then a plain
+// which the host caps with pointy arrow glyphs) AND, later, the *distinct*
+// background pills that replaced them — no boxes, no dividers. Each hint is now
+// just accented text on the bar's own background: ` key label`, then a plain
 // space, so two hints abut as ` a X  b Y ` (the 2-space gap alone separates
-// them). Since there's no longer a fill to encode state, colour does it: the key
+// them). Since there's no longer a box to encode state, colour does it: the key
 // letter is a constant yellow accent and the *label* colour carries the mode's
 // state — light grey inactive, green active, red locked. Widths are unchanged
 // from the old pill form, so the overflow-paging math still holds.
+//
+// "On the bar's own background" is literal: every cell is painted *explicitly*
+// on `text_unselected.background` (the colour `render`'s `fill_bg` clears the
+// rest of the row with). It is NOT left transparent — a transparent cell falls
+// through to the plugin pane's default background, which the theme sets a shade
+// off the bar colour, and that gap between the hint run and the filled remainder
+// is the seam. Painting the bar bg under every hint makes the whole row uniform.
 
 // (key accent fg, label fg) for a hint on the bar background. The key is always
 // the yellow accent; the label colour encodes state — light grey for an inactive
@@ -1005,38 +1018,47 @@ fn pill_colors(palette: Styling, selected: bool) -> (PaletteColor, PaletteColor)
     (key_fg, label_fg)
 }
 
-// ` key label ` — accented key, state-coloured label, no background fill and no
-// divider, on the bar's own line background. Either text side may be empty:
-// key-only yields ` key `, label-only yields ` label `. The trailing space is a
-// plain (unstyled) pad so abutting hints are separated by whitespace alone;
-// widths match the old pill form exactly.
+// ` key label ` — accented key, state-coloured label, no box and no divider, on
+// the bar's own line background. Either text side may be empty: key-only yields
+// ` key `, label-only yields ` label `. The trailing space is a plain pad so
+// abutting hints are separated by whitespace alone; widths match the old pill
+// form exactly.
+//
+// `bg` MUST be the bar's line background (`text_unselected.background`, the same
+// colour `render`'s `fill_bg` clears the rest of the row with). Every cell —
+// including the trailing pad — is painted on it *explicitly*: an unset (fg-only)
+// cell would fall through to the plugin pane's own default background, which the
+// nebelung theme sets a shade off the bar colour — that mismatch is exactly the
+// seam this paints out, so the whole row reads as one flat background.
 fn flat_pill(
     key: &str,
     label: &str,
     key_fg: PaletteColor,
     label_fg: PaletteColor,
+    bg: PaletteColor,
 ) -> LinePart {
     let key_fg = palette_match!(key_fg);
     let label_fg = palette_match!(label_fg);
+    let bg = palette_match!(bg);
     let (mut bits, len): (Vec<ANSIString>, usize) = match (key.is_empty(), label.is_empty()) {
         (false, false) => (
             vec![
-                Style::new().fg(key_fg).bold().paint(format!(" {}", key)),
-                Style::new().fg(label_fg).bold().paint(format!(" {}", label)),
+                Style::new().fg(key_fg).on(bg).bold().paint(format!(" {}", key)),
+                Style::new().fg(label_fg).on(bg).bold().paint(format!(" {}", label)),
             ],
             key.width() + label.width() + 3,
         ),
         (false, true) => (
-            vec![Style::new().fg(key_fg).bold().paint(format!(" {}", key))],
+            vec![Style::new().fg(key_fg).on(bg).bold().paint(format!(" {}", key))],
             key.width() + 2,
         ),
         _ => (
-            vec![Style::new().fg(label_fg).bold().paint(format!(" {}", label))],
+            vec![Style::new().fg(label_fg).on(bg).bold().paint(format!(" {}", label))],
             label.width() + 2,
         ),
     };
-    // trailing pad — a plain space, no recoloured "seam"/divider.
-    bits.push(Style::new().paint(" "));
+    // trailing pad — a plain space on the bar background, no recoloured "seam".
+    bits.push(Style::new().on(bg).paint(" "));
     LinePart {
         part: ANSIStrings(&bits).to_string(),
         len,
@@ -1211,7 +1233,13 @@ fn add_shortcut(
         return LinePart::default();
     }
     let (key_fg, label_fg) = pill_colors(help.style.colors, selected);
-    flat_pill(&key_group_string(keys), text, key_fg, label_fg)
+    flat_pill(
+        &key_group_string(keys),
+        text,
+        key_fg,
+        label_fg,
+        help.style.colors.text_unselected.background,
+    )
 }
 
 fn add_shortcut_with_inline_key(
@@ -1224,7 +1252,13 @@ fn add_shortcut_with_inline_key(
         return LinePart::default();
     }
     let (key_fg, label_fg) = pill_colors(help.style.colors, is_selected);
-    flat_pill(&key_group_string(&key), text, key_fg, label_fg)
+    flat_pill(
+        &key_group_string(&key),
+        text,
+        key_fg,
+        label_fg,
+        help.style.colors.text_unselected.background,
+    )
 }
 
 // Fork: find the key bound to a `Run` command, so the bottom-right hints can
@@ -1287,16 +1321,24 @@ fn add_locked_shortcut_with_inline_key(
         .map(|k| k.to_string())
         .collect::<Vec<_>>()
         .join("|");
-    flat_pill(&key_string, text, key_fg, label_fg)
+    flat_pill(
+        &key_string,
+        text,
+        key_fg,
+        label_fg,
+        palette.text_unselected.background,
+    )
 }
 
 // Red LOCK label, no inline key (the key is styled separately alongside it, as
 // in `add_shortcut`). Used on the no-common-modifier rendering path.
 fn add_locked_label_ribbon(help: &ModeInfo, text: &str) -> LinePart {
     let label_fg = palette_match!(help.style.colors.exit_code_error.base);
+    let bg = palette_match!(help.style.colors.text_unselected.background);
     LinePart {
         part: Style::new()
             .fg(label_fg)
+            .on(bg)
             .bold()
             .paint(format!(" {} ", text))
             .to_string(),
@@ -1324,19 +1366,21 @@ fn add_keygroup_separator(help: &ModeInfo, max_len: usize) -> Option<LinePart> {
         _ => None,
     };
 
+    let bar_bg = palette_match!(palette.text_unselected.background);
     let mut ret = LinePart::default();
     if let Some(mode_help_text) = mode_help_text {
-        // amber state banner — accented text, no fill, stands out as a transient
-        // state without a pill.
+        // amber state banner — accented text on the bar background, stands out as
+        // a transient state without a box.
         ret.append(&flat_pill(
             "",
             mode_help_text,
             palette.text_unselected.emphasis_0,
             palette.text_unselected.emphasis_0,
+            palette.text_unselected.background,
         ));
     }
-    // one plain space dividing the mode word from the hint list
-    ret.part = format!("{}{}", ret.part, Style::new().paint(" "));
+    // one space (on the bar background) dividing the mode word from the hint list
+    ret.part = format!("{}{}", ret.part, Style::new().on(bar_bg).paint(" "));
     ret.len += 1;
 
     if ret.len <= max_len {
