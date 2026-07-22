@@ -11,11 +11,14 @@
 // entering chord modes (e.g. Ctrl-t shows tab-mode hints). The bottom bar is
 // our fork of zellij:status-bar (see zellij/status-bar/): it renders NO
 // powerline arrows anywhere — every segment is a hand-rolled "flat pill" (a
-// blunt-edged ` key label ` on a background colour), which is ~2 cols cheaper
-// than upstream's arrow-capped ribbons, so more hints fit. When a hint list
-// (the mode ribbon, or a submode's keybinds) outgrows the pane it degrades:
-// full labels → short labels → keys-only, and past that it windows the keys
-// with `‹N` / `N›` overflow counts (mouse-scroll over the bar pages them),
+// blunt-edged ` key label ` on a background colour, capped by a one-column
+// line-bg "seam" that reuses the pill's own trailing padding, so abutting
+// same-colour pills read as separate chips at zero width cost), which is
+// ~2 cols cheaper than upstream's arrow-capped ribbons, so more hints fit.
+// The hotkey always keeps its name: a hint list (the mode ribbon, or a
+// submode's keybinds) degrades in ONE step — named pills, and the moment they
+// outgrow the pane it windows them with `‹N` / `N›` overflow counts
+// (mouse-scroll over the bar pages them), never dropping to bare keys and
 // never vanishing outright. The bottom-right quick hints are a single flat
 // "Super + <c,p,t,y,f>" block (the launchers + fullscreen — claude / pane /
 // tab / yazi-peek / fullscreen, keys only, no word-labels). That block only
