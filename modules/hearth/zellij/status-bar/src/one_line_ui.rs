@@ -10,9 +10,38 @@ use zellij_tile_utils::palette_match;
 
 use crate::first_line::{to_char, KeyAction, KeyMode, KeyShortcut};
 use crate::second_line::{system_clipboard_error, text_copied_hint};
-use crate::{action_key, action_key_group, color_elements, MORE_MSG, TO_NORMAL};
+use crate::{action_key, action_key_group, color_elements, TO_NORMAL};
 use crate::{ColoredElements, LinePart};
 use unicode_width::UnicodeWidthStr;
+
+/// What `one_line_ui` hands back to the plugin's `render`: the line to print,
+/// plus the paging bookkeeping for the overflowing hint window (see `PagingOut`).
+pub struct OneLineUi {
+    pub line: LinePart,
+    pub max_hint_scroll: usize,
+    pub hint_scroll: usize,
+}
+
+impl OneLineUi {
+    // A line with no pageable hints (clipboard toasts, empty right side, …).
+    fn plain(line: LinePart) -> Self {
+        OneLineUi {
+            line,
+            max_hint_scroll: 0,
+            hint_scroll: 0,
+        }
+    }
+}
+
+/// Result of paginating whichever hint list overflowed this frame. `max` is the
+/// largest valid window-start (so `render` can clamp future scroll events);
+/// `clamped` is the start actually shown (the caller stores it back, so an
+/// over-scroll snaps to the last page and scrolling back up is immediate).
+#[derive(Default)]
+struct PagingOut {
+    max: usize,
+    clamped: usize,
+}
 
 pub fn one_line_ui(
     help: &ModeInfo,
@@ -22,36 +51,52 @@ pub fn one_line_ui(
     base_mode_is_locked: bool,
     text_copied_to_clipboard_destination: Option<CopyDestination>,
     clipboard_failure: bool,
-) -> LinePart {
+    hint_scroll: usize,
+) -> OneLineUi {
     if let Some(text_copied_to_clipboard_destination) = text_copied_to_clipboard_destination {
-        return text_copied_hint(text_copied_to_clipboard_destination);
+        return OneLineUi::plain(text_copied_hint(text_copied_to_clipboard_destination));
     }
     if clipboard_failure {
-        return system_clipboard_error(&help.style.colors);
+        return OneLineUi::plain(system_clipboard_error(&help.style.colors));
     }
     let mut line_part_to_render = LinePart::default();
+    // At most one hint list is on screen at a time (the mode ribbon in Normal,
+    // OR a submode's keybinds), so a single scroll offset + paging result drives
+    // whichever one overflowed.
+    let mut paging = PagingOut::default();
     let mut append = |line_part: &LinePart, max_len: &mut usize| {
         line_part_to_render.append(line_part);
         *max_len = max_len.saturating_sub(line_part.len);
     };
 
-    render_mode_key_indicators(help, max_len, separator, base_mode_is_locked)
-        .map(|mode_key_indicators| append(&mode_key_indicators, &mut max_len))
-        .and_then(|_| match help.mode {
-            // Unlocked (Normal): the full mode ribbon on the left already spells
-            // out every submode, so the bottom-right `Super + <c,p,t,y,f>` launcher
-            // block is just clutter here — leave the right side empty. The hints
-            // still render in Locked, where the ribbon collapses to the lone
-            // unlock key and the reminder earns its space.
-            InputMode::Normal => Some(()),
-            InputMode::Locked => render_secondary_info(help, tab_info, max_len)
-                .map(|secondary_info| append(&secondary_info, &mut max_len)),
-            _ => add_keygroup_separator(help, max_len)
-                .map(|key_group_separator| append(&key_group_separator, &mut max_len))
-                .and_then(|_| keybinds(help, max_len))
-                .map(|keybinds| append(&keybinds, &mut max_len)),
-        });
-    line_part_to_render
+    render_mode_key_indicators(
+        help,
+        max_len,
+        separator,
+        base_mode_is_locked,
+        hint_scroll,
+        &mut paging,
+    )
+    .map(|mode_key_indicators| append(&mode_key_indicators, &mut max_len))
+    .and_then(|_| match help.mode {
+        // Unlocked (Normal): the full mode ribbon on the left already spells
+        // out every submode, so the bottom-right `Super + <c,p,t,y,f>` launcher
+        // block is just clutter here — leave the right side empty. The hints
+        // still render in Locked, where the ribbon collapses to the lone
+        // unlock key and the reminder earns its space.
+        InputMode::Normal => Some(()),
+        InputMode::Locked => render_secondary_info(help, tab_info, max_len)
+            .map(|secondary_info| append(&secondary_info, &mut max_len)),
+        _ => add_keygroup_separator(help, max_len)
+            .map(|key_group_separator| append(&key_group_separator, &mut max_len))
+            .and_then(|_| keybinds(help, max_len, hint_scroll, &mut paging))
+            .map(|keybinds| append(&keybinds, &mut max_len)),
+    });
+    OneLineUi {
+        line: line_part_to_render,
+        max_hint_scroll: paging.max,
+        hint_scroll: paging.clamped,
+    }
 }
 
 fn to_base_mode(base_mode: InputMode) -> Action {
@@ -505,6 +550,8 @@ fn render_mode_key_indicators(
     max_len: usize,
     separator: &str,
     base_mode_is_locked: bool,
+    hint_scroll: usize,
+    paging: &mut PagingOut,
 ) -> Option<LinePart> {
     let mut line_part_to_render = LinePart::default();
     let supports_arrow_fonts = !help.capabilities.arrow_fonts;
@@ -580,20 +627,38 @@ fn render_mode_key_indicators(
                         line_part_to_render.append(&compact_prefix);
                         line_part_to_render.append(&shortened_shortcut_list);
                     } else if compact_prefix.len < max_len {
-                        // ^ + <1-char keys, truncated>. Rather than blank the whole
+                        // ^ + <1-char keys, PAGED>. Rather than blank the whole
                         // left side — the old all-or-nothing behaviour, where the
                         // bar just vanished past a certain thinness — keep the
-                        // caret prefix and as many 1-char keys as still fit,
-                        // dropping the rest off the right. Hints degrade gracefully
-                        // instead of snapping to empty.
-                        let truncated = truncated_inline_keys_modes_shortcut_list(
-                            &keys_without_common_modifiers,
-                            help,
+                        // caret prefix and window the 1-char keys, with `‹N`/`N›`
+                        // count pills at the edges and mouse-scroll to page. Hints
+                        // degrade gracefully instead of snapping to empty.
+                        let segments: Vec<LinePart> = keys_without_common_modifiers
+                            .iter()
+                            .map(|key| {
+                                let keys = key
+                                    .key
+                                    .as_ref()
+                                    .map(|k| vec![k.clone()])
+                                    .unwrap_or_default();
+                                if is_selected_lock(key) {
+                                    add_locked_shortcut_with_key_only(help, keys)
+                                } else {
+                                    add_shortcut_with_key_only(help, keys, key.is_selected())
+                                }
+                            })
+                            .filter(|s| s.len > 0)
+                            .collect();
+                        let paged = paginate_segments(
+                            segments,
                             max_len - compact_prefix.len,
+                            hint_scroll,
+                            help.style.colors,
+                            paging,
                         );
-                        if truncated.len > 0 {
+                        if paged.len > 0 {
                             line_part_to_render.append(&compact_prefix);
-                            line_part_to_render.append(&truncated);
+                            line_part_to_render.append(&paged);
                         }
                     }
                 }
@@ -661,35 +726,6 @@ fn shortened_inline_keys_modes_shortcut_list(
         shortened_shortcut_list.append(&shortcut);
     }
     shortened_shortcut_list
-}
-
-// Fork: like shortened_inline_keys_modes_shortcut_list, but stops appending
-// once the running width would exceed `budget`, so the 1-char key list drops
-// keys off the RIGHT as the pane narrows instead of the whole list vanishing at
-// once. See the call site in render_mode_key_indicators.
-fn truncated_inline_keys_modes_shortcut_list(
-    keys_without_common_modifiers: &Vec<KeyShortcut>,
-    help: &ModeInfo,
-    budget: usize,
-) -> LinePart {
-    let mut list = LinePart::default();
-    for key in keys_without_common_modifiers {
-        let keys = key
-            .key
-            .as_ref()
-            .map(|k| vec![k.clone()])
-            .unwrap_or_else(|| vec![]);
-        let shortcut = if is_selected_lock(key) {
-            add_locked_shortcut_with_key_only(help, keys)
-        } else {
-            add_shortcut_with_key_only(help, keys, key.is_selected())
-        };
-        if list.len + shortcut.len > budget {
-            break;
-        }
-        list.append(&shortcut);
-    }
-    list
 }
 
 fn full_modes_shortcut_list(default_keys: &Vec<KeyShortcut>, help: &ModeInfo) -> LinePart {
@@ -820,14 +856,18 @@ fn render_common_modifiers(
         format!(" {} +", joined)
     };
 
-    let suffix_separator = palette.superkey_suffix_separator.paint(separator);
+    // Fork: no powerline cap after the modifier prefix — a single line-bg space
+    // divides ` ctrl +` from the first flat pill. `separator` is left unused here
+    // (the two-row classic bar still threads it).
+    let _ = separator;
+    let suffix_separator = palette.superkey_suffix_separator.paint(" ");
     line_part_to_render.part = format!(
         "{}{}{}",
         line_part_to_render.part,
         serialize_text(&Text::new(&prefix_text).opaque()),
         suffix_separator
     );
-    line_part_to_render.len += prefix_text.chars().count() + separator.chars().count();
+    line_part_to_render.len += prefix_text.chars().count() + 1;
 }
 
 fn render_secondary_info(
@@ -997,7 +1037,219 @@ fn text_as_line_part_with_emphasis(text: String, emphases_index: usize) -> LineP
     }
 }
 
-fn keybinds(help: &ModeInfo, max_width: usize) -> Option<LinePart> {
+// ── Flat pills ───────────────────────────────────────────────────────────────
+// Fork: the bottom bar dropped zellij's powerline ribbons (`serialize_ribbon`,
+// which the host caps with pointy arrow glyphs) and every ARROW_SEPARATOR in
+// favour of hand-rolled "flat pills": a background-coloured ` key label ` run
+// with one space of padding and blunt edges — no arrow columns. Two pills abut
+// as ` a X  b Y ` (each pill's own padding supplies the 2-space gap); a colour
+// change at the seam (green selected vs grey unselected) marks the boundary.
+// That's ~2 columns cheaper per segment than a powerline ribbon, which is the
+// whole point — more hints fit before anything has to collapse.
+
+// (background, label fg, key/accent fg) for a selected vs unselected pill.
+fn pill_colors(palette: Styling, selected: bool) -> (PaletteColor, PaletteColor, PaletteColor) {
+    if selected {
+        (
+            palette.ribbon_selected.background,
+            palette.ribbon_selected.base,
+            palette.ribbon_selected.emphasis_0,
+        )
+    } else {
+        (
+            palette.ribbon_unselected.background,
+            palette.ribbon_unselected.base,
+            palette.ribbon_unselected.emphasis_0,
+        )
+    }
+}
+
+// ` key label ` — accented key, base-coloured label, on one background. Either
+// side may be empty: key-only yields ` key `, label-only yields ` label `.
+fn flat_pill(
+    key: &str,
+    label: &str,
+    bg: PaletteColor,
+    key_fg: PaletteColor,
+    label_fg: PaletteColor,
+) -> LinePart {
+    let bg = palette_match!(bg);
+    let key_fg = palette_match!(key_fg);
+    let label_fg = palette_match!(label_fg);
+    let (bits, len): (Vec<ANSIString>, usize) = match (key.is_empty(), label.is_empty()) {
+        (false, false) => (
+            vec![
+                Style::new().fg(key_fg).on(bg).bold().paint(format!(" {}", key)),
+                Style::new()
+                    .fg(label_fg)
+                    .on(bg)
+                    .bold()
+                    .paint(format!(" {} ", label)),
+            ],
+            key.width() + label.width() + 3,
+        ),
+        (false, true) => (
+            vec![Style::new()
+                .fg(key_fg)
+                .on(bg)
+                .bold()
+                .paint(format!(" {} ", key))],
+            key.width() + 2,
+        ),
+        _ => (
+            vec![Style::new()
+                .fg(label_fg)
+                .on(bg)
+                .bold()
+                .paint(format!(" {} ", label))],
+            label.width() + 2,
+        ),
+    };
+    LinePart {
+        part: ANSIStrings(&bits).to_string(),
+        len,
+    }
+}
+
+// Compact string for a key group: known clusters (arrows, hjkl, …) run together,
+// everything else joins with `|`; a shared modifier is surfaced once up front.
+fn key_group_string(keys: &[KeyWithModifier]) -> String {
+    if keys.is_empty() {
+        return String::new();
+    }
+    let common = get_common_modifiers(keys.iter().collect());
+    let joined_raw = keys
+        .iter()
+        .map(|k| k.strip_common_modifiers(&common).to_string())
+        .collect::<Vec<_>>()
+        .join("");
+    let sep = match joined_raw.as_str() {
+        "HJKL" | "hjkl" | "←↓↑→" | "←→" | "↓↑" | "[]" | "+-" => "",
+        _ => "|",
+    };
+    let bare = keys
+        .iter()
+        .map(|k| k.strip_common_modifiers(&common).to_string())
+        .collect::<Vec<_>>()
+        .join(sep);
+    if common.is_empty() {
+        bare
+    } else {
+        let mods = common
+            .iter()
+            .map(|m| m.to_string())
+            .collect::<Vec<_>>()
+            .join("-");
+        format!("{} {}", mods, bare)
+    }
+}
+
+// ── Overflow paging ──────────────────────────────────────────────────────────
+// Fork: when a hint list won't fit even as bare keys, window it instead of
+// dropping to a dead "...". Mirrors the top tab-bar's `← +N` / `+N →` overflow
+// pills, generalised to any Vec<LinePart>: `‹N` for N hidden left, `N›` for N
+// hidden right, and mouse-scroll pages the window (offset threaded in from
+// State). Records the clamp ceiling + shown start into `paging` so `render` can
+// bound future scroll events and snap an over-scroll to the last page.
+
+fn more_pill(text: String, palette: Styling) -> LinePart {
+    let fg = palette_match!(palette.text_unselected.emphasis_0); // peach accent
+    let bg = palette_match!(palette.text_unselected.background); // line bg
+    let s = format!(" {} ", text);
+    LinePart {
+        part: Style::new().fg(fg).on(bg).bold().paint(s.clone()).to_string(),
+        len: s.width(),
+    }
+}
+
+fn paginate_segments(
+    segments: Vec<LinePart>,
+    max_len: usize,
+    scroll: usize,
+    palette: Styling,
+    paging: &mut PagingOut,
+) -> LinePart {
+    let total: usize = segments.iter().map(|s| s.len).sum();
+    if segments.is_empty() || total <= max_len {
+        // Everything fits (or there's nothing) — no window, no indicators.
+        let mut lp = LinePart::default();
+        for s in &segments {
+            lp.append(s);
+        }
+        paging.max = 0;
+        paging.clamped = 0;
+        return lp;
+    }
+
+    // Fixed budget reserved for an edge indicator while choosing the window, so a
+    // `‹N` / `N›` pill is never clipped by the very overflow it marks. 5 cols
+    // covers ` ‹NN ` (two digits), ample for a hint list.
+    const IND_RESERVE: usize = 5;
+
+    // Largest window-start whose suffix still fits (leaving room for a left
+    // indicator). Scrolling past it just re-shows the last page, so it's the
+    // clamp ceiling handed back to the caller.
+    let mut max_start = segments.len().saturating_sub(1);
+    let mut suffix = 0usize;
+    for i in (0..segments.len()).rev() {
+        let left_ind = if i > 0 { IND_RESERVE } else { 0 };
+        if suffix + segments[i].len + left_ind <= max_len {
+            suffix += segments[i].len;
+            max_start = i;
+        } else {
+            break;
+        }
+    }
+    let start = scroll.min(max_start);
+
+    let mut window = LinePart::default();
+    let mut used = if start > 0 { IND_RESERVE } else { 0 };
+    let mut end = start;
+    while end < segments.len() {
+        let seg = &segments[end];
+        let right_reserve = if end + 1 < segments.len() { IND_RESERVE } else { 0 };
+        // Always show at least one segment (end > start guard) even if snug.
+        if end > start && used + seg.len + right_reserve > max_len {
+            break;
+        }
+        used += seg.len;
+        window.append(seg);
+        end += 1;
+    }
+
+    let hidden_right = segments.len() - end;
+    let mut out = LinePart::default();
+    if start > 0 {
+        out.append(&more_pill(format!("‹{}", start), palette));
+    }
+    out.append(&window);
+    if hidden_right > 0 {
+        out.append(&more_pill(format!("{}›", hidden_right), palette));
+    }
+    paging.max = max_start;
+    paging.clamped = start;
+    out
+}
+
+// Stage-2 hints collapsed to one key per action (the first bound key), each a
+// tiny flat pill — the keys-only rung of the ladder, paged when even it spills.
+fn keys_only_segments(help: &ModeInfo) -> Vec<LinePart> {
+    let (bg, _label_fg, key_fg) = pill_colors(help.style.colors, false);
+    get_keys_and_hints(help)
+        .into_iter()
+        .filter_map(|(_long, _short, keys)| {
+            let first = keys.into_iter().next()?;
+            Some(flat_pill(&first.to_string(), "", bg, key_fg, key_fg))
+        })
+        .collect()
+}
+
+fn keybinds(
+    help: &ModeInfo,
+    max_width: usize,
+    hint_scroll: usize,
+    paging: &mut PagingOut,
+) -> Option<LinePart> {
     let full_shortcut_list = full_shortcut_list(help);
     if full_shortcut_list.len <= max_width {
         return Some(full_shortcut_list);
@@ -1006,7 +1258,16 @@ fn keybinds(help: &ModeInfo, max_width: usize) -> Option<LinePart> {
     if shortened_shortcut_list.len <= max_width {
         return Some(shortened_shortcut_list);
     }
-    Some(best_effort_shortcut_list(help, max_width))
+    // Keys-only rung: collapse each hint to just its key (like the mode ribbon),
+    // then paginate with `‹N`/`N›` counts so the hints never vanish outright.
+    let segments = keys_only_segments(help);
+    Some(paginate_segments(
+        segments,
+        max_width,
+        hint_scroll,
+        help.style.colors,
+        paging,
+    ))
 }
 
 fn add_shortcut(
@@ -1014,28 +1275,13 @@ fn add_shortcut(
     text: &str,
     keys: &Vec<KeyWithModifier>,
     selected: bool,
-    key_color_index: Option<usize>,
+    _key_color_index: Option<usize>,
 ) -> LinePart {
-    let mut ret = LinePart::default();
     if keys.is_empty() {
-        return ret;
+        return LinePart::default();
     }
-
-    ret.append(&style_key_with_modifier(&keys, key_color_index)); // TODO: alternate
-                                                                  //
-    let ribbon = if selected {
-        serialize_ribbon(&Text::new(format!("{}", text)).selected())
-    } else {
-        serialize_ribbon(&Text::new(format!("{}", text)))
-    };
-    ret.part = format!("{}{}", ret.part, ribbon);
-    let supports_arrow_fonts = !help.capabilities.arrow_fonts;
-    ret.len += if supports_arrow_fonts {
-        text.width() + 4 // padding and arrow fonts
-    } else {
-        text.width() + 2 // padding
-    };
-    ret
+    let (bg, label_fg, key_fg) = pill_colors(help.style.colors, selected);
+    flat_pill(&key_group_string(keys), text, bg, key_fg, label_fg)
 }
 
 fn add_shortcut_with_inline_key(
@@ -1044,59 +1290,11 @@ fn add_shortcut_with_inline_key(
     key: Vec<KeyWithModifier>,
     is_selected: bool,
 ) -> LinePart {
-    let capabilities = help.capabilities;
-
-    let mut ret = LinePart::default();
     if key.is_empty() {
-        return ret;
+        return LinePart::default();
     }
-
-    let key_separator = match key
-        .iter()
-        .map(|k| k.to_string())
-        .collect::<Vec<_>>()
-        .join("")
-        .as_str()
-    {
-        "HJKL" => "",
-        "hjkl" => "",
-        "←↓↑→" => "",
-        "←→" => "",
-        "↓↑" => "",
-        "[]" => "",
-        "+-" => "",
-        _ => "|",
-    };
-
-    let key_string = format!(
-        "{}",
-        key.iter()
-            .map(|k| k.to_string())
-            .collect::<Vec<_>>()
-            .join(key_separator)
-    );
-
-    let ribbon = if is_selected {
-        serialize_ribbon(
-            &Text::new(format!("<{}> {}", key_string, text))
-                .color_range(0, 1..key_string.width() + 1)
-                .selected(),
-        )
-    } else {
-        serialize_ribbon(
-            &Text::new(format!("<{}> {}", key_string, text))
-                .color_range(0, 1..key_string.width() + 1),
-        )
-    };
-    ret.part = ribbon;
-    let supports_arrow_fonts = !capabilities.arrow_fonts;
-    ret.len += if supports_arrow_fonts {
-        text.width() + key_string.width() + 7 // padding, group boundaries and arrow fonts
-    } else {
-        text.width() + key_string.width() + 5 // padding and group boundaries
-    };
-
-    ret
+    let (bg, label_fg, key_fg) = pill_colors(help.style.colors, is_selected);
+    flat_pill(&key_group_string(&key), text, bg, key_fg, label_fg)
 }
 
 // Fork: find the key bound to a `Run` command, so the bottom-right hints can
@@ -1141,36 +1339,16 @@ fn add_shortcut_with_key_only(
     key: Vec<KeyWithModifier>,
     is_selected: bool,
 ) -> LinePart {
-    let mut ret = LinePart::default();
     if key.is_empty() {
-        return ret;
+        return LinePart::default();
     }
-
-    let key_string = format!(
-        "{}",
-        key.iter()
-            .map(|k| k.to_string())
-            .collect::<Vec<_>>()
-            .join("-")
-    );
-
-    let ribbon = if is_selected {
-        serialize_ribbon(
-            &Text::new(format!("{}", key_string))
-                .color_range(0, ..)
-                .selected(),
-        )
-    } else {
-        serialize_ribbon(&Text::new(format!("{}", key_string)).color_range(0, ..))
-    };
-    ret.part = ribbon;
-    let supports_arrow_fonts = !help.capabilities.arrow_fonts;
-    ret.len += if supports_arrow_fonts {
-        key_string.width() + 4 // 4 => arrow fonts + padding
-    } else {
-        key_string.width() + 2 // 2 => padding
-    };
-    ret
+    let key_string = key
+        .iter()
+        .map(|k| k.to_string())
+        .collect::<Vec<_>>()
+        .join("-");
+    let (bg, _label_fg, key_fg) = pill_colors(help.style.colors, is_selected);
+    flat_pill(&key_string, "", bg, key_fg, key_fg)
 }
 
 // Fork: the "locked" mode indicator (`<g> LOCK` / `<g> UNLOCK`) reads as a
@@ -1190,7 +1368,8 @@ fn locked_ribbon_colors(palette: Styling) -> (ansi_term::Color, ansi_term::Color
     (red_bg, dark_fg, key_fg, line_bg)
 }
 
-// Red counterpart of `add_shortcut_with_inline_key` — ` <g> LOCK ` in one pill.
+// Red counterpart of `add_shortcut_with_inline_key` — ` g LOCK ` as one flat
+// pill (no powerline caps, no `<>` brackets), matching the flat-pill house look.
 fn add_locked_shortcut_with_inline_key(
     help: &ModeInfo,
     text: &str,
@@ -1199,41 +1378,27 @@ fn add_locked_shortcut_with_inline_key(
     if key.is_empty() {
         return add_locked_label_ribbon(help, text);
     }
-    let (red_bg, dark_fg, key_fg, line_bg) = locked_ribbon_colors(help.style.colors);
-    let supports_arrow_fonts = !help.capabilities.arrow_fonts;
-    let separator = if supports_arrow_fonts {
-        crate::ARROW_SEPARATOR
-    } else {
-        ""
-    };
+    let (red_bg, dark_fg, key_fg, _line_bg) = locked_ribbon_colors(help.style.colors);
     let key_string = key
         .iter()
         .map(|k| k.to_string())
         .collect::<Vec<_>>()
         .join("|");
     let bits: Vec<ANSIString> = vec![
-        Style::new().fg(line_bg).on(red_bg).paint(separator),
-        Style::new().fg(dark_fg).on(red_bg).bold().paint(" <"),
         Style::new()
             .fg(key_fg)
             .on(red_bg)
             .bold()
-            .paint(key_string.clone()),
+            .paint(format!(" {}", key_string)),
         Style::new()
             .fg(dark_fg)
             .on(red_bg)
             .bold()
-            .paint(format!("> {} ", text)),
-        Style::new().fg(red_bg).on(line_bg).paint(separator),
+            .paint(format!(" {} ", text)),
     ];
-    let len = if supports_arrow_fonts {
-        text.width() + key_string.width() + 7
-    } else {
-        text.width() + key_string.width() + 5
-    };
     LinePart {
         part: ANSIStrings(&bits).to_string(),
-        len,
+        len: text.width() + key_string.width() + 3,
     }
 }
 
@@ -1242,65 +1407,35 @@ fn add_locked_shortcut_with_key_only(help: &ModeInfo, key: Vec<KeyWithModifier>)
     if key.is_empty() {
         return LinePart::default();
     }
-    let (red_bg, _dark_fg, key_fg, line_bg) = locked_ribbon_colors(help.style.colors);
-    let supports_arrow_fonts = !help.capabilities.arrow_fonts;
-    let separator = if supports_arrow_fonts {
-        crate::ARROW_SEPARATOR
-    } else {
-        ""
-    };
+    let (red_bg, _dark_fg, key_fg, _line_bg) = locked_ribbon_colors(help.style.colors);
     let key_string = key
         .iter()
         .map(|k| k.to_string())
         .collect::<Vec<_>>()
         .join("-");
-    let bits: Vec<ANSIString> = vec![
-        Style::new().fg(line_bg).on(red_bg).paint(separator),
-        Style::new()
+    LinePart {
+        part: Style::new()
             .fg(key_fg)
             .on(red_bg)
             .bold()
-            .paint(format!(" {} ", key_string)),
-        Style::new().fg(red_bg).on(line_bg).paint(separator),
-    ];
-    let len = if supports_arrow_fonts {
-        key_string.width() + 4
-    } else {
-        key_string.width() + 2
-    };
-    LinePart {
-        part: ANSIStrings(&bits).to_string(),
-        len,
+            .paint(format!(" {} ", key_string))
+            .to_string(),
+        len: key_string.width() + 2,
     }
 }
 
 // Red LOCK label pill, no inline key (the key is styled separately alongside it,
 // as in `add_shortcut`). Used on the no-common-modifier rendering path.
 fn add_locked_label_ribbon(help: &ModeInfo, text: &str) -> LinePart {
-    let (red_bg, dark_fg, _key_fg, line_bg) = locked_ribbon_colors(help.style.colors);
-    let supports_arrow_fonts = !help.capabilities.arrow_fonts;
-    let separator = if supports_arrow_fonts {
-        crate::ARROW_SEPARATOR
-    } else {
-        ""
-    };
-    let bits: Vec<ANSIString> = vec![
-        Style::new().fg(line_bg).on(red_bg).paint(separator),
-        Style::new()
+    let (red_bg, dark_fg, _key_fg, _line_bg) = locked_ribbon_colors(help.style.colors);
+    LinePart {
+        part: Style::new()
             .fg(dark_fg)
             .on(red_bg)
             .bold()
-            .paint(format!(" {} ", text)),
-        Style::new().fg(red_bg).on(line_bg).paint(separator),
-    ];
-    let len = if supports_arrow_fonts {
-        text.width() + 4
-    } else {
-        text.width() + 2
-    };
-    LinePart {
-        part: ANSIStrings(&bits).to_string(),
-        len,
+            .paint(format!(" {} ", text))
+            .to_string(),
+        len: text.width() + 2,
     }
 }
 
@@ -1310,20 +1445,13 @@ fn is_selected_lock(key: &KeyShortcut) -> bool {
     key.is_selected() && matches!(key.get_action(), KeyAction::Lock | KeyAction::Unlock)
 }
 
+// Fork: divides the selected-mode pill from the submode hint list. With flat
+// pills there's no powerline arrow to bridge — an amber tag pill carries the
+// transient RENAMING/SEARCHING state (when there is one), followed by a single
+// line-bg space so the green mode pill and the grey hints don't visually merge.
 fn add_keygroup_separator(help: &ModeInfo, max_len: usize) -> Option<LinePart> {
-    let supports_arrow_fonts = !help.capabilities.arrow_fonts;
-    let separator = if supports_arrow_fonts {
-        crate::ARROW_SEPARATOR
-    } else {
-        " "
-    };
     let palette = help.style.colors;
-
-    let mut ret = LinePart::default();
-
-    let separator_color = palette_match!(palette.text_unselected.emphasis_0);
-    let bg_color = palette_match!(palette.ribbon_selected.base);
-    let mut bits: Vec<ANSIString> = vec![];
+    let line_bg = palette_match!(palette.text_unselected.background);
     let mode_help_text = match help.mode {
         InputMode::RenamePane => Some("RENAMING PANE"),
         InputMode::RenameTab => Some("RENAMING TAB"),
@@ -1331,39 +1459,26 @@ fn add_keygroup_separator(help: &ModeInfo, max_len: usize) -> Option<LinePart> {
         InputMode::Search => Some("SEARCHING"),
         _ => None,
     };
+
+    let mut ret = LinePart::default();
     if let Some(mode_help_text) = mode_help_text {
-        bits.push(
-            Style::new()
-                .fg(separator_color)
-                .on(bg_color)
-                .bold()
-                .paint(format!(" {} ", mode_help_text)),
-        );
-        ret.len += mode_help_text.width() + 2; // 2 => padding
+        // amber tag pill (emphasis_0 bg, dark ribbon text) — stands out as a
+        // transient state banner without a powerline cap.
+        ret.append(&flat_pill(
+            "",
+            mode_help_text,
+            palette.text_unselected.emphasis_0,
+            palette.ribbon_selected.base,
+            palette.ribbon_selected.base,
+        ));
     }
-    bits.push(
-        Style::new()
-            .fg(bg_color)
-            .on(separator_color)
-            .bold()
-            .paint(format!("{}", separator)),
+    // one line-bg space dividing the mode pill from the hint list
+    ret.part = format!(
+        "{}{}",
+        ret.part,
+        Style::new().on(line_bg).paint(" ")
     );
-    bits.push(
-        Style::new()
-            .fg(separator_color)
-            .on(separator_color)
-            .bold()
-            .paint(format!(" ")),
-    );
-    bits.push(
-        Style::new()
-            .fg(separator_color)
-            .on(bg_color)
-            .bold()
-            .paint(format!("{}", separator)),
-    );
-    ret.part = format!("{}{}", ret.part, ANSIStrings(&bits));
-    ret.len += 3; // padding and arrow fonts
+    ret.len += 1;
 
     if ret.len <= max_len {
         Some(ret)
@@ -1596,22 +1711,6 @@ fn shortened_shortcut_list(help: &ModeInfo) -> LinePart {
         InputMode::Locked => LinePart::default(),
         _ => shortened_shortcut_list_nonstandard_mode(help),
     }
-}
-
-fn best_effort_shortcut_list(help: &ModeInfo, max_len: usize) -> LinePart {
-    let mut line_part = LinePart::default();
-    let keys_and_hints = get_keys_and_hints(help);
-    for (_, short, keys) in keys_and_hints.into_iter() {
-        let shortcut = add_shortcut(help, &short, &keys.to_vec(), false, Some(2));
-        if line_part.len + shortcut.len + MORE_MSG.chars().count() > max_len {
-            line_part.part = format!("{}{}", line_part.part, MORE_MSG);
-            line_part.len += MORE_MSG.chars().count();
-            break;
-        } else {
-            line_part.append(&shortcut);
-        }
-    }
-    line_part
 }
 
 fn single_action_key(

@@ -42,6 +42,16 @@ struct State {
     classic_ui: bool,
     base_mode_is_locked: bool,
     cached_keybinds: KeybindsVec,
+    // Fork: paging state for the one-line bottom bar's hint list. When the hints
+    // (the mode ribbon in Normal, or a submode's keybinds) overflow the pane
+    // even in their most compact keys-only form, we window them and show
+    // `‹N` / `N›` count pills at the edges (tab-bar style). Scrolling the mouse
+    // over the bar advances that window. `hint_scroll` is the current window
+    // start; `hint_scroll_max` is the last render's clamp ceiling, so update()
+    // can bound a scroll event without re-doing layout. Reset to 0 whenever the
+    // mode changes so a fresh submode always opens on page 0.
+    hint_scroll: usize,
+    hint_scroll_max: usize,
 }
 
 register_plugin!(State);
@@ -218,6 +228,8 @@ impl ZellijPlugin for State {
             EventType::SystemClipboardFailure,
             EventType::InitialKeybinds,
             EventType::PermissionRequestResult,
+            // Fork: mouse scroll over the bar pages the overflowing hint window.
+            EventType::Mouse,
         ]);
     }
 
@@ -240,8 +252,33 @@ impl ZellijPlugin for State {
                 if self.mode_info != mode_info {
                     should_render = true;
                 }
+                // A mode switch swaps which hint list is on screen, so any paging
+                // offset from the old one is meaningless — start the new one at 0.
+                if self.mode_info.mode != mode_info.mode {
+                    self.hint_scroll = 0;
+                }
                 self.mode_info = mode_info;
                 self.base_mode_is_locked = self.mode_info.base_mode == Some(InputMode::Locked);
+            },
+            Event::Mouse(mouse_event) => match mouse_event {
+                // Scroll down/right → later hints; scroll up/left → earlier ones.
+                // Clamp against the ceiling the last render reported so we never
+                // scroll into an empty window (and re-scrolling back is immediate).
+                Mouse::ScrollDown(_) => {
+                    let next = (self.hint_scroll + 1).min(self.hint_scroll_max);
+                    if next != self.hint_scroll {
+                        self.hint_scroll = next;
+                        should_render = true;
+                    }
+                },
+                Mouse::ScrollUp(_) => {
+                    let next = self.hint_scroll.saturating_sub(1);
+                    if next != self.hint_scroll {
+                        self.hint_scroll = next;
+                        should_render = true;
+                    }
+                },
+                _ => {},
             },
             Event::TabUpdate(tabs) => {
                 if self.tabs != tabs {
@@ -296,19 +333,20 @@ impl ZellijPlugin for State {
                 PaletteColor::EightBit(color) => format!("\u{1b}[48;5;{}m\u{1b}[0K", color),
             };
             let active_tab = self.tabs.iter().find(|t| t.active);
-            print!(
-                "{}{}",
-                one_line_ui(
-                    &self.mode_info,
-                    active_tab,
-                    cols,
-                    separator,
-                    self.base_mode_is_locked,
-                    self.text_copy_destination,
-                    self.display_system_clipboard_failure,
-                ),
-                fill_bg,
+            let ui = one_line_ui(
+                &self.mode_info,
+                active_tab,
+                cols,
+                separator,
+                self.base_mode_is_locked,
+                self.text_copy_destination,
+                self.display_system_clipboard_failure,
+                self.hint_scroll,
             );
+            // Persist the clamp so the next scroll event is bounded correctly.
+            self.hint_scroll = ui.hint_scroll;
+            self.hint_scroll_max = ui.max_hint_scroll;
+            print!("{}{}", ui.line, fill_bg);
             return;
         }
 
