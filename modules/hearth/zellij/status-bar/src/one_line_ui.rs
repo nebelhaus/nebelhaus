@@ -662,8 +662,8 @@ fn named_mode_segments(
                 .as_ref()
                 .map(|k| vec![k.clone()])
                 .unwrap_or_else(|| vec![]);
-            if is_selected_lock(key) {
-                add_locked_shortcut_with_inline_key(help, &key.full_text(), keys)
+            if is_lock(key) {
+                add_lock_icon_shortcut(help, keys)
             } else {
                 add_shortcut_with_inline_key(help, &key.full_text(), keys, key.is_selected())
             }
@@ -680,10 +680,8 @@ fn full_modes_shortcut_list(default_keys: &Vec<KeyShortcut>, help: &ModeInfo) ->
             .as_ref()
             .map(|k| vec![k.clone()])
             .unwrap_or_else(|| vec![]);
-        if is_selected_lock(key) {
-            // key styled separately (as in add_shortcut), then a red label pill
-            full_shortcut_list.append(&style_key_with_modifier(&keys, Some(3)));
-            full_shortcut_list.append(&add_locked_label_ribbon(help, &key.full_text()));
+        if is_lock(key) {
+            full_shortcut_list.append(&add_lock_icon_shortcut(help, keys));
         } else {
             full_shortcut_list.append(&add_shortcut(
                 help,
@@ -705,9 +703,8 @@ fn shortened_modes_shortcut_list(default_keys: &Vec<KeyShortcut>, help: &ModeInf
             .as_ref()
             .map(|k| vec![k.clone()])
             .unwrap_or_else(|| vec![]);
-        if is_selected_lock(key) {
-            shortened_shortcut_list.append(&style_key_with_modifier(&keys, Some(3)));
-            shortened_shortcut_list.append(&add_locked_label_ribbon(help, &key.short_text()));
+        if is_lock(key) {
+            shortened_shortcut_list.append(&add_lock_icon_shortcut(help, keys));
         } else {
             shortened_shortcut_list.append(&add_shortcut(
                 help,
@@ -1298,58 +1295,44 @@ fn run_bind_key(
         .unwrap_or_default()
 }
 
-// Fork: the "locked" mode indicator (` g LOCK ` / ` g UNLOCK `) reads as a
-// mellow red instead of the shared green when selected — locking is a distinct,
-// slightly-alarming state, so its *label* gets red text while every other
-// selected mode (PANE, TAB, …) reads green. With no background fill left to
-// carry the state (see `flat_pill`), the colour is all in the foreground: the
-// red is the nebelung theme's `exit_code_error.base` (#ed8fa9), and the key
-// letter keeps the shared yellow accent (`text_unselected.emphasis_2`).
-fn add_locked_shortcut_with_inline_key(
-    help: &ModeInfo,
-    text: &str,
-    key: Vec<KeyWithModifier>,
-) -> LinePart {
-    if key.is_empty() {
-        return add_locked_label_ribbon(help, text);
-    }
+// Fork: the (un)lock mode indicator is a padlock GLYPH, not the word
+// `LOCK`/`UNLOCK` — closed & red when input is Locked, open & green when it's
+// unlocked — so the *current* state reads at a glance instead of asking you to
+// parse a verb. The colour is all in the foreground (no background fill; see
+// `flat_pill`): red is the nebelung theme's `exit_code_error.base` (#ed8fa9),
+// green is `ribbon_selected.background` (the shared "active mode" green). The
+// `Ctrl-g` toggle key still rides in front of it (` g  ` / ` g  `), keeping the
+// pill discoverable, and keeps the yellow accent (`text_unselected.emphasis_2`).
+const LOCK_GLYPH_CLOSED: &str = "\u{f023}"; // nf-fa-lock
+const LOCK_GLYPH_OPEN: &str = "\u{f09c}"; // nf-fa-unlock
+
+fn add_lock_icon_shortcut(help: &ModeInfo, key: Vec<KeyWithModifier>) -> LinePart {
     let palette = help.style.colors;
+    let locked = matches!(help.mode, InputMode::Locked);
+    let glyph = if locked {
+        LOCK_GLYPH_CLOSED
+    } else {
+        LOCK_GLYPH_OPEN
+    };
+    let icon_fg = if locked {
+        palette.exit_code_error.base // red = locked
+    } else {
+        palette.ribbon_selected.background // green = unlocked
+    };
     let key_fg = palette.text_unselected.emphasis_2; // yellow key accent
-    let label_fg = palette.exit_code_error.base; // red = locked
-    let key_string = key
-        .iter()
-        .map(|k| k.to_string())
-        .collect::<Vec<_>>()
-        .join("|");
-    flat_pill(
-        &key_string,
-        text,
-        key_fg,
-        label_fg,
-        palette.text_unselected.background,
-    )
-}
-
-// Red LOCK label, no inline key (the key is styled separately alongside it, as
-// in `add_shortcut`). Used on the no-common-modifier rendering path.
-fn add_locked_label_ribbon(help: &ModeInfo, text: &str) -> LinePart {
-    let label_fg = palette_match!(help.style.colors.exit_code_error.base);
-    let bg = palette_match!(help.style.colors.text_unselected.background);
-    LinePart {
-        part: Style::new()
-            .fg(label_fg)
-            .on(bg)
-            .bold()
-            .paint(format!(" {} ", text))
-            .to_string(),
-        len: text.width() + 2,
+    let bg = palette.text_unselected.background;
+    if key.is_empty() {
+        // No toggle key resolved — render the bare glyph (glyph-only pill).
+        return flat_pill("", glyph, icon_fg, icon_fg, bg);
     }
+    flat_pill(&key_group_string(&key), glyph, key_fg, icon_fg, bg)
 }
 
-// Fork: is this mode indicator the (un)lock pill in its selected state? Those get
-// the red treatment above; everything else stays on the shared green ribbon.
-fn is_selected_lock(key: &KeyShortcut) -> bool {
-    key.is_selected() && matches!(key.get_action(), KeyAction::Lock | KeyAction::Unlock)
+// Fork: is this mode indicator the (un)lock pill (in any state)? It renders as
+// the state-coloured padlock glyph above; everything else stays on the shared
+// green/grey ribbon.
+fn is_lock(key: &KeyShortcut) -> bool {
+    matches!(key.get_action(), KeyAction::Lock | KeyAction::Unlock)
 }
 
 // Fork: divides the selected-mode hint from the submode hint list. With flat
@@ -1709,79 +1692,6 @@ fn configuration_key(keymap: &[(KeyWithModifier, Vec<Action>)]) -> Vec<KeyWithMo
         vec![matching]
     } else {
         vec![]
-    }
-}
-
-fn style_key_with_modifier(keyvec: &[KeyWithModifier], color_index: Option<usize>) -> LinePart {
-    if keyvec.is_empty() {
-        return LinePart::default();
-    }
-
-    let common_modifiers = get_common_modifiers(keyvec.iter().collect());
-
-    let no_common_modifier = common_modifiers.is_empty();
-    let modifier_str = common_modifiers
-        .iter()
-        .map(|m| m.to_string())
-        .collect::<Vec<_>>()
-        .join("-");
-
-    // Prints the keys
-    let key = keyvec
-        .iter()
-        .map(|key| {
-            if no_common_modifier || keyvec.len() == 1 {
-                format!("{}", key)
-            } else {
-                format!("{}", key.strip_common_modifiers(&common_modifiers))
-            }
-        })
-        .collect::<Vec<String>>();
-
-    // Special handling of some pre-defined keygroups
-    let key_string = key.join("");
-    let key_separator = match &key_string[..] {
-        "HJKL" => "",
-        "hjkl" => "",
-        "←↓↑→" => "",
-        "←→" => "",
-        "↓↑" => "",
-        "[]" => "",
-        _ => "|",
-    };
-
-    if no_common_modifier || key.len() == 1 {
-        let key_string_text = format!(" {} ", key.join(key_separator));
-        let text = if let Some(color_index) = color_index {
-            Text::new(&key_string_text)
-                .color_range(color_index, ..)
-                .opaque()
-        } else {
-            Text::new(&key_string_text).opaque()
-        };
-        LinePart {
-            part: serialize_text(&text),
-            len: key_string_text.width(),
-        }
-    } else {
-        let key_string_without_modifier = format!("{}", key.join(key_separator));
-        let key_string_text = format!(" {} <{}> ", modifier_str, key_string_without_modifier);
-        let text = if let Some(color_index) = color_index {
-            Text::new(&key_string_text)
-                .color_range(color_index, ..modifier_str.width() + 1)
-                .color_range(
-                    color_index,
-                    modifier_str.width() + 3
-                        ..modifier_str.width() + 3 + key_string_without_modifier.width(),
-                )
-                .opaque()
-        } else {
-            Text::new(&key_string_text).opaque()
-        };
-        LinePart {
-            part: serialize_text(&text),
-            len: key_string_text.width(),
-        }
     }
 }
 
