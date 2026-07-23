@@ -74,29 +74,11 @@ keybinds {
         //            ghostty/config unbinds cmd+shift+p (its command palette).
         bind "Super Shift p" { Run "sh" "-c" "ZJ_STAY=1 exec \"$SHELL\""; }
 
-        // Super l — "fix layout": force the focused pane's TUI to re-read its
-        //            width, then redraw. A fast ghostty resize (an app tiling
-        //            in beside the terminal, then leaving) can leave zellij on
-        //            a size it thinks the pane already has, so it never
-        //            re-signals the child — claude code keeps wrapping at the
-        //            stale narrow width and a bare ctrl+l only redraws at that
-        //            wrong width. Toggling fullscreen twice drives the pane
-        //            through a real geometry change and back to the identical
-        //            layout, which re-sets the child's winsize + fires SIGWINCH;
-        //            the trailing Write 12 (^L) then clears the stale wrapping.
-        //            Needs ghostty/config's `cmd+l=unbind` to reach zellij.
-        bind "Super l" {
-            ToggleFocusFullscreen
-            ToggleFocusFullscreen
-            Write 12
-        }
-
-        // Super f — toggle the focused pane fullscreen (a single
-        //            ToggleFocusFullscreen, unlike Super l's twice-toggle
-        //            redraw kick). Zoom one pane to fill the tab, hit it again
-        //            to drop back into the tiled layout. Needs ghostty/config's
-        //            `cmd+f=unbind` to reach zellij — otherwise cmd+f pops
-        //            ghostty's native-macOS window fullscreen.
+        // Super f — toggle the focused pane fullscreen. Zoom one pane to fill
+        //            the tab, hit it again to drop back into the tiled layout.
+        //            Needs ghostty/config's `cmd+f=unbind` to reach zellij —
+        //            otherwise cmd+f pops ghostty's native-macOS window
+        //            fullscreen.
         bind "Super f" { ToggleFocusFullscreen; }
 
         // yazi as a floating overlay — appears on top of the tiled claude panes,
