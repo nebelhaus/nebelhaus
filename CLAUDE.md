@@ -39,6 +39,7 @@ modules/
                           #   hush.*, trill.enable, tour.enable, homebrew.*, secrets.provider
   lib/gui-wait.nix        # withGUIWait: cold-boot-safe GUI agent launch wrapper
   den/                    # system: macOS defaults, Homebrew framework, core CLI, GC
+                          #   + the on-PATH CLIs: haus / wt / zscratch / statusline (*.sh)
   theme/                  # desktop wallpaper + accent-derived bold wordmark
   hearth/                 # shell: zsh, starship, git, yazi, zellij, ghostty + theming
   prowl/                  # AeroSpace tiling
@@ -132,6 +133,19 @@ points back to when it feels several PRs together.
   do it once, already knowing it works. A brand-new session name = a new zellij
   *server*, which recompiles plugin wasm from disk (a running server caches it
   in memory for its lifetime).
+- **The den CLIs** (`modules/den`, each on `PATH` via `writeShellScriptBin`, source
+  beside `default.nix`): the rice ships four dev/user CLIs — **`haus.sh`** (the
+  end-user machine driver: rebuild/update/rollback/doctor/status — knows nothing of
+  the family repos), **`wt.sh`** (Claude Code agent worktrees for *any* repo; the
+  `WorktreeCreate`/`WorktreeRemove` hooks call it — `wt` lists, `wt <name>` resumes,
+  `wt reap` sweeps landed ones, `wt child <repo>` makes a cross-repo child worktree),
+  **`zscratch.sh`** (above), and **`statusline.sh`** / `statusline-refresh.sh` (the
+  agent HUD, reading `wt`'s registry). They're plain bash embedded via
+  `builtins.readFile`, so a rebuild re-installs them on `PATH`. `haus` and the
+  workshop's `bench` are named apart on purpose so they never shadow each other —
+  `haus` = your machine, `bench` = the family repos, `wt`/`zscratch` = dev tools the
+  rice puts on `PATH` regardless. (User-facing docs: the [wt guide](https://nebelhaus.com/guides/claude-agents/)
+  and [haus reference](https://nebelhaus.com/reference/haus/) on nebelhaus.com.)
 - **New pounce command**: generic ones live in the
   [pounce repo](https://github.com/nebelhaus/pounce) (`pkgs/pounce-commands/commands`);
   rice/machine-specific ones live HERE in `modules/pounce/commands/` — one

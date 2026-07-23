@@ -105,6 +105,13 @@ palette) live, advancing as it detects each one. Right-click hides it forever.
 
 When to reach for each is covered in [Keeping in sync](https://nebelhaus.com/guides/staying-in-sync/).
 
+That first switch also puts **`wt`** on your PATH — a separate little tool that
+manages [Claude Code](https://claude.com/claude-code) **agent worktrees** (safe
+parallel agents, panes you never lose work closing, resumable sessions) for *any*
+git repo, not just nebelhaus. If you run Claude Code, it's worth knowing: see
+[Claude Code agents](https://nebelhaus.com/guides/claude-agents/). (`haus` drives
+your machine; `wt` is orthogonal — it just ships in the rice too.)
+
 ## steal one room
 
 Most rooms are exported as a `darwinModule` — den, hearth, prowl, sill, collar,
