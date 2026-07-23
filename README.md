@@ -165,6 +165,13 @@ side and ships a `bench` CLI that handles the cross-repo flow — most usefully
 `bench try`, which builds your real machine against your **local, uncommitted**
 checkouts, so you never push to find out whether something works.
 
+Iterating on a **zellij** edit (a keybind in `config.kdl`, a theme colour, a
+freshly-built plugin `.wasm`) is even lighter: `zscratch` — a dev CLI shipped in
+this repo's `modules/den` — boots your candidate in a throwaway session in its
+own Ghostty window, so you feel the change without a rebuild or losing your
+working session's tabs. `bench try switch` does the real activation once, at the
+end. See [`CLAUDE.md`](./CLAUDE.md) for the full flag set.
+
 ## the fog
 
 Grey is the point. Nebelung is a low-contrast, muted dark palette for people who
