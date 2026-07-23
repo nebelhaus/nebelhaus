@@ -154,6 +154,20 @@
         "type": "github"
       }
     },
+    "prebuilt": {
+      "flake": false,
+      "locked": {
+        "path": "./nix/dev-app",
+        "type": "path"
+      },
+      "original": {
+        "path": "./nix/dev-app",
+        "type": "path"
+      },
+      "parent": [
+        "trill"
+      ]
+    },
     "root": {
       "inputs": {
         "catppuccin": "catppuccin",
@@ -170,14 +184,15 @@
       "inputs": {
         "nixpkgs": [
           "nixpkgs"
-        ]
+        ],
+        "prebuilt": "prebuilt"
       },
       "locked": {
-        "lastModified": 1784794573,
-        "narHash": "sha256-9Bnbw9LI3k9aU+w9yugfCOdZYcVO1OK6PS4ac53XuZ8=",
+        "lastModified": 1784798475,
+        "narHash": "sha256-YoUvB8l3N326uTfoAreXD3No8bpIAuc5yP5vQvG7ENc=",
         "owner": "nebelhaus",
         "repo": "trill",
-        "rev": "b4d9f3bc77367ce3f80b1385cf0561c4ebf760f3",
+        "rev": "fe7ed04d6d4e8838e113d8926d9041d1b44df052",
         "type": "github"
       },
       "original": {
