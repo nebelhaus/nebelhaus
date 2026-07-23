@@ -239,11 +239,25 @@ cmd_remove() { # [WorktreeRemove hook] JSON on stdin — retire without losing w
   # always survives on the branch; park the dirty remainder there too, as a WIP
   # commit, so closing a pane can never cost you work. gpgsign off: this hook is
   # non-interactive, and a signing prompt here would hang the whole teardown.
-  if [ -n "$(git -C "$dir" status --porcelain 2>/dev/null)" ]; then
-    git -C "$dir" add -A >/dev/null 2>&1 || true
-    git -C "$dir" -c commit.gpgsign=false \
-      commit -q -m "wip: auto-saved on pane close ($(date '+%Y-%m-%d %H:%M'))" \
-      >/dev/null 2>&1 || true
+  #
+  # ONE exception, and it matters: a branch whose PR has ALREADY merged, whose only
+  # remaining changes are UNTRACKED files, is holding build scratch (a .cargo-home/,
+  # a target/ …) — not history. WIP-committing it would move the tip one commit past
+  # the merged PR's SHA, so reap_branch below no longer recognizes the merge and the
+  # worktree gets falsely PARKED instead of reaped (this is how merged worktrees piled
+  # up). So when — and only when — the branch is landed AND every dirty entry is
+  # untracked, skip the WIP and let the force-remove drop the scratch, so it reaps
+  # cleanly. Tracked edits, or an unmerged branch, are real work → always preserved.
+  local porcelain
+  porcelain="$(git -C "$dir" status --porcelain 2>/dev/null || true)"
+  if [ -n "$porcelain" ]; then
+    if printf '%s\n' "$porcelain" | grep -qv '^??' \
+       || [ -z "$branch" ] || ! branch_landed "$main" "$branch"; then
+      git -C "$dir" add -A >/dev/null 2>&1 || true
+      git -C "$dir" -c commit.gpgsign=false \
+        commit -q -m "wip: auto-saved on pane close ($(date '+%Y-%m-%d %H:%M'))" \
+        >/dev/null 2>&1 || true
+    fi
   fi
   git -C "$main" worktree remove "$dir" 2>/dev/null \
     || git -C "$main" worktree remove --force "$dir"
