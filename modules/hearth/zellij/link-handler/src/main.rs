@@ -12,10 +12,20 @@
 //     plugins are implicitly trusted, user plugins must ask. Loaded as a
 //     background plugin there is no pane to show the grant prompt in, so
 //     hearth pre-seeds zellij's permission cache (see modules/hearth).
-//   - handle_highlight_clicked: new-tab-with-cwd instead of $EDITOR/filepicker.
-//   - URL_REGEX + open_target: http(s) URLs are highlighted too and open in
-//     the default browser via `open` (hence RunCommands). open_target is the
-//     dispatch point for any future per-kind click behavior.
+//   - handle_highlight_clicked: new-tab-with-cwd instead of $EDITOR/filepicker,
+//     and an existence-first dispatch — a click is opened as a file/dir if the
+//     path resolves on disk, otherwise it falls through to the URL kinds. This
+//     is what lets a bare token be a path OR a schemeless site without the
+//     regex having to tell them apart up front.
+//   - FILE_PATH_REGEX: on top of the upstream ./ ../ / ~/ $VAR anchors, a bare
+//     relative branch matches slash-bearing paths that DON'T start with a
+//     leading `.`/`/` (e.g. `src/main.rs`, `modules/hearth/foo.rs`). Safe to
+//     highlight liberally because the click validates existence before acting.
+//   - URL_REGEX + WEB_DOMAIN_REGEX + open_target: http(s) URLs are highlighted
+//     and open in the default browser via `open` (hence RunCommands), and so
+//     are schemeless well-known-TLD domains (`github.com/x`, `nebelhaus.com`) —
+//     https:// is prepended on click. open_target is the dispatch point for any
+//     future per-kind click behavior.
 //   - image files open a near-fullscreen floating pane running
 //     ~/.config/zellij/image-preview.sh (chafa render + copy/open hotkeys)
 //     instead of a new tab.
@@ -25,12 +35,32 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use zellij_tile::prelude::*;
 
-const FILE_PATH_REGEX: &str = r#"(?:^|\s)((?:(?:\./|\.\./|/)[A-Za-z0-9_./\-+@%,#=~!\$\{\}\[\]]+|~/[A-Za-z0-9_./\-+@%,#=~!\$\{\}\[\]]+|\$\{?[A-Za-z_][A-Za-z0-9_]*\}?/[A-Za-z0-9_./\-+@%,#=~!\$\{\}\[\]]+)(?::\d+(?::\d+)?)?)(?::|\s|$)"#;
+// Path branches, in order: an anchored path (./ ../ / ~/ $VAR/…), then a bare
+// relative path that merely CONTAINS a slash and starts with an alnum/_/@ —
+// e.g. `src/main.rs`, `modules/hearth/foo.rs`, `github.com/org/repo`. The last
+// branch is deliberately loose; the click's std::fs existence check (and the
+// URL fallback) is what keeps a false-positive highlight from doing anything.
+const FILE_PATH_REGEX: &str = r#"(?:^|\s)((?:(?:\./|\.\./|/)[A-Za-z0-9_./\-+@%,#=~!\$\{\}\[\]]+|~/[A-Za-z0-9_./\-+@%,#=~!\$\{\}\[\]]+|\$\{?[A-Za-z_][A-Za-z0-9_]*\}?/[A-Za-z0-9_./\-+@%,#=~!\$\{\}\[\]]+|[A-Za-z0-9_@][A-Za-z0-9_./\-+@%,#=~!\$\{\}\[\]]*/[A-Za-z0-9_./\-+@%,#=~!\$\{\}\[\]]+)(?::\d+(?::\d+)?)?)(?::|\s|$)"#;
 
 // Ends at whitespace or a quote/angle delimiter; trailing sentence
 // punctuation the character class can't exclude (a URL inside parens or at
 // the end of a sentence) is trimmed on click by parse_url.
 const URL_REGEX: &str = r#"\b(https?://[^\s"'<>]+)"#;
+
+// Schemeless web links: a well-known-TLD domain (or any `www.` host) with an
+// optional port and path. Kept to a curated TLD set so ordinary `name.ext`
+// file references aren't mistaken for sites; https:// is prepended on click,
+// and — like paths — a click only reaches the browser after the on-disk
+// existence check has failed, so a real file named `foo.io` still opens as a
+// file.
+const WEB_DOMAIN_REGEX: &str = r#"\b((?:www\.)?[A-Za-z0-9][A-Za-z0-9\-]*(?:\.[A-Za-z0-9\-]+)*\.(?:com|org|net|io|dev|ai|app|gov|edu|co|xyz|info|cloud|tv|gg|so|me|page|blog)(?::\d+)?(?:/[^\s"'<>]*)?)"#;
+
+// TLDs the schemeless-domain matcher trusts, plus the WEB_DOMAIN_REGEX list
+// above (keep the two in sync). `www.`-prefixed hosts bypass this check.
+const COMMON_TLDS: &[&str] = &[
+    "com", "org", "net", "io", "dev", "ai", "app", "gov", "edu", "co", "xyz", "info", "cloud",
+    "tv", "gg", "so", "me", "page", "blog",
+];
 
 const CWD_CONTEXT_KEY: &str = "cwd";
 
@@ -163,18 +193,38 @@ impl State {
         self.set_all_highlights_for_pane(pane_id);
     }
 
-    /// Dispatch a click by what was matched. Future per-kind behaviors
-    /// (GitHub URLs, image files, …) branch from here.
+    /// Dispatch a click by what was matched, existence-first: an explicit
+    /// http(s) URL goes to the browser; otherwise we try to open it as a real
+    /// file/dir; only if that path doesn't exist do we treat it as a schemeless
+    /// web link. This ordering is what lets one bare token (`github.com/x` vs
+    /// `src/main.rs`) resolve correctly without the regex disambiguating up front.
     fn handle_highlight_clicked(&self, matched_string: String, context: BTreeMap<String, String>) {
-        if let Some(url) = parse_url(matched_string.trim()) {
-            run_command(&["/usr/bin/open", url], BTreeMap::new());
+        let clicked = matched_string.trim();
+
+        // 1. Explicit http(s) URL → browser.
+        if let Some(url) = parse_url(clicked) {
+            open_in_browser(url);
             return;
         }
-        self.open_path_in_new_tab(matched_string, context);
+
+        // 2. A real file or directory on disk → open it (tab or image preview).
+        if self.try_open_as_path(&matched_string, &context) {
+            return;
+        }
+
+        // 3. Not a real path — a schemeless web link (github.com/x, nebelhaus.com)?
+        if let Some(url) = parse_bare_url(clicked) {
+            open_in_browser(&url);
+        }
+        // 4. Otherwise: not a link we recognize — ignore.
     }
 
-    fn open_path_in_new_tab(&self, matched_string: String, context: BTreeMap<String, String>) {
-        let (path_str, _line_number) = parse_path_and_line(&matched_string);
+    /// Resolve `matched_string` against the pane CWD and, if it names an
+    /// existing file or directory, open it. Returns `true` when the path
+    /// resolved (and was acted on), `false` when it doesn't exist on disk — the
+    /// caller uses that to fall through to the URL kinds.
+    fn try_open_as_path(&self, matched_string: &str, context: &BTreeMap<String, String>) -> bool {
+        let (path_str, _line_number) = parse_path_and_line(matched_string);
         let path_str = path_str.trim();
         let expanded = expand_path(path_str, &self.env_vars);
         let path_str = expanded.as_str();
@@ -194,7 +244,7 @@ impl State {
         // false positives that match non-path text in terminal output.
         let metadata = match std::fs::metadata(host_path(&absolute_path)) {
             Ok(m) => m,
-            Err(_) => return, // path does not exist — silently ignore
+            Err(_) => return false, // not a real path — let the caller try URL kinds
         };
 
         if metadata.is_file() && is_image_file(&absolute_path) {
@@ -219,7 +269,7 @@ impl State {
                 );
                 open_command_pane_floating(cmd, coords, BTreeMap::new());
             }
-            return;
+            return true;
         }
 
         // A file opens at its parent directory; a directory opens at itself.
@@ -228,7 +278,7 @@ impl State {
         } else {
             match absolute_path.parent() {
                 Some(parent) => parent.to_path_buf(),
-                None => return,
+                None => return true,
             }
         };
 
@@ -244,6 +294,7 @@ impl State {
                 new_tab(Some(name.as_str()), Some(dir.to_string_lossy().as_ref()));
             },
         }
+        true
     }
 
     /// Clone the live layout file and inject cwd + name onto its content tab —
@@ -299,6 +350,20 @@ impl State {
         // http(s) URLs (always present)
         highlights.push(RegexHighlight {
             pattern: URL_REGEX.to_owned(),
+            style: HighlightStyle::None,
+            layer: HighlightLayer::Hint,
+            context: context.clone(),
+            on_hover: true,
+            bold: false,
+            italic: true,
+            underline: true,
+            tooltip_text: Some("Open in browser".to_string()),
+        });
+
+        // Schemeless well-known-TLD domains (always present) — https:// is
+        // prepended on click.
+        highlights.push(RegexHighlight {
+            pattern: WEB_DOMAIN_REGEX.to_owned(),
             style: HighlightStyle::None,
             layer: HighlightLayer::Hint,
             context: context.clone(),
@@ -375,16 +440,70 @@ fn tab_name_for(dir: &Path) -> String {
         .unwrap_or_else(|| "new".to_string())
 }
 
-/// Recognize an http(s) URL in a clicked highlight. URL_REGEX runs to the
-/// next whitespace, so sentence punctuation and closing brackets around the
-/// URL get matched too — trim them here.
+/// Open a URL in the default browser.
+fn open_in_browser(url: &str) {
+    run_command(&["/usr/bin/open", url], BTreeMap::new());
+}
+
+/// Recognize an http(s) URL in a clicked highlight, with trailing sentence
+/// punctuation trimmed (see `trim_url_trailing`).
 fn parse_url(s: &str) -> Option<&str> {
     if !(s.starts_with("http://") || s.starts_with("https://")) {
         return None;
     }
+    Some(trim_url_trailing(s))
+}
+
+/// Recognize a schemeless web link like `github.com/zellij-org/zellij` or
+/// `nebelhaus.com` and return it with an `https://` scheme prepended. Only
+/// hosts on a well-known TLD (or any `www.` host) qualify, so an ordinary
+/// `name.ext` token isn't mistaken for a site. Called only after the on-disk
+/// existence check has failed, so a real file named `foo.io` still opens as a
+/// file rather than a website.
+fn parse_bare_url(s: &str) -> Option<String> {
+    let s = trim_url_trailing(s);
+    if s.is_empty() || s.contains("://") {
+        return None;
+    }
+    // The host is everything before the first `/`, minus any `:port`.
+    let host = s.split('/').next().unwrap_or(s);
+    let host = host.split(':').next().unwrap_or(host);
+    if !is_web_host(host) {
+        return None;
+    }
+    Some(format!("https://{s}"))
+}
+
+/// True if `host` looks like a browsable domain: at least two DNS labels, each
+/// well-formed, and either a `www.` prefix or a trusted TLD (`COMMON_TLDS`).
+fn is_web_host(host: &str) -> bool {
+    let labels: Vec<&str> = host.split('.').collect();
+    if labels.len() < 2 {
+        return false;
+    }
+    let well_formed = labels.iter().all(|l| {
+        !l.is_empty()
+            && !l.starts_with('-')
+            && !l.ends_with('-')
+            && l.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+    });
+    if !well_formed {
+        return false;
+    }
+    let tld = labels.last().unwrap().to_ascii_lowercase();
+    host.starts_with("www.") || COMMON_TLDS.contains(&tld.as_str())
+}
+
+/// Trim trailing punctuation a whitespace-terminated URL/domain match tends to
+/// swallow — sentence punctuation, and closing brackets only when unbalanced
+/// (so `…/Worm_(search_engine)` keeps its paren but `(…foo)` loses it).
+fn trim_url_trailing(s: &str) -> &str {
     let mut trimmed = s;
     while !trimmed.is_empty() {
-        let last_char = trimmed.chars().next_back()?;
+        let last_char = match trimmed.chars().next_back() {
+            Some(c) => c,
+            None => break,
+        };
         if ".,;:!?\"'".contains(last_char) {
             trimmed = &trimmed[..trimmed.len() - last_char.len_utf8()];
         } else if last_char == ')' {
@@ -428,7 +547,7 @@ fn parse_url(s: &str) -> Option<&str> {
             break;
         }
     }
-    Some(trimmed)
+    trimmed
 }
 
 fn kdl_escape(s: &str) -> String {
@@ -690,6 +809,51 @@ mod tests {
         assert_eq!(parse_url("/some/file/path"), None);
         assert_eq!(parse_url("~/code/nebelhaus"), None);
         assert_eq!(parse_url("httpsish://nope"), None);
+    }
+
+    // --- parse_bare_url tests ---
+
+    #[test]
+    fn parse_bare_url_domain_with_path() {
+        assert_eq!(
+            parse_bare_url("github.com/zellij-org/zellij"),
+            Some("https://github.com/zellij-org/zellij".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_bare_url_bare_domain() {
+        assert_eq!(parse_bare_url("nebelhaus.com"), Some("https://nebelhaus.com".to_string()));
+        assert_eq!(
+            parse_bare_url("www.anything.example"),
+            Some("https://www.anything.example".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_bare_url_trims_trailing_punctuation() {
+        assert_eq!(
+            parse_bare_url("github.com/zellij-org/zellij."),
+            Some("https://github.com/zellij-org/zellij".to_string())
+        );
+        // Trailing `)` from a parenthetical (unbalanced within the match) is
+        // trimmed; sentence punctuation too.
+        assert_eq!(parse_bare_url("nebelhaus.com)."), Some("https://nebelhaus.com".to_string()));
+        assert_eq!(parse_bare_url("nebelhaus.com,"), Some("https://nebelhaus.com".to_string()));
+    }
+
+    #[test]
+    fn parse_bare_url_rejects_non_web() {
+        // Already has a scheme — handled by parse_url, not here.
+        assert_eq!(parse_bare_url("https://github.com"), None);
+        // Relative file paths, not domains.
+        assert_eq!(parse_bare_url("src/main.rs"), None);
+        assert_eq!(parse_bare_url("modules/hearth/foo.rs"), None);
+        // A dotted filename whose extension isn't a trusted TLD.
+        assert_eq!(parse_bare_url("README.md"), None);
+        assert_eq!(parse_bare_url("main.rs"), None);
+        // Single label — not a domain.
+        assert_eq!(parse_bare_url("localhost"), None);
     }
 
     // --- regex_escape tests ---
