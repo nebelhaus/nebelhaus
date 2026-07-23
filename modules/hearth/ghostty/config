@@ -60,12 +60,6 @@ keybind = cmd+shift+p=unbind
 keybind = cmd+y=unbind
 keybind = cmd+shift+y=unbind
 keybind = cmd+shift+t=unbind
-# cmd+l → zellij "Super l" (force a genuine PTY winsize kick + ^L redraw). A
-# fast WM resize of the ghostty window — an app tiling in beside it, then
-# leaving — can land zellij back on a size it already thinks the pane has, so
-# it never re-signals the child; the pane's TUI (claude code) keeps wrapping at
-# the stale narrow width, and a bare ctrl+l only redraws at that wrong width.
-keybind = cmd+l=unbind
 # cmd+f → zellij "Super f" (toggle the focused pane fullscreen). Ghostty binds
 # cmd+f to its native-macOS window fullscreen by default — unbind it so the
 # chord reaches zellij and zooms the pane instead of the whole window.

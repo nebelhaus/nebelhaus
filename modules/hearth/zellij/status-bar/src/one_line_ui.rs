@@ -869,9 +869,9 @@ fn secondary_keybinds(help: &ModeInfo, _tab_info: Option<&TabInfo>, max_len: usi
     let peek_key = run_bind_key(binds, "peek.sh", None);
 
     // Fullscreen: the single-action ToggleFocusFullscreen bind (Super f).
-    // action_key demands an exact-length action match, so Super l's
-    // [ToggleFocusFullscreen, ToggleFocusFullscreen, Write 12] redraw kick
-    // never matches this one-element pattern.
+    // action_key demands an exact-length action match, so only a bind whose
+    // whole action list is this one element matches — a multi-action bind that
+    // merely starts with ToggleFocusFullscreen wouldn't.
     let fullscreen_key = action_key(binds, &[Action::ToggleFocusFullscreen])
         .first()
         .map(|k| vec![k.clone()])
