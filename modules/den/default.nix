@@ -55,6 +55,16 @@ in
     # host's settings.json) point at this. Self-contained — no repo/flake/bench.
     (writeShellScriptBin "wt" (builtins.readFile ./wt.sh))
 
+    # `zscratch` — feel-test a candidate zellij config / layout / plugin.wasm in
+    # a throwaway session in its OWN Ghostty window, WITHOUT a rebuild. Renders
+    # your edit over a copy of the live ~/.config/zellij into a temp config-dir
+    # and boots a fresh scratch session (its own name → its own server →
+    # recompiled wasm), so the working `main` session's tabs stay untouched.
+    # Moves the iterate-loop off `bench try switch` + restart; you rebuild once,
+    # at the end, already knowing it works. Lives here (not hearth) because it's
+    # a dev CLI on PATH like `haus`/`wt`, though it drives hearth's zellij dotfiles.
+    (writeShellScriptBin "zscratch" (builtins.readFile ./zscratch.sh))
+
     # `claude-statusline` — the agent-worktree HUD for Claude Code's status bar
     # (hearth's claudeCodeSettings points the `statusLine` key here). Row 1 is
     # THIS session's worktree name + one status token (⏏ purge / N^ commits /
