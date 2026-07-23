@@ -49,10 +49,15 @@
       default = false;
       description = ''
         When true, build a small opener app and make it the default handler
-        for common text/code extensions (json, md, ts, nix, …) via `duti`, so
-        double-clicking those files opens them in nebelhaus.hearth.editor in a
-        terminal. Off by default: silently rewriting your file associations is a
-        jarring, hard-to-undo change, so it's strictly opt-in.
+        for ~80 text/code extensions (json, md, ts, nix, rs, go, kdl, …), so
+        opening or clicking those files opens them in nebelhaus.hearth.editor in
+        a terminal tab. The app declares the types itself (not just `duti`) so
+        extensions nothing else on the machine declares still bind. Off by
+        default: silently rewriting your file associations is a jarring,
+        hard-to-undo change, so it's strictly opt-in. (Extensionless executables
+        like `bench` are NOT covered — macOS gates the public.unix-executable
+        handler behind an interactive dialog; set it by hand once if wanted:
+        `duti -s org.nebelhaus.editoropen public.unix-executable all`.)
       '';
     };
 

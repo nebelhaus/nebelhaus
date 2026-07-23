@@ -914,23 +914,85 @@ in
       # It opens files in the rice editor (nebelhaus.hearth.editor) via the same
       # zellij launcher the palette/bar use.
       home.activation.editorOpenApp = lib.mkIf hearthCfg.hijackFileAssociations (
-        lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-          appDir="$HOME/Applications"
-          $DRY_RUN_CMD mkdir -p "$appDir"
-          $DRY_RUN_CMD /usr/bin/osacompile -o "$appDir/EditorOpen.app" -e 'on open theFiles' -e 'repeat with theFile in theFiles' -e 'set file_path to POSIX path of theFile' -e 'do shell script "$HOME/.config/zellij/editor-open-pane.sh " & quoted form of file_path' -e 'end repeat' -e 'end open'
-          $DRY_RUN_CMD /usr/bin/plutil -replace CFBundleIdentifier -string "org.nebelhaus.editoropen" "$appDir/EditorOpen.app/Contents/Info.plist"
+        lib.hm.dag.entryAfter [ "writeBoundary" ] (
+          let
+            # Extensions EditorOpen.app claims as an Editor (see the "declare in
+            # the app" note in the script). Deliberately EXCLUDES web-content
+            # types (html/htm/xhtml — browsers own public.html and won't yield,
+            # and you want those in a browser anyway) and image types (handled by
+            # the zellij link-handler's image preview).
+            editorExts = [
+              "json" "jsonc" "txt" "md" "mdx" "markdown" "rst" "adoc" "org"
+              "ts" "tsx" "mts" "cts" "js" "jsx" "mjs" "cjs"
+              "rs" "go" "py" "rb" "lua" "pl" "php" "java" "kt" "kts" "swift" "scala" "clj"
+              "c" "h" "cc" "cpp" "hpp" "hh" "cs"
+              "nix" "toml" "yaml" "yml" "kdl" "conf" "ini" "cfg" "properties" "env"
+              "css" "scss" "sass" "less" "styl"
+              "vue" "svelte" "astro"
+              "sh" "bash" "zsh" "fish" "vim" "ps1"
+              "sql" "graphql" "gql" "prisma" "proto"
+              "xml" "csv" "tsv" "diff" "patch" "log" "lock" "tex" "bib"
+              "editorconfig" "gitignore" "gitattributes" "dockerignore" "npmrc"
+            ];
+            # NOTE on extensionless executables (`bench` & friends): they're
+            # typed public.unix-executable and RUN in Terminal on click. That one
+            # can't be automated here — macOS gates changing the executable
+            # handler behind an INTERACTIVE confirmation dialog that
+            # `darwin-rebuild switch` can't answer (and neither declaration nor
+            # lsregister overrides Terminal's claim). To send them to the editor,
+            # run once by hand and click through the prompt:
+            #   duti -s org.nebelhaus.editoropen public.unix-executable all
+            plistBuddy = "/usr/libexec/PlistBuddy";
+            lsregister = "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister";
+            # One PlistBuddy "Add …:CFBundleTypeExtensions:<i> string <ext>" per
+            # extension, index-ordered.
+            declareExts = lib.concatStringsSep "\n" (lib.imap0 (
+              i: ext:
+              ''$DRY_RUN_CMD ${plistBuddy} -c "Add :CFBundleDocumentTypes:0:CFBundleTypeExtensions:${toString i} string ${ext}" "$PL"''
+            ) editorExts);
+            dutiPins = lib.concatStringsSep "\n" (map (
+              t: ''$DRY_RUN_CMD "${pkgs.duti}/bin/duti" -s org.nebelhaus.editoropen "${t}" all 2>/dev/null || true''
+            ) editorExts);
+          in
+          ''
+            appDir="$HOME/Applications"
+            $DRY_RUN_CMD mkdir -p "$appDir"
+            $DRY_RUN_CMD /usr/bin/osacompile -o "$appDir/EditorOpen.app" -e 'on open theFiles' -e 'repeat with theFile in theFiles' -e 'set file_path to POSIX path of theFile' -e 'do shell script "$HOME/.config/zellij/editor-open-pane.sh " & quoted form of file_path' -e 'end repeat' -e 'end open'
+            PL="$appDir/EditorOpen.app/Contents/Info.plist"
+            $DRY_RUN_CMD /usr/bin/plutil -replace CFBundleIdentifier -string "org.nebelhaus.editoropen" "$PL"
 
-          # Now set default handlers using duti. duti prints a LaunchServices
-          # "error -50" (paramErr) when it sets a handler by bare extension —
-          # a benign quirk on modern macOS: the mapping usually still takes, and
-          # a failure here isn't worth aborting activation over. Swallow it so it
-          # stops surfacing as scary trailing output during `bench try switch`.
-          if [ -x "${pkgs.duti}/bin/duti" ]; then
-            for ext in json txt md ts tsx js jsx yaml yml toml nix css sh; do
-              $DRY_RUN_CMD "${pkgs.duti}/bin/duti" -s org.nebelhaus.editoropen "$ext" all 2>/dev/null || true
-            done
-          fi
-        ''
+            # Declare the file types EditorOpen.app owns IN THE APP ITSELF — not
+            # just via duti. This is load-bearing: `duti -s <ext>` can only bind an
+            # extension whose UTI some installed app already declares; for a type
+            # nothing else on the machine declares (rs, go, kdl, lua, fish, …) duti
+            # hits a FATAL LaunchServices -50 and silently no-ops, so those files
+            # keep opening in nothing/Terminal. Declaring the extension here
+            # materializes its UTI and registers this app as the owner, and
+            # `lsregister -f` makes it the default — even beating an existing owner
+            # (a bare .py that would otherwise open in Xcode). Delete-first keeps
+            # the block idempotent across re-activations.
+            $DRY_RUN_CMD ${plistBuddy} -c "Delete :CFBundleDocumentTypes" "$PL" 2>/dev/null || true
+            $DRY_RUN_CMD ${plistBuddy} -c "Add :CFBundleDocumentTypes array" "$PL"
+            $DRY_RUN_CMD ${plistBuddy} -c "Add :CFBundleDocumentTypes:0 dict" "$PL"
+            $DRY_RUN_CMD ${plistBuddy} -c "Add :CFBundleDocumentTypes:0:CFBundleTypeName string Source" "$PL"
+            $DRY_RUN_CMD ${plistBuddy} -c "Add :CFBundleDocumentTypes:0:CFBundleTypeRole string Editor" "$PL"
+            $DRY_RUN_CMD ${plistBuddy} -c "Add :CFBundleDocumentTypes:0:LSHandlerRank string Owner" "$PL"
+            $DRY_RUN_CMD ${plistBuddy} -c "Add :CFBundleDocumentTypes:0:CFBundleTypeExtensions array" "$PL"
+            ${declareExts}
+
+            # Register the freshly-declared bundle so LaunchServices sees the new
+            # types before we pin defaults against them.
+            $DRY_RUN_CMD ${lsregister} -f "$appDir/EditorOpen.app" 2>/dev/null || true
+
+            # Belt-and-suspenders: pin us as the *user default* for every type
+            # where the UTI is bindable. duti prints (and this swallows) a benign
+            # -50 on the pure-dynamic types the declaration above already handled;
+            # a real failure isn't worth aborting activation over.
+            if [ -x "${pkgs.duti}/bin/duti" ]; then
+            ${dutiPins}
+            fi
+          ''
+        )
       );
 
       # Claude Code — seed a couple of defaults into settings.json:

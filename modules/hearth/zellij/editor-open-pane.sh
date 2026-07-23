@@ -27,13 +27,16 @@ if ! zellij list-sessions 2>/dev/null | grep -q "main"; then
     done
 fi
 
-# A directory opens as `<editor> .` cwd'd into it; a file opens cwd'd into its
-# parent, unless the caller passed an explicit cwd as $2.
+# A directory opens as `<editor> .` cwd'd into it; a file opens cwd'd at its
+# nearest git repo root (so the tab name and the editor's workspace match the
+# project it lives in), falling back to the file's own parent dir outside a repo.
+# An explicit cwd passed as $2 (nix-config-open.sh) always wins.
 if [ -d "$FILE_PATH" ]; then
     DIR_PATH="$FILE_PATH"
     TARGET="."
 else
-    DIR_PATH="${CWD_OVERRIDE:-$(dirname "$FILE_PATH")}"
+    PARENT="${FILE_PATH:h}"
+    DIR_PATH="${CWD_OVERRIDE:-$(git -C "$PARENT" rev-parse --show-toplevel 2>/dev/null || echo "$PARENT")}"
     TARGET="$FILE_PATH"
 fi
 
