@@ -48,11 +48,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1784457963,
-        "narHash": "sha256-FOZ4jQJrL5MFUz450CO93hWFFxk+3QzbJv4Jrj6LUtY=",
+        "lastModified": 1784791360,
+        "narHash": "sha256-EbetohKOF9kbvLckooOyEx7Xyq3p1C0dthyPsFItgqM=",
         "owner": "nebelhaus",
         "repo": "nebelung",
-        "rev": "cdbacfd8c48c5f8fd1e712b6e241c6c38485c0a5",
+        "rev": "b38e135462d33d7ed7f595b6545871156e0768cb",
         "type": "github"
       },
       "original": {
@@ -141,11 +141,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1784779469,
-        "narHash": "sha256-fin73pshwE6fj/XQcL5W2h9t4PutS9QvNH9d3gIkLRc=",
+        "lastModified": 1784794968,
+        "narHash": "sha256-Xk5NSkZrZu0JXT5jQzsApcdMUE+3+uRbzrTAuvMvYEo=",
         "owner": "nebelhaus",
         "repo": "pounce",
-        "rev": "f35b5bb8d182df2a5e3051992542e5db1fd21f39",
+        "rev": "c7c69b4010b613c2865e082a3bf948054cb75816",
         "type": "github"
       },
       "original": {
