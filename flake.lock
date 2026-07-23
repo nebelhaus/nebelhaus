@@ -173,11 +173,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1784792133,
+        "lastModified": 1784794573,
         "narHash": "sha256-9Bnbw9LI3k9aU+w9yugfCOdZYcVO1OK6PS4ac53XuZ8=",
         "owner": "nebelhaus",
         "repo": "trill",
-        "rev": "54ec5721d274ebf84e0bb43f79d2166a3c970508",
+        "rev": "b4d9f3bc77367ce3f80b1385cf0561c4ebf760f3",
         "type": "github"
       },
       "original": {
