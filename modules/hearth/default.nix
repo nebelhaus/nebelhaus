@@ -17,6 +17,29 @@ let
   hearthCfg = config.nebelhaus.hearth;
   claudeCfg = config.nebelhaus.claude;
   accent = config.nebelhaus.theme.accent; # a Catppuccin accent name, e.g. "mauve"
+
+  # Rice-owned preamble for ~/.claude/CLAUDE.md. The rice ships `wt` (den) on
+  # PATH to every machine, so the one operational rule `wt` needs to work at all
+  # — never bypass it with a raw `git worktree add` — travels WITH it, in the
+  # global memory, not just in the workshop repo that end users don't have.
+  # Prepended to the host's own globalMd so it rides along wherever wt goes.
+  wtGuidance = ''
+    # Agent worktrees — cross-repo work uses `wt child`, never a raw `git worktree add`
+
+    `wt` (shipped by this rice, on PATH) tracks every agent worktree in a
+    registry, and the Claude Code statusline HUD is driven entirely off that
+    registry. To work on a DIFFERENT repo than the pane you're in (e.g. a parent
+    pane editing a sub-repo), create the worktree with:
+
+        cd "$(wt child /path/to/other/repo)"
+
+    NOT a raw `git worktree add`. A raw add never touches `wt`'s registry, so the
+    statusline never learns to query that repo's GitHub — the worktree and its PR
+    go **invisible in the bar** (they only surface, unattributed with a `◇`, in
+    the `~` home pane). `wt child` does the same worktree add but registers it
+    under the spawning pane, so its PR shows as a child row where you're working.
+
+  '';
 in
 {
   home-manager.users.${username} =
@@ -640,10 +663,12 @@ in
       # ---- dotfiles + Nebelung theme drops ----
       home.file = {
         # Claude Code global memory — cross-project operating context, supplied
-        # by the host via nebelhaus.claude.globalMd. Unset (option empty) = no
-        # file written, so ~/.claude/CLAUDE.md stays hand-managed.
+        # by the host via nebelhaus.claude.globalMd, with the rice's own `wt`
+        # worktree rule prepended (wtGuidance, see the let). Unset (option empty)
+        # = no file written, so ~/.claude/CLAUDE.md stays hand-managed and the
+        # rice never clobbers a by-hand file just to inject its note.
         ".claude/CLAUDE.md" = lib.mkIf (claudeCfg.globalMd != "") {
-          text = claudeCfg.globalMd;
+          text = wtGuidance + claudeCfg.globalMd;
         };
 
         # opencode

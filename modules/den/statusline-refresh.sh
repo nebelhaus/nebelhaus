@@ -83,11 +83,31 @@ pr_state_for_branch() { # $1=main $2=branch -> "#N open|merged|closed" or ""
     | "#\(.number) \(.state|ascii_downcase)"' 2>/dev/null
 }
 
-# --- enumerate worktrees from the registry, keep only in-flight ones ------------
-: >"$PANEL.tmp"
-[ -f "$WT_REGISTRY" ] || { mv "$PANEL.tmp" "$PANEL"; exit 0; }
+# --- worklist: registry rows UNION live on-disk worktrees, deduped ------------
+# The registry (authoritative, carries each worktree's parent) is the primary
+# source. But a worktree made with a raw `git worktree add` under $WT_BASE —
+# bypassing `wt child` — never lands in the registry, so it would be invisible in
+# the bar. Fold every such live checkout in too, with an EMPTY parent (an
+# "orphan"): the statusline surfaces orphans ONLY in the $HOME pane, so a stray
+# cross-repo worktree is never fully hidden without spamming every session. Dedup
+# is by checkout path with the registry line first, so a recorded parent always
+# wins over the parent-less on-disk row for the same worktree.
+worklist() {
+  [ -f "$WT_REGISTRY" ] && awk -F'\t' 'NF>=4 {print $1"\t"$2"\t"$3"\t"$4"\t"$5}' "$WT_REGISTRY"
+  local d m b
+  for d in "$WT_BASE"/*/*; do
+    [ -e "$d/.git" ] || continue
+    m=$(dirname "$(git -C "$d" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)") || continue
+    [ -d "$m/.git" ] || continue                 # real main checkout, not a nested worktree
+    b=$(git -C "$d" --no-optional-locks branch --show-current 2>/dev/null) || continue
+    [ -n "$b" ] || continue
+    printf '%s\t%s\t%s\t%s\t%s\n' "${b#worktree-}" "$m" "$b" "$d" ""
+  done
+}
 
-while IFS=$'\t' read -r name main branch wtpath parent; do
+: >"$PANEL.tmp"
+
+worklist | awk -F'\t' '!seen[$4]++' | while IFS=$'\t' read -r name main branch wtpath parent; do
   [ -n "${branch:-}" ] || continue
   git -C "$main" show-ref -q --verify "refs/heads/$branch" 2>/dev/null || continue
   slug=$(repo_slug "$main" || basename "$main")
@@ -114,6 +134,6 @@ while IFS=$'\t' read -r name main branch wtpath parent; do
   # is the trailing field, so an empty one (old 4-col registry rows) is safe.
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
     "$slug" "${branch#worktree-}" "$ahead" "$files" "$ins" "$del" "${pr:--}" "$parent" >>"$PANEL.tmp"
-done <"$WT_REGISTRY"
+done
 
 mv "$PANEL.tmp" "$PANEL"

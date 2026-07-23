@@ -85,6 +85,11 @@ plain() { printf '%s' "$1" | sed 's/\x1b]8;;[^\\]*\x1b\\//g; s/\x1b\[[0-9;]*m//g
 in=$(cat)
 j() { printf '%s' "$in" | jq -r "$1 // empty"; }
 cwd=$(j '.workspace.current_dir // .cwd'); [ -z "$cwd" ] && cwd="$PWD"
+# The $HOME pane is the catch-all: it alone also surfaces "orphan" worktrees
+# (ones with no recorded parent — e.g. a raw `git worktree add` that skipped
+# `wt child`), so a stray worktree is never fully invisible, while every other
+# session stays quiet and shows only the worktrees it actually spawned.
+is_home=0; [ "$cwd" = "$HOME" ] && is_home=1
 wt_name=$(j '.worktree.name // .workspace.git_worktree')
 ctx=$(j '.context_window.used_percentage')
 cost=$(j '.cost.total_cost_usd')
@@ -240,13 +245,21 @@ if [ -f "$PANEL" ]; then
 fi
 [ "$stale" = 1 ] && [ -x "$REFRESHER" ] && { nohup "$REFRESHER" >/dev/null 2>&1 & disown 2>/dev/null || true; }
 
-# --- ROW 2+ : only the worktrees THIS session spawned (panel parent == cwd) ----
+# --- ROW 2+ : the worktrees THIS session spawned (panel parent == cwd), plus, in
+# the $HOME pane only, orphan worktrees (no recorded parent) so nothing hides ----
 [ -f "$PANEL" ] || exit 0
 shown=0; extra=0
 while IFS=$'\t' read -r pslug pname pahead pfiles pins pdel ppr pparent; do
   [ -n "$pname" ] || continue
   [ "$ppr" = "-" ] && ppr=""                    # decode empty-prstate sentinel
-  [ "$pparent" = "$cwd" ] || continue           # only worktrees I spawned
+  orphan=0
+  if [ "$pparent" = "$cwd" ]; then
+    :                                           # a worktree I spawned
+  elif [ "$is_home" = 1 ] && [ -z "$pparent" ]; then
+    orphan=1                                     # unattributed — surfaced only at $HOME
+  else
+    continue
+  fi
   if [ "$shown" -ge "$MAX_ROWS" ]; then extra=$((extra+1)); continue; fi
   pst=$(render_status "$pahead" "$pfiles" "$pins" "$pdel" "$ppr" 0)
   # Hyperlink the PR number to its GitHub page (OSC 8). The URL is reconstructed
@@ -264,9 +277,12 @@ while IFS=$'\t' read -r pslug pname pahead pfiles pins pdel ppr pparent; do
   [ "$budget" -lt 8 ] && budget=8
   disp="$pname"
   [ ${#disp} -gt "$budget" ] && disp="${disp:0:budget-1}…"
+  # Orphans get an orange ◇ (vs the children's gray ○) — a "no parent, adopt or
+  # reap me" flag, only ever seen in the $HOME pane.
+  bullet="${GRAY}○${R}"; [ "$orphan" = 1 ] && bullet="${PURGE}◇${R}"
   # %s (not %b): prseg's OSC 8 bytes include a literal ST backslash that %b would
   # eat; every color code here is already a materialized ESC byte, so %s is exact.
-  printf '%s\n' "  ${GRAY}○${R} ${DIM}${repo}${R} ${prseg:+$prseg }${disp}${pst:+  $pst}"
+  printf '%s\n' "  ${bullet} ${DIM}${repo}${R} ${prseg:+$prseg }${disp}${pst:+  $pst}"
   shown=$((shown+1))
 done <"$PANEL"
 [ "$extra" -gt 0 ] && printf '%b\n' "  ${DIM}+${extra} more${R}"
