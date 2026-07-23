@@ -115,6 +115,17 @@ in the consumer. CI evaluates the example host on every push.
 - **Theme**: `catppuccin.flavor` (in `hearth`) is the single source of truth; the
   Nebelung palette is injected from the `nebelung` input. Raw dotfiles nix can't inject
   into (ghostty `config`, zellij `config.kdl`) name the flavor manually — keep in sync.
+- **Iterating on a zellij edit** (config.kdl / a layout / a freshly-built
+  plugin `.wasm`): don't `bench try switch` + restart `main` just to feel a
+  keybind or colour — that nukes every tab. Use **`zscratch`** (`modules/den`):
+  it renders your candidate over a copy of the live `~/.config/zellij` into a
+  temp `--config-dir` and boots a throwaway session in its own Ghostty window,
+  so the working multiplexer is untouched. `zscratch --config FILE` /
+  `--layout FILE` / `--theme FILE` / `--plugin tab-bar=WASM`; `zscratch clean`
+  reaps it. The final real activation still needs `bench try switch` — but you
+  do it once, already knowing it works. A brand-new session name = a new zellij
+  *server*, which recompiles plugin wasm from disk (a running server caches it
+  in memory for its lifetime).
 - **New pounce command**: generic ones live in the
   [pounce repo](https://github.com/nebelhaus/pounce) (`pkgs/pounce-commands/commands`);
   rice/machine-specific ones live HERE in `modules/pounce/commands/` — one
