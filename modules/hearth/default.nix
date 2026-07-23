@@ -19,25 +19,37 @@ let
   accent = config.nebelhaus.theme.accent; # a Catppuccin accent name, e.g. "mauve"
 
   # Rice-owned preamble for ~/.claude/CLAUDE.md. The rice ships `wt` (den) on
-  # PATH to every machine, so the one operational rule `wt` needs to work at all
-  # — never bypass it with a raw `git worktree add` — travels WITH it, in the
-  # global memory, not just in the workshop repo that end users don't have.
-  # Prepended to the host's own globalMd so it rides along wherever wt goes.
+  # PATH to every machine, and Claude Code agent worktrees live OUTSIDE the repo
+  # tree (~/.cache/claude-worktrees/…), so a worktree agent's CLAUDE.md walk never
+  # reaches the project/workshop CLAUDE.md — only THIS global memory + the repo's
+  # own checked-out CLAUDE.md are guaranteed read. So the general `wt` etiquette
+  # every agent needs travels HERE, in the global, WITH the tool — not just in the
+  # workshop repo end users don't have. Prepended to the host's own globalMd.
   wtGuidance = ''
-    # Agent worktrees — cross-repo work uses `wt child`, never a raw `git worktree add`
+    # Agent worktrees & the `wt` tool
 
-    `wt` (shipped by this rice, on PATH) tracks every agent worktree in a
-    registry, and the Claude Code statusline HUD is driven entirely off that
-    registry. To work on a DIFFERENT repo than the pane you're in (e.g. a parent
-    pane editing a sub-repo), create the worktree with:
+    `wt` (shipped by this rice, on PATH) manages Claude Code **agent worktrees**
+    for any git repo. `Super c` (⌘C) spawns each agent into its own isolated
+    checkout on a `worktree-<name>` branch, so parallel agents never fight over a
+    single checkout. Closing a pane never loses work — uncommitted edits are
+    parked as a `wip:` commit and only already-merged branches are reaped. Resume
+    a parked session with `wt` (lists every worktree across all repos) or
+    `wt <name>`; sweep landed ones on demand with `wt reap`.
+
+    **Cross-repo work uses `wt child`, never a raw `git worktree add`.** To work
+    on a DIFFERENT repo than the pane you're in (e.g. a parent pane editing a
+    sub-repo), create the worktree with:
 
         cd "$(wt child /path/to/other/repo)"
 
-    NOT a raw `git worktree add`. A raw add never touches `wt`'s registry, so the
-    statusline never learns to query that repo's GitHub — the worktree and its PR
-    go **invisible in the bar** (they only surface, unattributed with a `◇`, in
-    the `~` home pane). `wt child` does the same worktree add but registers it
-    under the spawning pane, so its PR shows as a child row where you're working.
+    A raw `git worktree add` never touches `wt`'s registry, so the Claude Code
+    statusline HUD never learns to query that repo's GitHub — the worktree and
+    its PR go **invisible in the bar** (they only surface, unattributed with a
+    `◇`, in the `~` home pane). `wt child` does the same worktree add but
+    registers it under the spawning pane, so its PR shows as a child row where
+    you're working.
+
+    Full guide: https://nebelhaus.com/guides/claude-agents/
 
   '';
 in
