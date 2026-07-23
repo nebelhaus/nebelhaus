@@ -33,6 +33,15 @@
       inputs.nebelung.follows = "nebelung";
     };
 
+    # The Messages client. Its overlay puts `trill` in pkgs; modules/trill places
+    # the app at a fixed /Applications path. The flake wraps trill's CI-built,
+    # notarized release ZIP (macOS 26 blocks a from-source Nix build — see the
+    # trill repo), so this input tracks trill *releases*, not its main branch.
+    trill = {
+      url = "github:nebelhaus/trill";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     nix-index-database = {
       url = "github:nix-community/nix-index-database";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -48,6 +57,7 @@
       catppuccin,
       nebelung,
       pounce,
+      trill,
       nix-index-database,
     }:
     let
@@ -69,7 +79,12 @@
             # host file can still override). Was hardcoded in den, which broke
             # x86_64-darwin no matter what callers passed.
             { nixpkgs.hostPlatform = nixpkgs.lib.mkDefault system; }
-            { nixpkgs.overlays = [ pounce.overlays.default ]; }
+            {
+              nixpkgs.overlays = [
+                pounce.overlays.default
+                trill.overlays.default
+              ];
+            }
             home-manager.darwinModules.home-manager
             {
               users.users.${username} = {
@@ -116,6 +131,7 @@
       # `nix run github:nebelhaus/nebelhaus#pounce`
       packages = nixpkgs.lib.genAttrs [ "aarch64-darwin" "x86_64-darwin" ] (system: {
         pounce = pounce.packages.${system}.default;
+        trill = trill.packages.${system}.default;
       });
 
       # `nix run github:nebelhaus/nebelhaus#bootstrap` — raise the house on a
