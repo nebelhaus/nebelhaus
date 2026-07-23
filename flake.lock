@@ -162,7 +162,28 @@
         "nix-darwin": "nix-darwin",
         "nix-index-database": "nix-index-database",
         "nixpkgs": "nixpkgs_2",
-        "pounce": "pounce"
+        "pounce": "pounce",
+        "trill": "trill"
+      }
+    },
+    "trill": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1784792133,
+        "narHash": "sha256-9Bnbw9LI3k9aU+w9yugfCOdZYcVO1OK6PS4ac53XuZ8=",
+        "owner": "nebelhaus",
+        "repo": "trill",
+        "rev": "54ec5721d274ebf84e0bb43f79d2166a3c970508",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nebelhaus",
+        "repo": "trill",
+        "type": "github"
       }
     }
   },

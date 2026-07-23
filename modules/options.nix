@@ -306,7 +306,7 @@
     trill.enable = lib.mkOption {
       type = lib.types.bool;
       default = true;
-      description = "The trill Messages client, installed from the nebelhaus Homebrew tap.";
+      description = "The trill Messages client, installed via the trill flake (copied to /Applications).";
     };
 
     tour.enable = lib.mkOption {
