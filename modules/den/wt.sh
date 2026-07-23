@@ -8,8 +8,14 @@
 # closing a pane safe and reversible:
 #
 #   wt                list every parked/live agent worktree, across ALL repos
+#                     (self-heals first: reaps parked branches whose PR has merged)
 #   wt <name>         resume one: rebuild its checkout + reopen its Claude chat
 #   wt resume <name>  (the same thing, spelled out)
+#   wt reap           sweep every LANDED worktree NOW — parked ones, plus clean &
+#                     merged live checkouts (dirty/unmerged/your-own-pane are kept).
+#                     The idempotent backstop for when a pane ends WITHOUT firing
+#                     the remove hook (a `/ship` close-pane, a reboot, a crash) or
+#                     for `wt child` checkouts, which the hook never reaps.
 #   wt child <repo>   make a worktree of ANOTHER repo as a child of THIS pane —
 #                     for cross-repo work (a workshop pane editing a sub-repo).
 #                     Registers it so its PR shows in the statusline; prints the
@@ -84,18 +90,19 @@ _gh() { # gh with a hard timeout so a stalled network can't hang pane teardown
   if command -v timeout >/dev/null 2>&1; then timeout 6 gh "$@"; else gh "$@"; fi
 }
 
-reap_branch() { # reap_branch <main> <branch> -> 0 if the branch was deleted
-  local main="$1" b="$2" slug state head tip
-  # Fast, offline, always-safe: ancestry-merged (fast-forward / merge-commit /
-  # rebase that kept the commits). -d refuses anything not fully in the base.
-  git -C "$main" branch -d "$b" >/dev/null 2>&1 && return 0
-  # Squash / rebase-collapse: -d refused because the branch tip isn't an ancestor
-  # of the base, yet the work may have LANDED under a new commit. The branch's
-  # merged PR is the authoritative "it landed" signal (and survives the remote
-  # branch being deleted on merge). Force-delete ONLY when the local tip is
-  # exactly what that PR merged (headRefOid) — a tip that moved on (post-merge
-  # commits, or the auto-WIP commit above) means there's un-landed work here, so
-  # keep the branch. No gh, offline, or no merged PR => keep, exactly as before.
+branch_landed() { # branch_landed <main> <branch> -> 0 if it has ALREADY landed; read-only
+  local main="$1" b="$2" base slug state head tip
+  # Ancestry-merged (fast-forward / merge-commit / rebase that kept the commits):
+  # offline, always-safe. This is the same test `git branch -d` gates on.
+  base="$(git -C "$main" symbolic-ref --short HEAD 2>/dev/null || echo main)"
+  git -C "$main" merge-base --is-ancestor "$b" "$base" 2>/dev/null && return 0
+  # Squash / rebase-collapse: the branch tip isn't an ancestor of the base, yet
+  # the work may have LANDED under a new commit. The branch's merged PR is the
+  # authoritative "it landed" signal (and survives the remote branch being deleted
+  # on merge). Treat as landed ONLY when the local tip is exactly what that PR
+  # merged (headRefOid) — a tip that moved on (post-merge commits, or an auto-WIP
+  # commit) means there's un-landed work here, so it is NOT landed. No gh, offline,
+  # or no merged PR => not landed, exactly as before.
   command -v gh >/dev/null 2>&1 || return 1
   slug="$(repo_slug "$main")" || return 1
   read -r state head < <(_gh pr list -R "$slug" --head "$b" --state merged \
@@ -103,8 +110,49 @@ reap_branch() { # reap_branch <main> <branch> -> 0 if the branch was deleted
       --jq '.[0] // empty | "\(.state) \(.headRefOid)"' 2>/dev/null) || return 1
   [ "$state" = "MERGED" ] || return 1
   tip="$(git -C "$main" rev-parse "$b" 2>/dev/null)" || return 1
-  [ -n "$head" ] && [ "$head" = "$tip" ] || return 1
+  [ -n "$head" ] && [ "$head" = "$tip" ]
+}
+
+reap_branch() { # reap_branch <main> <branch> -> 0 if the branch was deleted
+  local main="$1" b="$2"
+  # Offline ancestry-merge: -d refuses anything not fully in the base, so it is
+  # always safe and needs no network.
+  git -C "$main" branch -d "$b" >/dev/null 2>&1 && return 0
+  # Otherwise force-delete only when branch_landed confirms a squash/rebase merge.
+  branch_landed "$main" "$b" || return 1
   git -C "$main" branch -D "$b" >/dev/null 2>&1
+}
+
+# reap_sweep <parked|all> — the idempotent counterpart to the WorktreeRemove hook.
+# The hook only fires on Claude's own graceful worktree teardown; anything else
+# that ends a pane (a `/ship` `zellij close-pane`, a reboot, a crash, ⌘C churn) or
+# a `wt child` cross-repo checkout bypasses it, so merged worktrees pile up. This
+# sweep reaps them independent of pane lifecycle. Sets REAPED to a newline list of
+# "<name> (<repo>)" for what it dropped.
+#   parked  — reap ONLY branches whose checkout is already gone (zero risk); the
+#             self-heal that runs on every `wt` list.
+#   all     — also reap LIVE checkouts, but only when clean AND landed AND not the
+#             pane we're standing in; dirty/unmerged live work is always left.
+reap_sweep() {
+  local mode="${1:-parked}" main branch wt selftop
+  REAPED=""
+  selftop="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null || echo "$PWD")"
+  while IFS=$'\t' read -r main branch wt; do
+    [ -n "$branch" ] || continue
+    git -C "$main" show-ref -q --verify "refs/heads/$branch" 2>/dev/null || continue
+    if [ -e "$wt/.git" ]; then
+      # A live checkout. Parked-only mode leaves every live checkout untouched.
+      [ "$mode" = "all" ] || continue
+      [ "$wt" = "$selftop" ] && continue                                   # never our own pane
+      [ -z "$(git -C "$wt" status --porcelain 2>/dev/null)" ] || continue  # dirty → leave for a human
+      branch_landed "$main" "$branch" || continue                          # unmerged live work → leave
+      git -C "$main" worktree remove "$wt" 2>/dev/null || continue         # free the branch, then reap it
+    fi
+    if reap_branch "$main" "$branch"; then
+      reg_del "$wt"
+      REAPED+="${branch#worktree-} ($(basename "$main"))"$'\n'
+    fi
+  done <<<"$(resume_rows)"
 }
 
 hook_field() { # hook_field <json> <key>… — first key present in the payload
@@ -242,6 +290,12 @@ resume_rows() {
 }
 
 cmd_list() {
+  # Self-heal: reap parked branches whose PR has since merged. Parked-only, so it
+  # never disturbs a live checkout that may still have an open pane; the risky live
+  # sweep is opt-in via `wt reap`. Best-effort — a network hiccup must not break the
+  # listing.
+  reap_sweep parked || true
+  [ -n "${REAPED:-}" ] && say "swept $(printf '%s' "$REAPED" | grep -c .) merged worktree(s)"
   say "agent worktrees you can resume (wt <name>, or <repo>/<name>)"
   printf '  %-12s %-26s %-6s %-4s %s\n' "repo" "name" "state" "chat" "last commit"
   local any=0 main branch wt repo nm state chat last
@@ -294,12 +348,25 @@ cmd_resume() { # cmd_resume <name|repo/name>
   fi
 }
 
+cmd_reap() { # wt reap — sweep every LANDED worktree across all repos, now
+  say "reaping landed worktrees (parked, plus clean & merged live checkouts) …"
+  reap_sweep all
+  if [ -n "${REAPED:-}" ]; then
+    printf '%s' "$REAPED" | while IFS= read -r r; do
+      [ -n "$r" ] && printf '\033[38;5;103m  ✓ reaped %s\033[0m\n' "$r" >&2
+    done
+  else
+    say "nothing to reap — every worktree is unmerged, dirty, or your own pane."
+  fi
+}
+
 case "${1:-}" in
 create) cmd_create ;;
 remove) cmd_remove ;;
 child) cmd_child "${2:-}" "${3:-}" ;;
 resume) cmd_resume "${2:-}" ;;
+reap | gc) cmd_reap ;;
 list | ls) cmd_list ;;
-"" | -h | --help | help) [ "${1:-}" = "" ] && cmd_list || sed -n '2,22p' "$0" | sed '/^#!/d; s/^# \{0,1\}//' ;;
+"" | -h | --help | help) [ "${1:-}" = "" ] && cmd_list || sed -n '2,28p' "$0" | sed '/^#!/d; s/^# \{0,1\}//' ;;
 *) cmd_resume "$1" ;; # bare token → treat as a worktree name to resume
 esac
