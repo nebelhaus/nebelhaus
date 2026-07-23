@@ -909,10 +909,14 @@ in
               "xml" "csv" "tsv" "diff" "patch" "log" "lock" "tex" "bib"
               "editorconfig" "gitignore" "gitattributes" "dockerignore" "npmrc"
             ];
-            # Content-type UTIs (not extensions) pinned as default via duti. The
-            # extensionless-executable case: `bench` and friends are typed
-            # public.unix-executable and would otherwise RUN in Terminal on click.
-            editorUTIs = [ "public.unix-executable" ];
+            # NOTE on extensionless executables (`bench` & friends): they're
+            # typed public.unix-executable and RUN in Terminal on click. That one
+            # can't be automated here — macOS gates changing the executable
+            # handler behind an INTERACTIVE confirmation dialog that
+            # `darwin-rebuild switch` can't answer (and neither declaration nor
+            # lsregister overrides Terminal's claim). To send them to the editor,
+            # run once by hand and click through the prompt:
+            #   duti -s org.nebelhaus.editoropen public.unix-executable all
             plistBuddy = "/usr/libexec/PlistBuddy";
             lsregister = "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister";
             # One PlistBuddy "Add …:CFBundleTypeExtensions:<i> string <ext>" per
@@ -923,7 +927,7 @@ in
             ) editorExts);
             dutiPins = lib.concatStringsSep "\n" (map (
               t: ''$DRY_RUN_CMD "${pkgs.duti}/bin/duti" -s org.nebelhaus.editoropen "${t}" all 2>/dev/null || true''
-            ) (editorExts ++ editorUTIs));
+            ) editorExts);
           in
           ''
             appDir="$HOME/Applications"
