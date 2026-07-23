@@ -5,7 +5,7 @@
 # family repos or agent worktrees (that's the workshop's developer CLI, `bench`).
 #
 #   haus rebuild        build + switch this machine from your config (the usual day)
-#   haus update         pull the latest nebelhaus rice, then rebuild
+#   haus update         pull the latest rice + nebelhaus apps, then rebuild
 #   haus rollback [N]    go back a generation (or to generation N)
 #   haus generations     list the generations you can roll back to
 #   haus status          current generation + how old your pinned rice is
@@ -40,7 +40,7 @@ usage() {
 haus — the everyday CLI for a nebelhaus machine.
 
   haus rebuild        build + switch this machine from your config
-  haus update         pull the latest nebelhaus rice, then rebuild
+  haus update         pull the latest rice + nebelhaus apps, then rebuild
   haus rollback [N]   go back a generation (or to generation N)
   haus generations    list the generations you can roll back to
   haus status         current generation + how old your pinned rice is
@@ -115,6 +115,36 @@ cmd_rebuild() {
   say "the house stands."
 }
 
+# Family apps (trill, pounce…) ship as CI-published casks/formulae in
+# nebelhaus/tap, released on their OWN cadence — a rice flake bump never carries
+# them. Worse, activation's `brew bundle` leans on Homebrew's auto-update, which
+# is THROTTLED: a rebuild can run against a stale tap clone and never see a fresh
+# release (the "released but not installed" trap). So do an explicit, unthrottled
+# `brew update` + a targeted upgrade of just the nebelhaus/tap packages here —
+# third-party casks keep whatever upgrade policy the host set (autoUpdate/upgrade).
+refresh_family_apps() {
+  command -v brew >/dev/null 2>&1 || return 0
+  local tap; tap="$(brew --repository 2>/dev/null)/Library/Taps/nebelhaus/homebrew-tap"
+  [ -d "$tap" ] || return 0
+  say "refreshing nebelhaus apps (trill, pounce …) …"
+  brew update --quiet >/dev/null 2>&1 || warn "brew update failed — family apps may be stale"
+  local kind dir f name
+  for kind in Casks Formula; do
+    dir="$tap/$kind"; [ -d "$dir" ] || continue
+    for f in "$dir"/*.rb; do
+      [ -e "$f" ] || continue
+      name="$(basename "$f" .rb)"
+      if [ "$kind" = Casks ]; then
+        brew list --cask "$name" >/dev/null 2>&1 || continue
+        brew upgrade --cask "$name" || warn "  $name: upgrade failed"
+      else
+        brew list --formula "$name" >/dev/null 2>&1 || continue
+        brew upgrade --formula "$name" || warn "  $name: upgrade failed"
+      fi
+    done
+  done
+}
+
 cmd_update() {
   local old new owner repo subjects
   old="$(jq -r '.nodes.nebelhaus.locked.rev // ""' "$CONSUMER/flake.lock" 2>/dev/null || true)"
@@ -137,6 +167,7 @@ cmd_update() {
       printf '%s\n' "$subjects" | sed 's/^/  · /'
     fi
   fi
+  refresh_family_apps
   cmd_rebuild
 }
 
