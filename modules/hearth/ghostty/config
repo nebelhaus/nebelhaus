@@ -9,6 +9,14 @@ font-size = 19
 command = @HOME@/.config/zellij/launch.sh
 
 macos-titlebar-style = hidden
+# Option is sent into the terminal as Alt (so ⌥-chords reach zellij / the
+# shell), which leaves Cmd as ghostty's link-open modifier. That split is load-
+# bearing for clickable links: Opt+Click is zellij's (the link-handler plugin —
+# paths + visible/schemeless links), Cmd+Click is ghostty's (any web link,
+# INCLUDING OSC 8 hyperlinks with no visible URL — Claude Code /tui's links).
+# ghostty detects them via `link-url`/`link-previews` (both default true); it
+# only sees the embedded ones because zellij's config.kdl sets
+# `osc8_hyperlinks true` to forward them out. See that block for the full story.
 macos-option-as-alt = true
 
 # Make zellij's bottom status bar sit flush along the window's bottom edge at

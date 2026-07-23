@@ -30,6 +30,18 @@
 //     ~/.config/zellij/image-preview.sh (chafa render + copy/open hotkeys)
 //     instead of a new tab.
 //   - tooltip says where the click goes.
+//
+// NOT handled here, on purpose: OSC 8 hyperlinks (visible text is a word, the
+// URL is hidden in the escape sequence — e.g. Claude Code /tui's session/PR
+// links). This plugin can only match VISIBLE text: the zellij 0.44 plugin API
+// (set_pane_regex_highlights + HighlightClicked) hands back the matched
+// *visible* string and nothing else — there is no API surfacing the hidden URI
+// or the raw cell buffer (checked against zellij-tile 0.44.3). So embedded
+// links are ghostty's job, not ours: config.kdl sets `osc8_hyperlinks true`
+// to forward those sequences out to ghostty, which opens them on Cmd+Click.
+// Opt+Click (this plugin) = paths + visible/schemeless links; Cmd+Click
+// (ghostty) = any web link, embedded ones included. Don't try to make the
+// plugin catch OSC 8 without a zellij-core patch first — the API can't.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
