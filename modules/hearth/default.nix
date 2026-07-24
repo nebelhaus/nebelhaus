@@ -85,6 +85,7 @@ in
       # themes/Mocha/<Accent>/ (capitalised); yazi uses the lowercase name.
       zenAccent = lib.toUpper (lib.substring 0 1 accent) + lib.substring 1 (lib.stringLength accent) accent;
       zenTheme = "${nebelung.themes}/zen/themes/Mocha/${zenAccent}";
+      obsidianTheme = "${nebelung.themes}/obsidian/Nebelung";
 
       # The zellij custom layout, rendered from the in-repo template. Only two
       # tokens remain: the login name for the tab-bar's username pill, and
@@ -671,6 +672,56 @@ in
           done
         fi
       '';
+
+      # Obsidian stores theme choice inside each vault rather than in one app
+      # config. Only touch explicitly listed, already-existing vaults: copy the
+      # generated full theme from the store, then JSON-merge our two appearance
+      # choices so Obsidian keeps ownership of every unrelated setting. Copies
+      # are deliberate: these directories often sync through iCloud, where a
+      # /nix/store symlink would be dangling on every other device.
+      home.activation.obsidianNebelung = lib.mkIf (hearthCfg.obsidianVaults != [ ]) (
+        lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          installObsidianNebelung() {
+            vaultRel="$1"
+            vault="$HOME/$vaultRel"
+            obsidian="$vault/.obsidian"
+
+            if [ ! -d "$obsidian" ]; then
+              echo "warning: Obsidian vault has no .obsidian directory; skipping: $vault" >&2
+              return 0
+            fi
+
+            themeDir="$obsidian/themes/Nebelung"
+            $DRY_RUN_CMD mkdir -p "$themeDir"
+            $DRY_RUN_CMD install -m 0644 "${obsidianTheme}/theme.css" "$themeDir/theme.css"
+            $DRY_RUN_CMD install -m 0644 "${obsidianTheme}/manifest.json" "$themeDir/manifest.json"
+
+            run sh -c '
+              appearance="$0"
+              tmp="$appearance.hm-seed"
+              base="$appearance"
+              if [ ! -s "$appearance" ]; then
+                base="$tmp.base"
+                printf "{}\n" > "$base"
+              fi
+              if ! ${pkgs.jq}/bin/jq ".cssTheme = \"Nebelung\"
+                | .theme = \"obsidian\"
+                | .enabledCssSnippets = ((.enabledCssSnippets // []) | map(select(. != \"nebelung\")))" \
+                "$base" > "$tmp"; then
+                rm -f "$tmp" "$tmp.base"
+                exit 1
+              fi
+              mv "$tmp" "$appearance"
+              rm -f "$tmp.base"
+            ' "$obsidian/appearance.json"
+          }
+
+          ${lib.concatMapStringsSep "\n" (
+            vault: "installObsidianNebelung ${lib.escapeShellArg vault}"
+          ) hearthCfg.obsidianVaults}
+          unset -f installObsidianNebelung
+        ''
+      );
 
       # ---- dotfiles + Nebelung theme drops ----
       home.file = {
