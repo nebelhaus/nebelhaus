@@ -7,7 +7,7 @@
 # drift from AeroSpace's launcher. Every right-side pill is individually
 # toggleable via nebelhaus.sill.items (one bool per pill): the core
 # clock/weather/media/battery/wifi default on, the extras cpu/memory/volume/
-# calendar plus the personal agents/elgato/harvest default off.
+# calendar/caffeinate plus the personal agents/elgato/harvest default off.
 {
   config,
   lib,
@@ -172,6 +172,58 @@ let
                   drawing=off
       done
     '';
+    # Keep-awake controller. The rice-level `awake` CLI + launchd job own the
+    # assertion; this popup only chooses a duration and renders state. A bar
+    # reload therefore cannot accidentally release an active assertion.
+    caffeinate = ''
+      sketchybar --add event caffeinate_change
+      sketchybar --add item caffeinate right \
+          --set caffeinate \
+              update_freq=30 \
+              icon="󰅶" \
+              icon.padding_left=10 \
+              icon.padding_right=4 \
+              label.padding_right=10 \
+              label.font="Hack Nerd Font:Bold:13.0" \
+              background.color=$SURFACE0 \
+              popup.background.border_width=2 \
+              popup.background.corner_radius=10 \
+              popup.background.border_color=$SURFACE0 \
+              popup.background.color=$MANTLE \
+              script="$HOME/.config/sketchybar/plugins/caffeinate.sh" \
+          --subscribe caffeinate mouse.clicked caffeinate_change system_woke
+
+      CAFFEINATE_POPUP=(
+          icon.padding_left=10
+          label.padding_right=10
+          background.height=30
+          background.padding_left=0
+          background.padding_right=0
+          background.color=0x00000000
+          background.drawing=off
+      )
+      sketchybar --add item caffeinate.1h popup.caffeinate \
+          --set caffeinate.1h "''${CAFFEINATE_POPUP[@]}" icon="1" label="1 hour" \
+              click_script="/run/current-system/sw/bin/awake 1h >/dev/null; sketchybar --set caffeinate popup.drawing=off"
+      sketchybar --add item caffeinate.2h popup.caffeinate \
+          --set caffeinate.2h "''${CAFFEINATE_POPUP[@]}" icon="2" label="2 hours" \
+              click_script="/run/current-system/sw/bin/awake 2h >/dev/null; sketchybar --set caffeinate popup.drawing=off"
+      sketchybar --add item caffeinate.4h popup.caffeinate \
+          --set caffeinate.4h "''${CAFFEINATE_POPUP[@]}" icon="4" label="4 hours" \
+              click_script="/run/current-system/sw/bin/awake 4h >/dev/null; sketchybar --set caffeinate popup.drawing=off"
+      sketchybar --add item caffeinate.8h popup.caffeinate \
+          --set caffeinate.8h "''${CAFFEINATE_POPUP[@]}" icon="8" label="8 hours" \
+              click_script="/run/current-system/sw/bin/awake 8h >/dev/null; sketchybar --set caffeinate popup.drawing=off"
+      sketchybar --add item caffeinate.custom popup.caffeinate \
+          --set caffeinate.custom "''${CAFFEINATE_POPUP[@]}" icon="󰅐" label="Custom hours…" \
+              click_script="$HOME/.config/sketchybar/plugins/caffeinate.sh custom"
+      sketchybar --add item caffeinate.indefinite popup.caffeinate \
+          --set caffeinate.indefinite "''${CAFFEINATE_POPUP[@]}" icon="∞" label="Until stopped" \
+              click_script="/run/current-system/sw/bin/awake indefinitely >/dev/null; sketchybar --set caffeinate popup.drawing=off"
+      sketchybar --add item caffeinate.stop popup.caffeinate \
+          --set caffeinate.stop "''${CAFFEINATE_POPUP[@]}" icon="󰅖" icon.color=$RED label="Allow sleep" \
+              click_script="/run/current-system/sw/bin/awake off >/dev/null; sketchybar --set caffeinate popup.drawing=off"
+    '';
     elgato = ''
       sketchybar --add item elgato right \
           --set elgato \
@@ -200,6 +252,7 @@ let
     "memory"
     "volume"
     "calendar"
+    "caffeinate"
     "elgato"
     "harvest"
   ];

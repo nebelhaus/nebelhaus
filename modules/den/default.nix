@@ -9,6 +9,11 @@
 }:
 
 let
+  # `awake` is both an end-user CLI and the program behind its launchd-owned
+  # caffeinate assertion. Keeping one derivation here means the optional bar
+  # pill is only a view/controller; the wake lock survives bar/shell restarts.
+  awake = pkgs.writeShellScriptBin "awake" (builtins.readFile ./awake.sh);
+
   # Extra Homebrew packages appended by the pounce "Install App" command's
   # "just install" lane, kept in a JSON file so they stay machine-editable
   # without hand-patching Nix (the roster's rosterFile counterpart). Shape:
@@ -65,6 +70,11 @@ in
     # a dev CLI on PATH like `haus`/`wt`, though it drives hearth's zellij dotfiles.
     (writeShellScriptBin "zscratch" (builtins.readFile ./zscratch.sh))
 
+    # `awake 3h` / `awake indefinitely` — a durable controller around macOS's
+    # built-in caffeinate. Its assertion is launchd-owned below, so callers can
+    # exit (or SketchyBar can reload) without accidentally allowing idle sleep.
+    awake
+
     # `claude-statusline` — the agent-worktree HUD for Claude Code's status bar
     # (hearth's claudeCodeSettings points the `statusLine` key here). Row 1 is
     # THIS session's worktree name + one status token (⏏ purge / N^ commits /
@@ -76,6 +86,26 @@ in
     (writeShellScriptBin "claude-statusline" (builtins.readFile ./statusline.sh))
     (writeShellScriptBin "claude-statusline-refresh" (builtins.readFile ./statusline-refresh.sh))
   ];
+
+  # The job is intentionally always present, even when the opt-in Sill pill is
+  # hidden: `awake` is a rice-level capability usable from any shell. RunAtLoad
+  # resumes an unexpired timed assertion (with only its remaining duration), or
+  # an explicit indefinite one, after login/rebuild. With no saved state it
+  # exits immediately and launchd does not restart it.
+  launchd.user.agents.awake = {
+    serviceConfig = {
+      Label = "org.nebelhaus.awake";
+      ProgramArguments = [
+        "${awake}/bin/awake"
+        "_run"
+      ];
+      RunAtLoad = true;
+      ProcessType = "Background";
+      StandardOutPath = "/tmp/nebelhaus-awake.out.log";
+      StandardErrorPath = "/tmp/nebelhaus-awake.err.log";
+      EnvironmentVariables.HOME = "/Users/${username}";
+    };
+  };
 
   # ---- Homebrew framework ---------------------------------------------------
   # den owns the framework + policy; feature modules (prowl, sill) contribute
