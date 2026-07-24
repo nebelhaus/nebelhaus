@@ -79,6 +79,33 @@
       '';
     };
 
+    hearth.obsidianVaults = lib.mkOption {
+      type = lib.types.listOf (
+        lib.types.addCheck lib.types.str (
+          path:
+          path != ""
+          && !(lib.hasPrefix "/" path)
+          && !(lib.any (component: component == "..") (lib.splitString "/" path))
+        )
+      );
+      default = [ ];
+      apply = lib.unique;
+      example = [
+        "Library/Mobile Documents/iCloud~md~obsidian/Documents/notes"
+      ];
+      description = ''
+        Home-relative paths to existing Obsidian vaults that should use the
+        Nebelung theme. On each activation, Hearth copies the rendered
+        theme.css + manifest.json into each vault's .obsidian/themes/Nebelung/
+        directory, selects Nebelung's dark appearance in appearance.json, and
+        removes the obsolete "nebelung" CSS snippet from the enabled list.
+
+        Empty (the default) leaves every vault untouched. Paths must be
+        relative to the user's home, may not contain "..", and are skipped
+        with a warning unless their .obsidian directory already exists.
+      '';
+    };
+
     hearth.zellijStartLocked = lib.mkOption {
       type = lib.types.bool;
       default = true;

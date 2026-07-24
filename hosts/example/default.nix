@@ -51,6 +51,13 @@
   #   ];
   # };
 
+  # Obsidian keeps appearance per vault. List home-relative vault paths here to
+  # install/select the full Nebelung theme on every rebuild; empty leaves all
+  # vaults untouched. The vault must already contain a .obsidian directory.
+  # nebelhaus.hearth.obsidianVaults = [
+  #   "Library/Mobile Documents/iCloud~md~obsidian/Documents/notes"
+  # ];
+
   # Your apps — merged with the casks the modules install (ghostty, aerospace).
   homebrew.casks = [
     # "google-chrome"
