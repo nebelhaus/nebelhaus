@@ -24,7 +24,7 @@ jobs:
       - run: nix eval .#darwinConfigurations.example-intel.system.drvPath
 
   shellcheck:
-    name: shellcheck bootstrap.sh
+    name: shell scripts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,5 +38,7 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y shellcheck
           # bootstrap.sh reaches every new installer via nebelhaus.com/init.sh;
-          # haus.sh ships onto every machine as the everyday CLI.
-          shellcheck --severity=warning bootstrap.sh modules/den/haus.sh
+          # haus.sh + awake.sh ship onto every machine as end-user CLIs.
+          shellcheck --severity=warning bootstrap.sh modules/den/haus.sh modules/den/awake.sh test/awake.sh
+      - name: awake lifecycle tests
+        run: bash test/awake.sh

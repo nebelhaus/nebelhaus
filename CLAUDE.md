@@ -39,7 +39,7 @@ modules/
                           #   hush.*, trill.enable, tour.enable, homebrew.*, secrets.provider
   lib/gui-wait.nix        # withGUIWait: cold-boot-safe GUI agent launch wrapper
   den/                    # system: macOS defaults, Homebrew framework, core CLI, GC
-                          #   + the on-PATH CLIs: haus / wt / zscratch / statusline (*.sh)
+                          #   + on-PATH CLIs: haus / awake / wt / zscratch / statusline
   theme/                  # desktop wallpaper + accent-derived bold wordmark
   hearth/                 # shell: zsh, starship, git, yazi, zellij, ghostty + theming
   prowl/                  # AeroSpace tiling
@@ -134,9 +134,11 @@ points back to when it feels several PRs together.
   *server*, which recompiles plugin wasm from disk (a running server caches it
   in memory for its lifetime).
 - **The den CLIs** (`modules/den`, each on `PATH` via `writeShellScriptBin`, source
-  beside `default.nix`): the rice ships four dev/user CLIs — **`haus.sh`** (the
+  beside `default.nix`): the rice ships five dev/user CLIs — **`haus.sh`** (the
   end-user machine driver: rebuild/update/rollback/doctor/status — knows nothing of
-  the family repos), **`wt.sh`** (Claude Code agent worktrees for *any* repo; the
+  the family repos), **`awake.sh`** (launchd-owned timed/indefinite macOS
+  caffeinate assertions; Sill's optional coffee pill is only its controller),
+  **`wt.sh`** (Claude Code agent worktrees for *any* repo; the
   `WorktreeCreate`/`WorktreeRemove` hooks call it — `wt` lists, `wt <name>` resumes,
   `wt reap` sweeps landed ones, `wt child <repo>` makes a cross-repo child worktree),
   **`zscratch.sh`** (above), and **`statusline.sh`** / `statusline-refresh.sh` (the

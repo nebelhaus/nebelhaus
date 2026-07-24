@@ -353,6 +353,7 @@
           memory = "Memory-pressure percentage pill.";
           volume = "Output volume / mute state.";
           calendar = "Your next timed event, with a click-popup of the next five. Pulls in `ical-buddy` automatically and reads Calendar, so macOS prompts for Calendar access on first run.";
+          caffeinate = "A coffee pill that prevents idle system sleep for 1/2/4/8 hours, a custom whole-hour duration, or indefinitely. The display may still turn off; closing a MacBook lid still sleeps it. Uses macOS's built-in `caffeinate`, so there is no extra package.";
           agents = "A paw pill tracking your `claude --worktree` agent panes — amber when one is blocked on you, click for the per-agent list; left-click a row to jump to that pane, ⌥/right-click for a live `zellij subscribe` peek. Fed by Claude Code hooks (point them at ~/.config/sketchybar/plugins/agents-hook.sh); dormant until they fire.";
           elgato = "Toggles an Elgato Key Light on the local network.";
           harvest = "A Harvest time-tracking pill; needs a ~/.config/sketchybar/harvest_secrets.sh you provide.";
@@ -375,13 +376,14 @@
         description = ''
           Which SketchyBar pills to draw, one bool each. The core pills —
           `clock`, `weather`, `media`, `battery`, `wifi` — default true; the extras
-          — the readouts `cpu`, `memory`, `volume`, `calendar` and the personal
-          `agents`, `elgato`, `harvest` — default false. Set only what you want to
-          change:
+          — the readouts `cpu`, `memory`, `volume`, `calendar`, `caffeinate`
+          and the personal `agents`, `elgato`, `harvest` — default false. Set
+          only what you want to change:
 
             nebelhaus.sill.items = {
               weather = false;   # drop a default-on core pill
               cpu = true;        # add an off-by-default readout
+              caffeinate = true; # add the keep-awake controller
             };
 
           A pill set false is never created (its update script doesn't run either).
