@@ -31,6 +31,18 @@
   # project's committed secretspec.toml, not an option here.
   # nebelhaus.secrets.provider = "keyring";
 
+  # Text expansion (espanso): type a trigger, get the expansion, in any app —
+  # terminal included. Opt-in: installs the Espanso.app cask and needs a
+  # one-time Accessibility grant the first time it runs (System Settings →
+  # Privacy & Security → Accessibility → enable Espanso). Grant survives reboots
+  # + updates because it runs the signed app bundle, not a nix-store binary.
+  # nebelhaus.snippets = {
+  #   enable = true;
+  #   matches = [
+  #     { trigger = "@@"; replace = "you@example.com"; }
+  #   ];
+  # };
+
   # Your apps — merged with the casks the modules install (ghostty, aerospace).
   homebrew.casks = [
     # "google-chrome"

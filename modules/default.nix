@@ -14,5 +14,6 @@
     ./trill
     ./hush
     ./secrets
+    ./snippets
   ];
 }
