@@ -78,6 +78,91 @@ in
         substituteInPlace $out/main.lua --subst-var-by glowStyle ${glowStyle}
       '';
 
+      # A deliberately finite Git vocabulary, using the names that recur most
+      # often in Oh My Zsh and other common alias sets. Avoid the notoriously
+      # ambiguous one- and two-letter collisions (`gl` is pull or log, `gr` is
+      # remote or rebase, `gs` is status or stash depending on the framework).
+      # Hosts can add/replace entries — or set one to null — through
+      # nebelhaus.git.shellAliases, without loading a shell framework.
+      defaultGitShellAliases = {
+        g = "git";
+
+        ga = "git add";
+        gaa = "git add --all";
+        gapa = "git add --patch";
+
+        gb = "git branch";
+        gba = "git branch --all";
+        gbd = "git branch --delete";
+        gbD = "git branch --delete --force";
+        gbm = "git branch --move";
+
+        gco = "git checkout";
+        gcb = "git checkout -b";
+        gcl = "git clone";
+        gsw = "git switch";
+        gswc = "git switch -c";
+
+        gc = "git commit --verbose";
+        gca = "git commit --verbose --all";
+        gcam = "git commit --all --message";
+        gcp = "git cherry-pick";
+        gcpa = "git cherry-pick --abort";
+        gcpc = "git cherry-pick --continue";
+        gcmsg = "git commit --message";
+        gcn = "git commit --verbose --no-edit";
+
+        gd = "git diff";
+        gds = "git diff --staged";
+        gdw = "git diff --word-diff";
+
+        gf = "git fetch";
+        gfa = "git fetch --all --tags --prune";
+        gfo = "git fetch origin";
+
+        glo = "git log --oneline --decorate";
+        glog = "git log --oneline --decorate --graph";
+        gloga = "git log --oneline --decorate --graph --all";
+
+        gm = "git merge";
+        gma = "git merge --abort";
+        gmc = "git merge --continue";
+        gmff = "git merge --ff-only";
+
+        gpl = "git pull";
+        gpr = "git pull --rebase";
+        gp = "git push";
+        gpf = "git push --force-with-lease";
+        gpsup = "git push --set-upstream origin HEAD";
+
+        grb = "git rebase";
+        grba = "git rebase --abort";
+        grbc = "git rebase --continue";
+        grbi = "git rebase --interactive";
+        grbs = "git rebase --skip";
+        grt = "cd \"$(git rev-parse --show-toplevel)\"";
+        grv = "git remote --verbose";
+
+        gst = "git status";
+        gss = "git status --short";
+        gsb = "git status --short --branch";
+
+        gsta = "git stash push";
+        gstl = "git stash list";
+        gstp = "git stash pop";
+        gsts = "git stash show --patch";
+
+        gt = "git tag";
+
+        gwt = "git worktree";
+        gwta = "git worktree add";
+        gwtl = "git worktree list";
+        gwtr = "git worktree remove";
+      };
+      gitShellAliases = lib.filterAttrs (_name: command: command != null) (
+        defaultGitShellAliases // gitCfg.shellAliases
+      );
+
       # The accent colour (nebelhaus.theme.accent, default mauve) as the hex the
       # tools nebelhaus injects colours into use for their accent.
       accentColor = nebelung.palette.${accent};
@@ -165,7 +250,7 @@ in
           export _ZO_DOCTOR=0
         '';
 
-        shellAliases = {
+        shellAliases = gitShellAliases // {
           c = "claude";
           cat = "bat --style=header,grid --tabs=2";
           ls = "lsd";
@@ -185,15 +270,6 @@ in
         };
 
         historySubstringSearch.enable = true;
-
-        oh-my-zsh = {
-          enable = true;
-          plugins = [
-            "git"
-            "sudo"
-            "command-not-found"
-          ];
-        };
 
         plugins = [
           {
