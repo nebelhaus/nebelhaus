@@ -48,7 +48,8 @@ let
 
   # Launch-mode cheatsheet rows — generated from the app roster so the "Caps
   # Lock" page always matches AeroSpace's launcher, then the fixed leader
-  # actions (resize / clipboard / emoji / reopen-last-app / exit) appended.
+  # actions (resize / clipboard / emoji / reopen-last-app / resort / exit)
+  # appended.
   launchModeItems =
     (map (a: {
       key = a.key;
@@ -82,6 +83,10 @@ let
       {
         key = ",";
         action = "System Settings";
+      }
+      {
+        key = "`";
+        action = "Resort windows";
       }
       {
         key = "/";
@@ -281,7 +286,7 @@ lib.mkIf config.nebelhaus.pounce.enable {
           { key = "⇪ → → →"; action = "Navigate: arrows move focus, ⇧+arrow moves the window (⎋ ends)"; }
           { key = "⇪ - - -"; action = "Resize repeats without re-tapping caps (⎋ ends)"; }
           { key = "⇪ → - →"; action = "Navigate and resize flow into each other — no re-tap"; }
-          { key = "⌥ ⇧ r"; action = "Untangle windows after a laptop wake"; }
+          { key = "⇪ `"; action = "Untangle windows after a laptop wake"; }
         ];
       }
       {

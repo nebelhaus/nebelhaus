@@ -56,15 +56,14 @@ let
   mainStatic = subTokens (bindingsForMode "main");
   serviceStatic = subTokens (bindingsForMode "service");
 
-  # ⌥⇧<key> throws a window to an app's workspace. Skip keys already bound in
-  # main mode by a non-app action (r = resort-windows).
-  reservedMoveKeys = [ "r" ];
+  # ⌥⇧<key> throws a window to an app's workspace. Fixed actions stay out of
+  # this namespace so every roster letter remains available.
   isRealAssign = a: a.appId != null && a.workspace != null && a.appId != "com.mitchellh.ghostty";
   launchInvocation = a: ''${launchSh} "${a.name}"'' + lib.optionalString (a.workspace != null) " ${a.workspace}";
 
   mainMoves = lib.concatMapStrings (
     a:
-    lib.optionalString (a.workspace != null && !(lib.elem a.key reservedMoveKeys))
+    lib.optionalString (a.workspace != null)
       "alt-shift-${a.key} = 'move-node-to-workspace ${a.workspace}'\n"
   ) apps;
 
