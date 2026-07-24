@@ -54,7 +54,7 @@ outer.right = [{ monitor."Built-in Retina Display" = 10 }, 20]
 # modules/prowl/wm-bindings.nix, the SAME table that renders the pounce
 # cheatsheet, so a binding and its caption can't drift. (focus ⌥hjkl, layouts
 # ⌥/ ⌥,, move-window-to-workspace ⌥⇧1-4, fullscreen ⌥f, back-and-forth ⌥⇥,
-# move-workspace ⌥⇧⇥, resort ⌥⇧r, palette ⌘space.) Resizing is a caps-leader
+# move-workspace ⌥⇧⇥, palette ⌘space.) Resizing is a caps-leader
 # action (tap caps, then -/=). Focusing workspaces 1-4 is a caps-leader too — see
 # [mode.launch.binding] below, next to the app launchers.
 @MAIN_STATIC@
@@ -65,7 +65,7 @@ outer.right = [{ monitor."Built-in Retina Display" = 10 }, 20]
 # generated from nebelhaus.prowl.apps).
 f18 = ['mode launch', 'exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh on']
 
-# ⌘space (palette), ⌥f, ⌥⇥, ⌥⇧⇥, ⌥⇧r are part of the generated static block
+# ⌘space (palette), ⌥f, ⌥⇥, and ⌥⇧⇥ are part of the generated static block
 # above (modules/prowl/wm-bindings.nix). Only the mode-entry chord stays here —
 # it's structural plumbing, not a tiling command, so it isn't on the cheatsheet.
 alt-shift-semicolon = 'mode service'
@@ -90,12 +90,13 @@ slash = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off',
 # Non-launch leader actions. v = clipboard history; e = emoji picker; z =
 # reopen last closed app (the browser ⌘⇧T analog — relaunch the most recently
 # quit app; press again to walk back); , = macOS System Settings (mirrors the
-# ⌘, "preferences" convention). (palette is on cmd+space now, so the old
-# space->palette leader is gone.)
+# ⌘, "preferences" convention); ` = re-sort every window to its workspace.
+# (Palette is on cmd+space now, so the old space->palette leader is gone.)
 v = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget @BIN@/pounce --clipboard', 'mode main']
 e = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget @BIN@/pounce --emoji', 'mode main']
 z = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget @HOME@/.config/aerospace/reopen-last-app.sh', 'mode main']
 comma = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget open -b com.apple.systempreferences', 'mode main']
+backtick = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget @HOME@/.config/aerospace/resort-windows.sh', 'mode main']
 # - / = resize the focused tiled window (growing it shrinks its neighbour). The
 # first press also drops into `resize` mode so further -/= repeat without re-tapping caps.
 minus = ['exec-and-forget @HOME@/.config/sketchybar/plugins/launch_mode.sh off', 'exec-and-forget @HOME@/.config/sketchybar/plugins/resize_mode.sh on', 'resize smart -50', 'mode resize']

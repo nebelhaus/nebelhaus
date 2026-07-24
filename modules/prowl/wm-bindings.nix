@@ -152,11 +152,6 @@
         keys = "⌘ Space";
         action = "Command Palette";
       }
-      {
-        keys = "⌥ ⇧ r";
-        action = "Resort windows";
-        binds.alt-shift-r = "exec-and-forget @HOME@/.config/aerospace/resort-windows.sh";
-      }
     ];
   }
 ]
