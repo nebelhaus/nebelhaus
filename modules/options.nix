@@ -27,6 +27,24 @@
           (gpg-agent + pinentry-mac).
         '';
       };
+      shellAliases = lib.mkOption {
+        type = lib.types.attrsOf (lib.types.nullOr lib.types.str);
+        default = { };
+        example = lib.literalExpression ''
+          {
+            gst = "git status --short --branch"; # replace a built-in
+            gsync = "git pull --rebase --autostash"; # add one
+            gco = null; # remove one
+          }
+        '';
+        description = ''
+          Per-host additions and overrides for Hearth's built-in Git shell
+          aliases. Values are shell command strings; null removes a built-in.
+          Hearth deliberately owns a compact, framework-independent default
+          set, so this changes only Git shortcuts and does not require a shell
+          plugin manager.
+        '';
+      };
     };
 
     hearth.editor = lib.mkOption {

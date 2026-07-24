@@ -17,6 +17,14 @@
   nebelhaus.git.email = "you@example.com";
   # GPG key id for commit signing; leave "" to disable signing.
   nebelhaus.git.signingKey = "";
+  # Hearth ships a compact, framework-independent set of Git shell aliases
+  # (gst, gco, gp, grbi, gwt, …). Extend/override them here, or set one to null
+  # to remove it:
+  # nebelhaus.git.shellAliases = {
+  #   gst = "git status --short --branch";
+  #   gsync = "git pull --rebase --autostash";
+  #   gco = null;
+  # };
 
   # pounce signing. Find your identity's SHA-1 with:
   #   security find-identity -v -p codesigning
